@@ -4,6 +4,6 @@ using namespace std;
 
 int main()
 {
-	cout << "Hello CMake." << endl;
+	cout << "Hello CMake Test." << endl;
 	return 0;
 }
