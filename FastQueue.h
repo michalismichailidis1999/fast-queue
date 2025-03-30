@@ -1,8 +1,39 @@
-﻿// FastQueue.h : Include file for standard system include files,
-// or project specific include files.
+﻿#pragma once
 
-#pragma once
+//#define _CRT_SECURE_NO_WARNINGS
+#include <thread>
+#include <vector>
+#include <csignal>
+#include <memory>
+#include <regex>
+#include <tuple>
+#include <filesystem>
 
 #include <iostream>
 
-// TODO: Reference additional headers your program requires here.
+#include "src/header_files/logging/Logger.h"
+#include "src/header_files/Settings.h"
+#include "src/header_files/Constants.h"
+#include "src/header_files/util/ThreadPool.h"
+#include "src/header_files/util/Util.h"
+#include "src/header_files/file_management/FileHandler.h"
+#include "src/header_files/file_management/QueueSegmentFilePathMapper.h"
+#include "src/header_files/file_management/DiskFlusher.h"
+#include "src/header_files/file_management/DiskReader.h"
+#include "src/header_files/requests_management/ClassToByteTransformer.h"
+#include "src/header_files/requests_management/RequestMapper.h"
+#include "src/header_files/requests_management/ResponseMapper.h"
+#include "src/header_files/requests_management/ClientRequestExecutor.h"
+#include "src/header_files/requests_management/InternalRequestExecutor.h"
+#include "src/header_files/requests_management/RequestManager.h"
+#include "src/header_files/queue_management/messages_management/Producer.h"
+#include "src/header_files/queue_management/messages_management/Consumer.h"
+#include "src/header_files/queue_management/QueueManager.h"
+#include "src/header_files/queue_management/Queue.h"
+#include "src/header_files/queue_management/Partition.h"
+#include "src/header_files/network_management/ConnectionsManager.h"
+#include "src/header_files/network_management/SocketHandler.h"
+#include "src/header_files/network_management/SslContextHandler.h"
+#include "src/header_files/cluster_management/ClusterMetadata.h"
+#include "src/header_files/cluster_management/Controller.h"
+#include "src/header_files/cluster_management/DataNode.h"

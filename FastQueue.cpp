@@ -1,9 +1,7 @@
 ﻿#include "FastQueue.h"
 
-using namespace std;
-
 int main()
 {
-	cout << "Hello CMake Test." << endl;
+	std::cout << "Hello CMake Test." << std::endl;
 	return 0;
 }

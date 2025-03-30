@@ -1,5 +1,5 @@
-#include "Settings.h"
-#include "ConnectionInfo.cpp"
+#include "../header_files/Settings.h"
+#include "../header_files/network_management/Connection.h"
 
 Settings::Settings(char* conf, long total_conf_chars) {
 	int equals_pos = -1;

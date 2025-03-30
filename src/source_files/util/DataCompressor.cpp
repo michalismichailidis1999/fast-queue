@@ -1,5 +1,4 @@
-#include <lz4.h>
-#include "DataCompressor.h"
+#include "../header_files/util/DataCompressor.h"
 
 DataCompressor::DataCompressor(CompressionAlgorithm algorithm) {
 	this->algorithm = algorithm;

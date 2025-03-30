@@ -2,9 +2,7 @@
 #include <queue>
 #include <mutex>
 #include <memory>
-#include "SocketHandler.h"
-
-struct Connection;
+#include "../header_files/network_management/Connection.h"
 
 class ConnectionPool {
 private:
