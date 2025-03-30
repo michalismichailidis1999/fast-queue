@@ -19,3 +19,6 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
 endif()
 
 # TODO: Add tests and install targets if needed.
+find_package(OpenSSL REQUIRED)
+target_link_libraries(FastQueue PRIVATE OpenSSL::SSL)
+target_link_libraries(FastQueue PRIVATE OpenSSL::Crypto)
