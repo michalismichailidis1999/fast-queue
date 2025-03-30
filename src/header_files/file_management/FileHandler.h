@@ -3,11 +3,11 @@
 #include <vector>
 #include <memory>
 #include <map>
-#include <filesystem>
-#include "Cache.h"
-#include "FileStream.h"
-#include "Settings.h"
 #include <functional>
+#include <filesystem>
+#include "../generic/Cache.h"
+#include "./FileStream.h"
+#include "../Settings.h"
 
 class FileHandler {
 private:

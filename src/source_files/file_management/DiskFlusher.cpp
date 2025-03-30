@@ -1,8 +1,4 @@
-#include <thread>
-#include <chrono>
-#include <future>
-#include "DiskFlusher.h"
-#include "Constants.cpp"
+#include "../../header_files/file_management/DiskFlusher.h"
 
 DiskFlusher::DiskFlusher(QueueManager* qm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings, std::atomic_bool* should_terminate) {
 	this->qm = qm;

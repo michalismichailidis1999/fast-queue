@@ -1,5 +1,4 @@
-#include "QueueSegmentFilePathMapper.h"
-#include "Constants.cpp"
+#include "../../header_files/file_management/QueueSegmentFilePathMapper.h"
 
 QueueSegmentFilePathMapper::QueueSegmentFilePathMapper(Util* util, Settings* settings) {
 	this->util = util;

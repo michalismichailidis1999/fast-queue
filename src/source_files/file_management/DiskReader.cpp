@@ -1,4 +1,4 @@
-#include "DiskReader.h"
+#include "../../header_files/file_management/DiskReader.h"
 
 DiskReader::DiskReader(FileHandler* fh, Logger* logger, Settings* settings) {
 	this->fh = fh;

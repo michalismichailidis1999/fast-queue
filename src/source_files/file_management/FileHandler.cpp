@@ -1,4 +1,4 @@
-#include "FileHandler.h"
+#include "../../header_files/file_management/FileHandler.h"
 
 FileHandler::FileHandler() {
 	this->cache = new Cache<std::string, std::shared_ptr<FileStream>>(500, "", NULL);

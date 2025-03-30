@@ -1,7 +1,7 @@
 #pragma once
-#include "Settings.h"
-#include "FileHandler.h"
-#include "Logger.h"
+#include "../Settings.h"
+#include "./FileHandler.h"
+#include "../logging/Logger.h"
 
 class DiskReader {
 private:

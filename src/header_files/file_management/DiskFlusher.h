@@ -2,11 +2,15 @@
 #include <vector>
 #include <map>
 #include <memory>
-#include "Settings.h"
-#include "FileHandler.h"
-#include "Logger.h"
-#include "QueueSegmentFilePathMapper.h"
-#include "QueueManager.h"
+#include <thread>
+#include <chrono>
+#include <future>
+#include "../Settings.h"
+#include "../Constants.h"
+#include "./FileHandler.h"
+#include "./QueueSegmentFilePathMapper.h"
+#include "../logging/Logger.h"
+#include "../queue_management/QueueManager.h"
 
 // will handle memory allocations (like buffers that need to store data for client requests etc.)
 // will handle also flushing to disk and deallocating data for new messages

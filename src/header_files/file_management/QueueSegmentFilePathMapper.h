@@ -1,6 +1,7 @@
 #pragma once
-#include "Util.h"
-#include "Settings.h"
+#include "../util/Util.h"
+#include "../Settings.h"
+#include "../Constants.h"
 
 class QueueSegmentFilePathMapper {
 private:

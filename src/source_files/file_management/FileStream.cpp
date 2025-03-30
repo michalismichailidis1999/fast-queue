@@ -1,4 +1,4 @@
-#include "FileStream.h"
+#include "../../header_files/file_management/FileStream.h"
 
 FileStream::FileStream(const std::string& file_path) {
 	this->file_path = file_path;
