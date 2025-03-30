@@ -1,11 +1,14 @@
 #pragma once
-#include "Logger.h"
-#include "Settings.h"
-#include "ConnectionsManager.h"
-#include "FileHandler.h"
-#include "Controller.h"
-#include "ClassToByteTransformer.h"
-#include "Requests.h"
+#include <memory>
+#include "../logging/Logger.h"
+#include "../Settings.h"
+#include "../Enums.h"
+#include "../network_management/ConnectionsManager.h"
+#include "../network_management/Connection.h"
+#include "../file_management/FileHandler.h"
+#include "../cluster_management/Controller.h"
+#include "./ClassToByteTransformer.h"
+#include "./Requests.h"
 
 class InternalRequestExecutor {
 private:

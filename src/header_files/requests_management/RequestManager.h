@@ -1,10 +1,11 @@
 #pragma once
-#include "Settings.h"
-#include "RequestMapper.h"
-#include "ClientRequestExecutor.h"
-#include "InternalRequestExecutor.h"
-#include "ConnectionsManager.h"
-#include "Enums.h"
+#include "../Settings.h"
+#include "../Enums.h"
+#include "./RequestMapper.h"
+#include "./Requests.h"
+#include "./ClientRequestExecutor.h"
+#include "./InternalRequestExecutor.h"
+#include "../network_management/ConnectionsManager.h"
 
 class RequestManager {
 private:

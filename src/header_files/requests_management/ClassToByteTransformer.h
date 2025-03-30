@@ -1,8 +1,9 @@
 #pragma once
 #include <tuple>
 #include <memory>
-#include "Requests.h"
-#include "Responses.h"
+#include "Enums.h"
+#include "./Requests.h"
+#include "./Responses.h"
 
 class ClassToByteTransformer {
 public:

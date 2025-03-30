@@ -1,6 +1,4 @@
-#pragma once
-#include "ResponseMapper.h"
-#include "Enums.h"
+#include "../../header_files/requests_management/ResponseMapper.h"
 
 ResponseMapper::ResponseMapper() {}
 

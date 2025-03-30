@@ -1,13 +1,4 @@
-#pragma once
-#include "RequestManager.h"
-#include "CreateQueueRequest.cpp"
-#include "DeleteQueueRequest.cpp"
-#include "ProducerConnectRequest.cpp"
-#include "ProduceMessagesRequest.cpp"
-#include "AppendEntriesRequest.cpp"
-#include "RequestVoteRequest.cpp"
-#include "DataNodeConnectionRequest.cpp"
-#include "DataNodeHeartbeatRequest.cpp"
+#include "../../header_files/requests_management/RequestManager.h"
 
 RequestManager::RequestManager(ConnectionsManager* cm, Settings* settings, ClientRequestExecutor* client_request_executor, InternalRequestExecutor* internal_request_executor, RequestMapper* mapper, Logger* logger) {
 	this->settings = settings;

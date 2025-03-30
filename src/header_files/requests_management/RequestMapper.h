@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
-#include "Enums.h"
-#include "Requests.h"
+#include "../Enums.h"
+#include "./Requests.h"
 
 class RequestMapper {
 public:

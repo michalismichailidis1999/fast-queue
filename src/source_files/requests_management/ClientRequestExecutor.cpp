@@ -1,15 +1,4 @@
-#pragma once
-#include "ClientRequestExecutor.h"
-#include "PartitionSegment.h"
-#include "Constants.cpp"
-
-#include "CreateQueueRequest.cpp"
-#include "ProducerConnectRequest.cpp"
-#include "ProduceMessagesRequest.cpp"
-
-#include "CreateQueueResponse.cpp"
-#include "GetControllerConnectionInfoResponse.cpp"
-#include "GetLeaderIdResponse.cpp"
+#include "../../header_files/requests_management/ClientRequestExecutor.h"
 
 ClientRequestExecutor::ClientRequestExecutor(ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClusterMetadata* cluster_metadata, ClassToByteTransformer* transformer, FileHandler* fh, Util* util, Settings* settings, Logger* logger) {
 	this->cm = cm;

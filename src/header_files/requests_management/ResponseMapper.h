@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
-#include "Responses.h"
+#include "./Responses.h"
+#include "../Enums.h"
 
 class ResponseMapper {
 public:

@@ -1,13 +1,4 @@
-#pragma once
-#include "RequestMapper.h"
-#include "CreateQueueRequest.cpp"
-#include "DeleteQueueRequest.cpp"
-#include "ProducerConnectRequest.cpp"
-#include "ProduceMessagesRequest.cpp"
-#include "AppendEntriesRequest.cpp"
-#include "RequestVoteRequest.cpp"
-#include "DataNodeConnectionRequest.cpp"
-#include "DataNodeHeartbeatRequest.cpp"
+#include "../../header_files/requests_management/RequestMapper.h"
 
 RequestMapper::RequestMapper() {}
 

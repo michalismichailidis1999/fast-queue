@@ -1,24 +1,4 @@
-#pragma once
-#include <memory>
-#include "InternalRequestExecutor.h"
-#include "QueueMetadata.h"
-#include "Enums.h"
-
-#include "AppendEntriesRequest.cpp"
-#include "RequestVoteRequest.cpp"
-#include "DataNodeConnectionRequest.cpp"
-#include "DataNodeHeartbeatRequest.cpp"
-#include "CreateQueueRequest.cpp"
-#include "DeleteQueueRequest.cpp"
-
-#include "AppendEntriesResponse.cpp"
-#include "RequestVoteResponse.cpp"
-#include "DataNodeConnectionResponse.cpp"
-#include "DataNodeHeartbeatResponse.cpp"
-#include "CreateQueueResponse.cpp"
-
-#include "ConnectionInfo.cpp"
-#include "Connection.cpp"
+#include "../../header_files/requests_management/InternalRequestExecutor.h"
 
 
 InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, ClassToByteTransformer* transformer) {

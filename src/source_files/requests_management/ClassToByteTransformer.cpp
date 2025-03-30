@@ -1,19 +1,4 @@
-#pragma once
-#include "ClassToByteTransformer.h"
-#include "Enums.h"
-
-#include "AppendEntriesRequest.cpp"
-#include "RequestVoteRequest.cpp"
-#include "DataNodeConnectionRequest.cpp"
-#include "DataNodeHeartbeatRequest.cpp"
-
-#include "AppendEntriesResponse.cpp"
-#include "RequestVoteResponse.cpp"
-#include "DataNodeConnectionResponse.cpp"
-#include "DataNodeHeartbeatResponse.cpp"
-#include "CreateQueueResponse.cpp"
-#include "GetControllerConnectionInfoResponse.cpp"
-#include "GetLeaderIdResponse.cpp"
+#include "../../header_files/requests_management/ClassToByteTransformer.h"
 
 ClassToByteTransformer::ClassToByteTransformer() {}
 

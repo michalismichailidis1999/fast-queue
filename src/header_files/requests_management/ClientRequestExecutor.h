@@ -1,14 +1,15 @@
 #pragma once
-#include "Logger.h"
-#include "Settings.h"
-#include "ConnectionsManager.h"
-#include "QueueManager.h"
-#include "Controller.h"
-#include "Util.h"
-#include "FileHandler.h"
-#include "ClusterMetadata.h"
-#include "ClassToByteTransformer.h"
-#include "Requests.h"
+#include "../Settings.h"
+#include "../Constants.h"
+#include "../logging/Logger.h"
+#include "../network_management/ConnectionsManager.h"
+#include "../queue_management/QueueManager.h"
+#include "../cluster_management/Controller.h"
+#include "../cluster_management/ClusterMetadata.h"
+#include "../util/Util.h"
+#include "../file_management/FileHandler.h"
+#include "./ClassToByteTransformer.h"
+#include "./Requests.h"
 
 class ClientRequestExecutor {
 private:
