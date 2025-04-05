@@ -9,8 +9,6 @@
 #include <tuple>
 #include <filesystem>
 
-#include <iostream>
-
 #include "./src/header_files/logging/Logger.h"
 #include "./src/header_files/Settings.h"
 #include "./src/header_files/Constants.h"
