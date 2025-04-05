@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <tuple>
-#include "ConnectionInfo.h"
+#include "../network_management/Connection.h"
 
 struct AppendEntriesResponse {
 	long long term;

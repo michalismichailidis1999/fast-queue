@@ -1,7 +1,7 @@
 ﻿# CMakeList.txt : CMake project for FastQueue, include source and define
 # project specific logic here.
 #
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required(VERSION 3.20)
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -20,11 +20,11 @@ file(GLOB_RECURSE HEADERS "${HEADER_DIR}/*.h")
 # Add source to this project's executable.
 add_executable (FastQueue "FastQueue.cpp" "FastQueue.h" ${SOURCES})
 
-#include_directories(${HEADER_DIR})
+include_directories(${HEADER_DIR})
 
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET FastQueue PROPERTY CXX_STANDARD 20)
-endif()
+set_property(TARGET FastQueue PROPERTY CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED YES)
+set(CMAKE_CXX_EXTENSIONS NO)  # disables compiler-specific extensions (like gnu++20)
 
 # TODO: Add tests and install targets if needed.
 find_package(OpenSSL REQUIRED)

@@ -2,7 +2,7 @@
 
 int main()
 {
-	std::cout << "Hello CMake Test." << std::endl;
+	std::cout << "__cplusplus = " << __cplusplus << std::endl;
 
 	return 0;
 }

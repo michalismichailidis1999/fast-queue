@@ -1,7 +1,7 @@
 #pragma once
 #include <tuple>
 #include <memory>
-#include "Enums.h"
+#include "../Enums.h"
 #include "./Requests.h"
 #include "./Responses.h"
 
