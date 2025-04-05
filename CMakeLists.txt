@@ -22,9 +22,8 @@ add_executable (FastQueue "FastQueue.cpp" "FastQueue.h" ${SOURCES})
 
 include_directories(${HEADER_DIR})
 
-set_property(TARGET FastQueue PROPERTY CXX_STANDARD 20)
+set_property(TARGET FastQueue PROPERTY CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
-set(CMAKE_CXX_EXTENSIONS NO)  # disables compiler-specific extensions (like gnu++20)
 
 # TODO: Add tests and install targets if needed.
 find_package(OpenSSL REQUIRED)
