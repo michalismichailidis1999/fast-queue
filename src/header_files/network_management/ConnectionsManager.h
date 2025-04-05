@@ -6,13 +6,15 @@
 #include <tuple>
 #include <functional>
 #include <chrono>
-#include "Logger.h"
-#include "SocketHandler.h"
-#include "SslContextHandler.h"
-#include "ConnectionPool.h"
-#include "ResponseMapper.h"
-#include "Enums.h"
-#include "Util.h"
+#include "../logging/Logger.h"
+#include "./SocketHandler.h"
+#include "./SslContextHandler.h"
+#include "./Connection.h"
+#include "../util/ConnectionPool.h"
+#include "../requests_management/ResponseMapper.h"
+#include "../requests_management/Responses.h"
+#include "../Enums.h"
+#include "../util/Util.h"
 
 struct ConnectionInfo;
 struct Connection;

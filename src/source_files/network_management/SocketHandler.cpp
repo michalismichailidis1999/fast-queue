@@ -1,5 +1,4 @@
-#include "SocketHandler.h"
-#include "ConnectionInfo.cpp"
+#include "../../header_files/network_management/SocketHandler.h"
 
 SocketHandler::SocketHandler(Settings* settings, Logger* logger) {
 	this->settings = settings;

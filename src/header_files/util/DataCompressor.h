@@ -1,7 +1,6 @@
 #pragma once
 #include <memory>
-#include <lz4>
-#include "Enums.h"
+#include "../Enums.h"
 
 class DataCompressor {
 private:

@@ -38,10 +38,9 @@
 #endif
 
 #include <atomic>
-#include "Settings.h"
-#include "Logger.h"
-
-struct ConnectionInfo;
+#include "../Settings.h"
+#include "../logging/Logger.h"
+#include "./Connection.h"
 
 class SocketHandler {
 private:

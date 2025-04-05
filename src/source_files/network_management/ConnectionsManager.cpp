@@ -1,9 +1,4 @@
-#pragma once
-#include "ConnectionsManager.h"
-#include "ConnectionInfo.cpp"
-#include "Connection.cpp"
-#include "ErrorResponse.cpp"
-#include "Enums.h"
+#include "../../header_files/network_management/ConnectionsManager.h"
 
 ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, SslContextHandler* ssl_context_handler, ResponseMapper* response_mapper, Util* util, Settings* settings, Logger* logger, std::atomic_bool* should_terminate) {
 	this->socket_handler = socket_handler;

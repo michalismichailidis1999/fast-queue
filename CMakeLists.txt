@@ -11,8 +11,8 @@ endif()
 
 project ("FastQueue")
 
-set(SOURCE_DIR "src/source_files")
-set(HEADER_DIR "src/header_files")
+set(SOURCE_DIR "./src/source_files")
+set(HEADER_DIR "./src/header_files")
 
 file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cpp")
 file(GLOB_RECURSE HEADERS "${HEADER_DIR}/*.h")
@@ -20,7 +20,7 @@ file(GLOB_RECURSE HEADERS "${HEADER_DIR}/*.h")
 # Add source to this project's executable.
 add_executable (FastQueue "FastQueue.cpp" "FastQueue.h" ${SOURCES})
 
-include_directories(${HEADER_DIR})
+#include_directories(${HEADER_DIR})
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET FastQueue PROPERTY CXX_STANDARD 20)
@@ -30,6 +30,3 @@ endif()
 find_package(OpenSSL REQUIRED)
 target_link_libraries(FastQueue PRIVATE OpenSSL::SSL)
 target_link_libraries(FastQueue PRIVATE OpenSSL::Crypto)
-
-find_package(lz4 CONFIG REQUIRED)
-target_link_libraries(main PRIVATE lz4::lz4)

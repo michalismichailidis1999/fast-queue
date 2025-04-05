@@ -2,7 +2,7 @@
 #include <queue>
 #include <mutex>
 #include <memory>
-#include "../header_files/network_management/Connection.h"
+#include "../network_management/Connection.h"
 
 class ConnectionPool {
 private:

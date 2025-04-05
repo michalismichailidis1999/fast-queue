@@ -5,8 +5,8 @@
 
 #include <memory>
 
-#include "Settings.h"
-#include "Logger.h"
+#include "../Settings.h"
+#include "../logging/Logger.h"
 
 class SslContextHandler {
 private:
