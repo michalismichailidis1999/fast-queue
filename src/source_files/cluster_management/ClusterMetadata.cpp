@@ -1,9 +1,4 @@
-#pragma once
-#include "ClusterMetadata.h"
-#include "QueueMetadata.h"
-#include "CreateQueueCommand.h"
-#include "PartitionAssignmentCommand.h";
-#include "PartitionLeaderAssignmentCommand.h";
+#include "../../header_files/cluster_management/ClusterMetadata.h"
 
 ClusterMetadata::ClusterMetadata(int node_id) {
 	this->metadata_version = 0;

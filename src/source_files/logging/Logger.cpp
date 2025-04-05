@@ -1,4 +1,4 @@
-#include "Logger.h"
+#include "../../header_files/logging/Logger.h"
 
 Logger::Logger(const std::string& source_name, FileHandler* fh, Util* util, Settings* settings) {
 	this->source_name = source_name;

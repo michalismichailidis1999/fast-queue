@@ -3,11 +3,9 @@
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>
-#include "IndexedHeap.h"
-#include "Command.h"
-
-class Controller;
-class QueueMetadata;
+#include "../generic/IndexedHeap.h"
+#include "./Commands.h"
+#include "../queue_management/QueueMetadata.h"
 
 class ClusterMetadata {
 private:

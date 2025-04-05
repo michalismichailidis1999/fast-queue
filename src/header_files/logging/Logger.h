@@ -1,9 +1,9 @@
 #pragma once
 #include <string>
-#include "FileHandler.h"
-#include "Settings.h"
-#include "Util.h"
-#include "Enums.h"
+#include "../file_management/FileHandler.h"
+#include "../util/Util.h"
+#include "../Settings.h"
+#include "../Enums.h"
 
 class Logger {
 private:

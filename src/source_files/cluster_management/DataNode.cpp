@@ -1,14 +1,4 @@
-#pragma once
-#include <queue>
-#include <chrono>
-#include <thread>
-#include "DataNode.h"
-#include "Enums.h"
-#include "DataNodeConnectionRequest.cpp"
-#include "DataNodeConnectionResponse.cpp"
-#include "DataNodeHeartbeatRequest.cpp"
-#include "DataNodeHeartbeatResponse.cpp"
-#include "Connection.cpp"
+#include "../../header_files/cluster_management/DataNode.h"
 
 DataNode::DataNode(Controller* controller, ConnectionsManager* cm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
 	this->controller = controller;

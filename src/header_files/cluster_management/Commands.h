@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
 #include <vector>
-#include "Enums.h"
+#include "../Enums.h"
 
 class Command {
 private:

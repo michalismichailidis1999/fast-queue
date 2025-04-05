@@ -1,13 +1,14 @@
 #pragma once
 #include <memory>
-#include "Controller.h"
-#include "ConnectionsManager.h"
-#include "ClusterMetadata.h"
-#include "ConnectionPool.h"
-#include "ResponseMapper.h"
-#include "ClassToByteTransformer.h"
-#include "Settings.h"
-#include "Logger.h"
+#include "./Controller.h"
+#include "../network_management/ConnectionsManager.h"
+#include "./ClusterMetadata.h"
+#include "../util/ConnectionPool.h"
+#include "../requests_management/ResponseMapper.h"
+#include "../requests_management/ClassToByteTransformer.h"
+#include "../Settings.h"
+#include "../Enums.h"
+#include "../logging/Logger.h"
 
 struct Connection;
 

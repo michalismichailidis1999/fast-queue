@@ -1,5 +1,4 @@
-#pragma once
-#include "Commands.h"
+#include "../../header_files/cluster_management/Commands.h"
 
 Command::Command(CommandType type, unsigned long long metadata_version, unsigned long long timestamp, std::shared_ptr<void> command_info) {
 	this->type = type;

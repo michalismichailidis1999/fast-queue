@@ -1,16 +1,4 @@
-#pragma once
-#include <vector>
-#include <tuple>
-#include "Controller.h"
-#include "CreateQueueCommand.h";
-#include "PartitionAssignmentCommand.h";
-#include "PartitionLeaderAssignmentCommand.h";
-#include "AppendEntriesRequest.cpp";
-#include "AppendEntriesResponse.cpp";
-#include "RequestVoteRequest.cpp";
-#include "RequestVoteResponse.cpp";
-#include "Connection.cpp";
-#include "Constants.cpp"
+#include "../../header_files/cluster_management/Controller.h"
 
 Controller::Controller(ConnectionsManager* cm, DiskFlusher* df, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, std::atomic_bool* should_terminate)
 	: generator(std::random_device{}()), distribution(HEARTBEAT_SIGNAL_MIN_BOUND, HEARTBEAT_SIGNAL_MAX_BOUND)
