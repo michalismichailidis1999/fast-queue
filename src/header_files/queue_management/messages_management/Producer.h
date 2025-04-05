@@ -1,9 +1,8 @@
 #pragma once
 #include <ctime>
 #include <string>
-#include "Logger.h"
-
-class Queue;
+#include <chrono>
+#include "../../logging/Logger.h"
 
 class Producer {
 private:
@@ -20,7 +19,7 @@ public:
 
 	void set_heartbeat_to_current_time();
 
-	void produce(Queue* queue, std::vector<char*>* messages, std::vector<long>* message_sizes, int partition);
+	void produce();
 
 	long get_id();
 	long get_epoch();

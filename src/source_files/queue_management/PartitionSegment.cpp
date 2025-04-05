@@ -1,5 +1,4 @@
-#include "PartitionSegment.h"
-#include "Constants.cpp"
+#include "../../header_files/queue_management/PartitionSegment.h"
 
 PartitionSegment::PartitionSegment(unsigned long long id, std::string segment_path) {
 	this->id = id;

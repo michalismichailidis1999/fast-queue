@@ -1,5 +1,4 @@
-#include "QueueMetadata.h"
-#include "Constants.cpp"
+#include "../../header_files/queue_management/QueueMetadata.h"
 
 QueueMetadata::QueueMetadata(const std::string& name, unsigned int partitions, unsigned int replication_factor) {
 	this->name = name;

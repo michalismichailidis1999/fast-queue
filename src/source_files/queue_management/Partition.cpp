@@ -1,5 +1,4 @@
-#include "Partition.h"
-#include "Constants.cpp"
+#include "../../header_files/queue_management/Partition.h"
 
 Partition::Partition(unsigned int partition_id) {
 	this->partition_id = partition_id;

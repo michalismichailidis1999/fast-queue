@@ -2,7 +2,8 @@
 #include <memory>
 #include <mutex>
 #include <map>
-#include "PartitionSegment.h"
+#include "./PartitionSegment.h"
+#include "../Constants.h"
 
 class Partition {
 private:

@@ -2,6 +2,7 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include "../Constants.h"
 
 class PartitionSegment {
 private:

@@ -1,5 +1,4 @@
-#include "Consumer.h"
-#include <cstddef>
+#include "../../../header_files/queue_management/messages_management/Consumer.h"
 
 Consumer::Consumer() {
 }

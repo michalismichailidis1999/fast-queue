@@ -4,9 +4,9 @@
 #include <string>
 #include <memory>
 #include <mutex>
-#include "Queue.h"
-#include "Producer.h"
-#include "Consumer.h"
+#include "./Queue.h"
+#include "./messages_management/Producer.h"
+#include "./messages_management/Consumer.h"
 
 class QueueMetadata;
 

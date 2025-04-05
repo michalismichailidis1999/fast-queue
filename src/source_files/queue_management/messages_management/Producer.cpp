@@ -1,6 +1,4 @@
-#include "Producer.h"
-#include <cstddef>
-#include <chrono>
+#include "../../../header_files/queue_management/messages_management/Producer.h"
 
 Producer::Producer(const std::string& transactional_id, long id, long epoch, Logger* logger) {
 	this->transactional_id = transactional_id;
@@ -12,8 +10,7 @@ Producer::Producer(const std::string& transactional_id, long id, long epoch, Log
 	this->logger->log_info("Producer initialized with transactional id " + transactional_id + " and epoch " + std::to_string(epoch));
 }
 
-void Producer::produce(Queue* queue, std::vector<char*>* messages, std::vector<long>* message_sizes, int partition) {
-	this->logger->log_info("Messages produced successfully from producer " + std::to_string(this->id) + " on partition " + std::to_string(partition));
+void Producer::produce() {
 }
 
 long Producer::get_id() {

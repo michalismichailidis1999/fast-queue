@@ -2,8 +2,8 @@
 #include <memory>
 #include <unordered_map>
 #include <mutex>
-#include "Partition.h"
-#include "QueueMetadata.h"
+#include "./Partition.h"
+#include "./QueueMetadata.h"
 
 class Queue {
 private:

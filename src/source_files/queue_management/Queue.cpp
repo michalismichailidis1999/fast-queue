@@ -1,4 +1,4 @@
-#include "Queue.h"
+#include "../../header_files/queue_management/Queue.h"
 
 Queue::Queue(std::shared_ptr<QueueMetadata> metadata) {
 	this->metadata = metadata;

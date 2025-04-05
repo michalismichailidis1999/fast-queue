@@ -1,7 +1,8 @@
 #pragma once
 #include <string>
 #include <mutex>
-#include "Enums.h"
+#include "../Enums.h"
+#include "../Constants.h"
 
 class QueueMetadata {
 private:
