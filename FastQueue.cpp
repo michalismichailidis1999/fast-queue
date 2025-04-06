@@ -476,16 +476,20 @@ void create_and_run_socket_listener(ConnectionsManager* cm, SocketHandler* socke
     thread_pool->stop_workers();
 }
 
+std::string get_config_path(int argc, char* argv[]) {
+    const char* settings_path = std::getenv("CONFIGURATION_PATH");
+
+    if (argc <= 1 && settings_path == NULL) throw std::exception("Configuration file path is missing");
+    else return argc > 1 ? std::string(argv[1]) : std::string(settings_path);
+}
+
 int main(int argc, char* argv[])
 {
     std::unique_ptr<Util> util = std::unique_ptr<Util>(new Util());
 
     std::unique_ptr<FileHandler> fh = std::unique_ptr<FileHandler>(new FileHandler());
 
-    std::string config_path;
-
-    if (argc <= 1) throw std::exception("Configuration file path is missing");
-    else config_path = std::string(argv[1]);
+    std::string config_path = get_config_path(argc, argv);;
 
     std::unique_ptr<Settings> settings = setup_settings(fh.get(), config_path);
 
