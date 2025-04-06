@@ -162,3 +162,13 @@ std::tuple<long, std::shared_ptr<char>> FileHandler::get_complete_file_content(c
 
 	return std::tuple<long, std::shared_ptr<char>>(new_fs.get()->buffer_size, content);
 }
+
+std::string FileHandler::get_dir_entry_path(std::filesystem::directory_entry dir_entry) {
+	std::string str_path = dir_entry.path().u8string();
+
+	for (int i = 0; i < str_path.size(); i++)
+		if (str_path[i] == '\\')
+			str_path[i] = '/';
+
+	return str_path;
+}

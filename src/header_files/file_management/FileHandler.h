@@ -32,4 +32,6 @@ public:
 	void execute_action_to_dir_subfiles(const std::string& path, std::function<void(const std::filesystem::directory_entry&)> action);
 	
 	std::tuple<long, std::shared_ptr<char>> get_complete_file_content(const std::string& file_path);
+
+	std::string get_dir_entry_path(std::filesystem::directory_entry dir_entry);
 };

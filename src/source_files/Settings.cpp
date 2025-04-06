@@ -95,6 +95,10 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 				: lhs == "internal_ssl_cert_key_path" ? &this->internal_ssl_cert_key_path
 				: &this->internal_ssl_cert_ca_path;
 
+			for (int i = 0; i < rhs.size(); i++)
+				if (rhs[i] == '\\')
+					rhs[i] = '/';
+
 			*val = rhs;
 		}
 		else if ((lhs == "controller_nodes" || lhs == "external_controller_nodes") && rhs_size > 0) {

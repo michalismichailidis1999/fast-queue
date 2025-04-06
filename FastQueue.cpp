@@ -135,11 +135,16 @@ void add_new_segment_to_partition(FileHandler* fh, QueueSegmentFilePathMapper* p
     partition->set_active_segment(segment);
 }
 
+inline bool is_internal_queue(const std::string& queue) {
+    return queue == CLUSTER_METADATA_QUEUE_NAME;
+}
+
 void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandler* fh, QueueManager* qm, QueueSegmentFilePathMapper* pm, Util* util) {
-    std::regex get_queue_name(settings->get_log_path() + "\\([a-zA-Z].*)", std::regex_constants::icase);
-    std::regex get_segment_num_rgx("_cluster_snap_0*([1-9][0-9]*).*|0*([1-9][0-9]*).*", std::regex_constants::icase);
-    std::regex partition_match_rgx("partition-([0-9][1-9]*)", std::regex_constants::icase);
-    std::regex ignore_file_deletion_rgx("_cluster_snap_0*[1-9][0-9]*\\." + FILE_EXTENSION, std::regex_constants::icase);
+    std::regex get_queue_name_rgx(settings->get_log_path() + "/((__|)[a-zA-Z][a-zA-Z0-9_-]*)", std::regex_constants::icase);
+    std::regex get_segment_num_rgx("_cluster_snap_0*([1-9][0-9]*).*|0*([1-9][0-9]*).*$", std::regex_constants::icase);
+    std::regex partition_match_rgx("partition-([0-9]|[1-9][0-9]+)$", std::regex_constants::icase);
+    std::regex ignore_file_deletion_rgx("_cluster_snap_0*[1-9][0-9]*" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_skippable_file_rgx("metadata" + FILE_EXTENSION + "$", std::regex_constants::icase);
 
     int partition_id = 0;
     bool is_cluster_metadata_queue = false;
@@ -154,11 +159,17 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
     std::shared_ptr<PartitionSegment> segment = nullptr;
 
     auto queue_partition_segment_func = [&](const std::filesystem::directory_entry& dir_entry) {
-        const std::string& path = dir_entry.path().u8string();
+        const std::string& path = fh->get_dir_entry_path(dir_entry);
 
         std::smatch match;
 
-        if (!std::regex_search(path, match, get_segment_num_rgx)) return;
+        if (std::regex_search(path, match, is_skippable_file_rgx)) return;
+
+        if (!std::regex_search(path, match, get_segment_num_rgx)) {
+            _logger->log_warning("Incorrect file name detected at path " + path + ". Deleting it since it won't be used by server");
+            fh->delete_dir_or_file(path);
+            return;
+        }
 
         if (match.size() < 2) return;
 
@@ -187,10 +198,10 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
 
         if (partition->get_current_segment() < segment_id || partition->get_current_segment() == 0)
             partition->set_current_segment(segment_id);
-        };
+    };
 
     auto queue_partition_func = [&](const std::filesystem::directory_entry& dir_entry) {
-        const std::string& path = dir_entry.path().u8string();
+        const std::string& path = fh->get_dir_entry_path(dir_entry);
 
         std::smatch match;
 
@@ -231,18 +242,30 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
         segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(segment_id, segment_metadata, segment_path));
 
         partition.get()->set_active_segment(segment);
-        };
+    };
 
     auto queue_func = [&](const std::filesystem::directory_entry& dir_entry) {
-        const std::string& path = dir_entry.path().u8string();
+        const std::string& path = fh->get_dir_entry_path(dir_entry);
 
         std::smatch match;
 
-        if (!std::regex_search(path, match, get_queue_name)) return;
-
-        std::string metadata_file_path = path + "\\metadata" + FILE_EXTENSION;
+        if (!std::regex_search(path, match, get_queue_name_rgx)) {
+            _logger->log_warning("Unknown queue folder detected with path " + path);
+            fh->delete_dir_or_file(path);
+            _logger->log_warning("Folder/File with path " + path + " deleted.");
+            return;
+        }
 
         queue_name = match[1];
+
+        if (queue_name.size() >= 2 && queue_name[0] == '_' && queue_name[1] == '_' && !is_internal_queue(queue_name)) {
+            _logger->log_warning("Unknown queue folder detected with path " + path + ".Only internal queues can start with __ in their name.");
+            fh->delete_dir_or_file(path);
+            _logger->log_warning("Folder/File with path " + path + " deleted.");
+            return;
+        }
+
+        std::string metadata_file_path = path + "/metadata" + FILE_EXTENSION;
 
         if (queue_name == CLUSTER_METADATA_QUEUE_NAME) {
             partition_id = 0;
@@ -256,6 +279,7 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
         if (metadata == nullptr)
         {
             // metadata is needed to know how many partitions to expect in user created queue
+            _logger->log_warning("Queue folder found with no metadata file inside it. Cleaning this folder with path " + path + " so it can be rebuild if no corruption occured.");
             fh->delete_dir_or_file(path);
             return;
         }
@@ -291,23 +315,25 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
         }
 
         qm->add_queue(queue);
-        };
+    };
 
     fh->execute_action_to_dir_subfiles(settings->get_log_path(), queue_func);
 }
 
 void initialize_required_folders_and_queues(Settings* settings, FileHandler* fh, QueueSegmentFilePathMapper* pm, QueueManager* qm, Util* util) {
+    _logger->log_info("Scanning path " + settings->get_log_path() + " to initialize data and clean unnecessary files...");
+    
     // Creating parent folders
     fh->create_directory(settings->get_log_path());
-    fh->create_directory(settings->get_trace_log_path());
 
     std::string cluster_metadata_queue_dir = settings->get_log_path() + "\\" + CLUSTER_METADATA_QUEUE_NAME;
-    std::string cluster_metadata_file_path = pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
 
     // Creating required subfolders to run the broker
     fh->create_directory(cluster_metadata_queue_dir);
 
     clear_unnecessary_files_and_initialize_queues(settings, fh, qm, pm, util);
+
+    _logger->log_info("Path scanning completed");
 }
 
 void rebuild_cluster_metadata(QueueManager* qm, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata) {
@@ -493,14 +519,16 @@ int main(int argc, char* argv[])
 
     std::unique_ptr<Settings> settings = setup_settings(fh.get(), config_path);
 
+    std::unique_ptr<Logger> server_logger = std::unique_ptr<Logger>(new Logger("server", fh.get(), util.get(), settings.get()));
+    std::unique_ptr<Logger> controller_logger = std::unique_ptr<Logger>(new Logger("controller", fh.get(), util.get(), settings.get()));
+    
+    _logger = server_logger.get();
+
     std::unique_ptr<QueueSegmentFilePathMapper> pm = std::unique_ptr<QueueSegmentFilePathMapper>(new QueueSegmentFilePathMapper(util.get(), settings.get()));
 
     std::unique_ptr<QueueManager> qm = std::unique_ptr<QueueManager>(new QueueManager());
 
     initialize_required_folders_and_queues(settings.get(), fh.get(), pm.get(), qm.get(), util.get());
-
-    std::unique_ptr<Logger> server_logger = std::unique_ptr<Logger>(new Logger("server", fh.get(), util.get(), settings.get()));
-    std::unique_ptr<Logger> controller_logger = std::unique_ptr<Logger>(new Logger("controller", fh.get(), util.get(), settings.get()));
 
     std::unique_ptr<SocketHandler> socket_handler = std::unique_ptr<SocketHandler>(new SocketHandler(settings.get(), server_logger.get()));
     std::unique_ptr<SslContextHandler> ssl_context_handler = std::unique_ptr<SslContextHandler>(new SslContextHandler(settings.get(), server_logger.get()));
@@ -526,8 +554,6 @@ int main(int argc, char* argv[])
     std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(cm.get(), qm.get(), controller.get(), cluster_metadata.get(), transformer.get(), fh.get(), util.get(), settings.get(), server_logger.get()));
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), transformer.get()));
     std::unique_ptr<RequestManager> rm = std::unique_ptr<RequestManager>(new RequestManager(cm.get(), settings.get(), client_request_executor.get(), internal_request_executor.get(), request_mapper.get(), server_logger.get()));
-
-    _logger = server_logger.get();
 
     server_logger->log_info("Server starting...");
 
