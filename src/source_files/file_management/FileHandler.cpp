@@ -82,15 +82,21 @@ void FileHandler::execute_action_to_dir_subfiles(const std::string& path, std::f
 }
 
 void FileHandler::write_to_file(std::string file_key, const std::string& file_path, long buffer_size, long pos, void* data, bool is_static) {
-	FileStream* fs = !is_static ? this->cache->get(file_key).get() : this->static_files[file_key].get();
+	if (!this->check_if_exists(file_path)) {
+		const std::string err_msg = "Invalid path " + file_path;
+		printf("Tried to write to invalid path %s\n", file_path.c_str());
+		throw std::exception(err_msg.c_str());
+	}
+
+	FileStream* fs = file_key == "" ? NULL : !is_static ? this->cache->get(file_key).get() : this->static_files[file_key].get();
 
 	if (fs == NULL) {
 		std::shared_ptr<FileStream> new_fs = std::shared_ptr<FileStream>(new FileStream(file_path));
 		this->open_file(new_fs.get(), file_path);
 		fs = new_fs.get();
 
-		if (!is_static) this->cache->put(file_key, new_fs, true);
-		else this->static_files[file_key] = new_fs;
+		if (!is_static && file_key != "") this->cache->put(file_key, new_fs, true);
+		else if (file_key != "") this->static_files[file_key] = new_fs;
 	}
 
 	std::lock_guard<std::mutex> lock(fs->mut);
@@ -115,15 +121,21 @@ void FileHandler::write_to_file(std::string file_key, const std::string& file_pa
 }
 
 void FileHandler::read_from_file(std::string file_key, const std::string& file_path, long buffer_size, long pos, void* dest, bool is_static) {
-	FileStream* fs = !is_static ? this->cache->get(file_key).get() : this->static_files[file_key].get();
+	if (!this->check_if_exists(file_path)) {
+		const std::string err_msg = "Invalid path " + file_path;
+		printf("Tried to read from invalid path %s\n", file_path.c_str());
+		throw std::exception(err_msg.c_str());
+	}
+
+	FileStream* fs = file_key == "" ? NULL : !is_static ? this->cache->get(file_key).get() : this->static_files[file_key].get();
 
 	if (fs == NULL) {
 		std::shared_ptr<FileStream> new_fs = std::shared_ptr<FileStream>(new FileStream(file_path));
 		this->open_file(new_fs.get(), file_path);
 		fs = new_fs.get();
 
-		if (!is_static) this->cache->put(file_key, new_fs, true);
-		else this->static_files[file_key] = new_fs;
+		if (!is_static && file_key != "") this->cache->put(file_key, new_fs, true);
+		else if (file_key != "") this->static_files[file_key] = new_fs;
 	}
 
 	std::lock_guard<std::mutex> lock(fs->mut);

@@ -11,11 +11,16 @@ public:
 	CacheNode* prev;
 	CacheNode* next;
 
-	CacheNode() {}
+	CacheNode() {
+		this->prev = NULL;
+		this->next = NULL;
+	}
 
 	CacheNode(K key, V value) {
 		this->key = key;
 		this->value = value;
+		this->prev = NULL;
+		this->next = NULL;
 	}
 };
 

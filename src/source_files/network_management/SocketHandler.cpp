@@ -63,7 +63,7 @@ SOCKET_ID SocketHandler::get_listen_socket(bool internal_communication) {
     }
 
     if (bind(listen_socket, (sockaddr*)&serv_addr, sizeof(serv_addr)) == SOCKET_ERROR) {
-        this->logger->log_error("bin failed with error");
+        this->logger->log_error("bind failed with error");
         this->close_socket(listen_socket);
         this->socket_cleanup();
         return invalid_socket;

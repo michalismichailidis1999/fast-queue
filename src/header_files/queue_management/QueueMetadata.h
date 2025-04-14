@@ -3,6 +3,7 @@
 #include <mutex>
 #include "../Enums.h"
 #include "../Constants.h"
+#include "../util/Helper.h"
 
 class QueueMetadata {
 private:

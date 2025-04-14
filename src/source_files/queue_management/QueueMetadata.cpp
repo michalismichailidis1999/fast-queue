@@ -8,7 +8,18 @@ QueueMetadata::QueueMetadata(const std::string& name, unsigned int partitions, u
 }
 
 QueueMetadata::QueueMetadata(void* metadata) {
-	// TODO: Fill this contructor
+	if (metadata == NULL)
+		throw std::exception("Queue metadata was NULL");
+
+	char* queue_name = NULL;
+	int queue_name_length = 0;
+
+	memcpy_s(&queue_name_length, QUEUE_NAME_LENGTH_SIZE, (char*)metadata + QUEUE_NAME_LENGTH_OFFSET, QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(&this->partitions, QUEUE_PARTITIONS_SIZE, (char*)metadata + QUEUE_PARTITIONS_OFFSET, QUEUE_PARTITIONS_SIZE);
+	memcpy_s(&this->replication_factor, QUEUE_REPLICATION_FACTOR_SIZE, (char*)metadata + QUEUE_REPLICATION_FACTOR_OFFSET, QUEUE_REPLICATION_FACTOR_SIZE);
+
+	this->name = std::string((char*)metadata + QUEUE_NAME_OFFSET, queue_name_length);
+	this->status = Status::ACTIVE;
 }
 
 const std::string& QueueMetadata::get_name() {
@@ -37,6 +48,8 @@ std::tuple<int, std::shared_ptr<char>> QueueMetadata::get_metadata_bytes() {
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[QUEUE_METADATA_TOTAL_BYTES]);
 
 	int queue_name_length = this->name.size();
+
+	Helper::add_common_metadata_values((void*)(bytes.get()), QUEUE_METADATA_TOTAL_BYTES);
 
 	memcpy_s(bytes.get() + QUEUE_NAME_OFFSET, queue_name_length, this->name.c_str(), queue_name_length);
 	memcpy_s(bytes.get() + QUEUE_NAME_LENGTH_OFFSET, QUEUE_NAME_LENGTH_SIZE, &queue_name_length, QUEUE_NAME_LENGTH_SIZE);

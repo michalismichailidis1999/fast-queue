@@ -31,5 +31,5 @@ public:
 	void set_largest_message_offset(unsigned long long largest_message_offset);
 
 	PartitionSegment* get_active_segment();
-	void set_active_segment(std::shared_ptr<PartitionSegment> active_segment);
+	void set_active_segment(std::shared_ptr<PartitionSegment> segment);
 };

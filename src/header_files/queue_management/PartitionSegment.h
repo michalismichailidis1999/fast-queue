@@ -3,16 +3,17 @@
 #include <memory>
 #include <mutex>
 #include "../Constants.h"
+#include "../util/Helper.h"
 
 class PartitionSegment {
 private:
 	unsigned long long id;
-	int total_messages;
+
 	long long newest_message_timestamp;
 	long long oldest_message_timestamp;
 
-	unsigned long long first_message_offset;
-	unsigned long long last_message_offset;
+	unsigned long long newest_message_offset;
+	unsigned long long oldest_message_offset;
 
 	bool compacted;
 
@@ -23,12 +24,9 @@ private:
 	std::mutex mut;
 public:
 	PartitionSegment(unsigned long long id, std::string segment_path);
-	PartitionSegment(unsigned long long id, void* metadata, std::string segment_path);
+	PartitionSegment(void* metadata, std::string segment_path);
 
 	unsigned long long get_id();
-
-	int get_total_messages();
-	void increase_total_messages(int new_messages);
 
 	long long get_newest_message_timestamp();
 	void set_newest_message_timestamp(long long timestamp);
@@ -36,11 +34,17 @@ public:
 	long long get_oldest_message_timestamp();
 	void set_oldest_message_timestamp(long long timestamp);
 
+	unsigned long long get_newest_message_offset();
+	void set_newest_message_offset(unsigned long long offset);
+
+	unsigned long long get_oldest_message_offset();
+	void set_oldest_message_offset(unsigned long long offset);
+
 	void set_to_compacted();
 	bool is_segment_compacted();
 
 	void set_to_read_only();
 	bool get_is_read_only();
 
-	std::tuple<int, std::shared_ptr<char>> get_metadata_bytes();
+	std::tuple<long, std::shared_ptr<char>> get_metadata_bytes();
 };

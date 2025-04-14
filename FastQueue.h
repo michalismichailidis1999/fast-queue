@@ -8,7 +8,6 @@
 #include <regex>
 #include <tuple>
 #include <filesystem>
-//#include <cstdlib>  // for std::getenv
 
 #include "./src/header_files/logging/Logger.h"
 #include "./src/header_files/Settings.h"

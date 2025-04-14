@@ -57,9 +57,7 @@ std::shared_ptr<QueueMetadata> get_queue_metadata(
         fh->create_new_file(
             queue_metadata_file_path,
             std::get<0>(bytes_tup),
-            std::get<1>(bytes_tup).get(),
-            pm->get_metadata_file_key(queue_name),
-            true
+            std::get<1>(bytes_tup).get()
         );
 
         return metadata;
@@ -74,61 +72,52 @@ std::shared_ptr<QueueMetadata> get_queue_metadata(
         queue_metadata_file_path,
         QUEUE_METADATA_TOTAL_BYTES,
         0,
-        data.get(),
-        true
+        data.get()
     );
 
     return std::shared_ptr<QueueMetadata>(new QueueMetadata(data.get()));
 }
 
-std::shared_ptr<char> get_segment_metadata(
-    FileHandler* fh,
-    QueueSegmentFilePathMapper* pm,
-    const std::string& queue_name,
-    const std::string& path,
-    unsigned long long segment_id
-) {
-    if (fh->check_if_exists(path)) {
-        std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
+void set_partition_active_segment(FileHandler* fh, QueueSegmentFilePathMapper* pm, Partition* partition, const std::string& queue_name, bool is_cluster_metadata_queue) {
+    std::shared_ptr<PartitionSegment> segment = nullptr;
+
+    std::string segment_path = partition->get_current_segment() > 0
+        ? pm->get_file_path(queue_name, partition->get_current_segment(), is_cluster_metadata_queue ? -1 : partition->get_partition_id())
+        : "";
+
+    if (partition->get_current_segment() > 0 && fh->check_if_exists(segment_path)) {
+        std::unique_ptr<char> bytes = std::unique_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
 
         fh->read_from_file(
-            pm->get_file_key(queue_name, segment_id),
-            path,
+            pm->get_file_key(queue_name, partition->get_current_segment()),
+            segment_path,
             SEGMENT_METADATA_TOTAL_BYTES,
             0,
             bytes.get()
         );
 
-        return bytes;
+        segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(bytes.get(), segment_path));
+
+        if (!segment.get()->get_is_read_only()) {
+            partition->set_active_segment(segment);
+            return;
+        }
     }
-
-    PartitionSegment segment = PartitionSegment(segment_id, path);
-
-    auto tup = segment.get_metadata_bytes();
-
-    fh->create_new_file(
-        path,
-        SEGMENT_METADATA_TOTAL_BYTES,
-        std::get<1>(tup).get(),
-        pm->get_file_key(queue_name, segment_id)
-    );
-
-    return std::get<1>(tup);
-}
-
-void add_new_segment_to_partition(FileHandler* fh, QueueSegmentFilePathMapper* pm, Partition* partition, const std::string& queue_name, bool is_cluster_metadata_queue) {
+    
     unsigned long long new_segment_id = partition->get_current_segment() + 1;
 
-    std::string segment_path = pm->get_file_path(queue_name, new_segment_id, is_cluster_metadata_queue ? -1 : partition->get_partition_id());
-
-    std::shared_ptr<PartitionSegment> segment = std::shared_ptr<PartitionSegment>(
-        new PartitionSegment(new_segment_id, segment_path)
+    std::string new_segment_path = pm->get_file_path(queue_name, new_segment_id, is_cluster_metadata_queue ? -1 : partition->get_partition_id());
+    
+    segment = std::shared_ptr<PartitionSegment>(
+        new PartitionSegment(new_segment_id, new_segment_path)
     );
+    
+    std::tuple<long, std::shared_ptr<char>> bytes_tup = segment.get()->get_metadata_bytes();
 
     fh->create_new_file(
-        segment_path,
-        SEGMENT_METADATA_TOTAL_BYTES,
-        std::get<1>(segment.get()->get_metadata_bytes()).get(),
+        new_segment_path,
+        std::get<0>(bytes_tup),
+        std::get<1>(bytes_tup).get(),
         pm->get_file_key(queue_name, new_segment_id)
     );
 
@@ -173,7 +162,7 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
 
         if (match.size() < 2) return;
 
-        unsigned long long segment_id = std::stoull(match[1]);
+        unsigned long long segment_id = std::stoull(match[1].matched ? match[1] : match[2]);
 
         // keep only last cluster metadata snapshot created
         if (is_cluster_metadata_queue && std::regex_search(path, match, ignore_file_deletion_rgx)) {
@@ -232,16 +221,6 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
         fh->execute_action_to_dir_subfiles(path, queue_partition_segment_func);
 
         partitions[partition_id] = partition;
-
-        unsigned long long segment_id = partition->get_current_segment();
-
-        std::string segment_path = path + "\\" + util->left_padding(segment_id, 20, '0') + FILE_EXTENSION;
-
-        void* segment_metadata = get_segment_metadata(fh, pm, queue_name, segment_path, segment_id).get();
-
-        segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(segment_id, segment_metadata, segment_path));
-
-        partition.get()->set_active_segment(segment);
     };
 
     auto queue_func = [&](const std::filesystem::directory_entry& dir_entry) {
@@ -286,8 +265,9 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
 
         if (!is_cluster_metadata_queue)
             fh->execute_action_to_dir_subfiles(path, queue_partition_func);
-        else
+        else {
             fh->execute_action_to_dir_subfiles(path, queue_partition_segment_func);
+        }
 
         if (partitions.size() < metadata.get()->get_partitions()) {
             _logger->log_error(
@@ -308,8 +288,7 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
         queue = std::shared_ptr<Queue>(new Queue(metadata));
 
         for (auto& iter : partitions) {
-            if (iter.second.get()->get_active_segment() == NULL || iter.second.get()->get_active_segment()->get_is_read_only())
-                add_new_segment_to_partition(fh, pm, iter.second.get(), queue_name, is_cluster_metadata_queue);
+            set_partition_active_segment(fh, pm, iter.second.get(), queue_name, is_cluster_metadata_queue);
 
             queue->add_partition(iter.second);
         }
@@ -570,31 +549,31 @@ int main(int argc, char* argv[])
 
         auto keep_connections_to_maximum = [&]() {
             cm.get()->keep_pool_connections_to_maximum();
-            };
+        };
 
         auto notify_other_nodes = [&]() {
             data_node.get()->notify_controllers_about_node_existance(&should_terminate);
-            };
+        };
 
         auto check_connections_heartbeat = [&]() {
             cm.get()->check_connections_heartbeats();
-            };
+        };
 
         auto flush_to_disk_periodically = [&](int milliseconds) {
             df.get()->flush_to_disk_periodically(milliseconds);
-            };
+        };
 
         auto run_controller_quorum_communication = [&]() {
             controller.get()->run_controller_quorum_communication();
-            };
+        };
 
         auto check_dead_data_nodes = [&]() {
             controller.get()->check_for_dead_data_nodes();
-            };
+        };
 
         auto send_heartbeats_to_leader = [&]() {
             data_node.get()->send_heartbeats_to_leader(&should_terminate);
-            };
+        };
 
         std::unique_ptr<ThreadPool> thread_pool = std::unique_ptr<ThreadPool>(new ThreadPool(settings.get()->get_request_parallelism()));
 
