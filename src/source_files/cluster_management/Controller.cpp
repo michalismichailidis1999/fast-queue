@@ -587,14 +587,12 @@ void Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetad
 		)
 	);
 
-	Command create_queue_command = Command(
-		CommandType::CREATE_QUEUE, 
+	commands.emplace_back(Command(
+		CommandType::CREATE_QUEUE,
 		++this->future_cluster_metadata->metadata_version,
 		timestamp,
 		command_info
-	);
-
-	commands.emplace_back(create_queue_command);
+	));
 
 	for (auto& change : cluster_changes)
 		commands.emplace_back(Command(

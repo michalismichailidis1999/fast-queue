@@ -129,10 +129,10 @@ inline bool is_internal_queue(const std::string& queue) {
 }
 
 void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandler* fh, QueueManager* qm, QueueSegmentFilePathMapper* pm, Util* util) {
-    std::regex get_queue_name_rgx(settings->get_log_path() + "/((__|)[a-zA-Z][a-zA-Z0-9_-]*)", std::regex_constants::icase);
+    std::regex get_queue_name_rgx(settings->get_log_path() + "/((__|)[a-zA-Z][a-zA-Z0-9_-]*)$", std::regex_constants::icase);
     std::regex get_segment_num_rgx("_cluster_snap_0*([1-9][0-9]*).*|0*([1-9][0-9]*).*$", std::regex_constants::icase);
     std::regex partition_match_rgx("partition-([0-9]|[1-9][0-9]+)$", std::regex_constants::icase);
-    std::regex ignore_file_deletion_rgx("_cluster_snap_0*[1-9][0-9]*" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex ignore_file_deletion_rgx("_cluster_snap_0*[1-9][0-9]*$" + FILE_EXTENSION + "$", std::regex_constants::icase);
     std::regex is_skippable_file_rgx("metadata" + FILE_EXTENSION + "$", std::regex_constants::icase);
 
     int partition_id = 0;
@@ -174,8 +174,12 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
                 fh->delete_dir_or_file(ignored_snapshot);
                 ignored_snapshot = path;
                 last_ignored_snapshot_segment_id = segment_id;
+                _logger->log_info("Deleted old cluster metadata snapshot with path " + ignored_snapshot);
             }
-            else fh->delete_dir_or_file(path);
+            else {
+                fh->delete_dir_or_file(path);
+                _logger->log_info("Deleted old cluster metadata snapshot with path " + ignored_snapshot);
+            }
 
             return;
         }
@@ -206,7 +210,7 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
                 + metadata.get()->get_name()
                 + " folder, but queue has total "
                 + std::to_string(metadata.get()->get_partitions())
-                + " partitions"
+                + " partitions. Deleting this incorrect folder."
             );
 
             fh->delete_dir_or_file(path);
@@ -218,9 +222,9 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
 
         std::shared_ptr<Partition> partition = std::shared_ptr<Partition>(new Partition(partition_id));
 
-        fh->execute_action_to_dir_subfiles(path, queue_partition_segment_func);
-
         partitions[partition_id] = partition;
+
+        fh->execute_action_to_dir_subfiles(path, queue_partition_segment_func);
     };
 
     auto queue_func = [&](const std::filesystem::directory_entry& dir_entry) {
@@ -265,9 +269,8 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
 
         if (!is_cluster_metadata_queue)
             fh->execute_action_to_dir_subfiles(path, queue_partition_func);
-        else {
+        else
             fh->execute_action_to_dir_subfiles(path, queue_partition_segment_func);
-        }
 
         if (partitions.size() < metadata.get()->get_partitions()) {
             _logger->log_error(
@@ -289,7 +292,6 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
 
         for (auto& iter : partitions) {
             set_partition_active_segment(fh, pm, iter.second.get(), queue_name, is_cluster_metadata_queue);
-
             queue->add_partition(iter.second);
         }
 
