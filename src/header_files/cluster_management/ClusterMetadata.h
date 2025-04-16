@@ -16,14 +16,17 @@ private:
 	IndexedHeap<int, int>* nodes_partition_counts;
 	IndexedHeap<int, int>* nodes_leader_partition_counts;
 
+	// nodes_partitions_mut used for all the below maps
 	std::unordered_map<int, std::shared_ptr<std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>>>> nodes_partitions;
-	std::mutex nodes_partitions_mut;
 
 	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, std::shared_ptr<std::unordered_set<int>>>>> owned_partitions;
 
 	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, int>>> partition_leader_nodes;
+	// ======================================================
 
 	std::unordered_map<std::string, std::shared_ptr<QueueMetadata>> queues;
+
+	std::mutex nodes_partitions_mut;
 	std::mutex queues_mut;
 
 public:

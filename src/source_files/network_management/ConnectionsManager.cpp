@@ -127,55 +127,43 @@ void ConnectionsManager::initialize_controller_nodes_connections() {
 		return;
 	}
 
-	std::queue<std::tuple<int, std::shared_ptr<ConnectionInfo>>> failed_controllers;
-	std::queue<std::tuple<int, std::shared_ptr<ConnectionInfo>>> failed_data_nodes;
-
-	std::vector<std::pair<bool, std::queue<std::tuple<int, std::shared_ptr<ConnectionInfo>>>*>> failed_queue_pairs;
-	failed_queue_pairs.emplace_back(true, &failed_controllers);
-	failed_queue_pairs.emplace_back(false, &failed_data_nodes);
+	int failed_occurunces = 0;
+	int successfull_occurunces = 0;
 
 	for (auto controller : *(this->settings->get_controller_nodes())) {
 		int node_id = std::get<0>(controller);
 		std::shared_ptr<ConnectionInfo> info = std::get<1>(controller);
 
-		if (this->settings->get_is_controller_node() && node_id == this->settings->get_node_id())
+		if (this->settings->get_is_controller_node() && node_id == this->settings->get_node_id()) {
+			successfull_occurunces++;
 			continue;
-
-		this->setup_connection_pool(node_id, info, &this->controllers_mut, &this->controller_node_connections, &failed_controllers);
-		this->setup_connection_pool(node_id, info, &this->data_mut, &this->data_node_connections, &failed_data_nodes);
-	}
-
-	for(auto pair : failed_queue_pairs)
-		while (!pair.second->empty() && !(*should_terminate)) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-			std::tuple<int, std::shared_ptr<ConnectionInfo>> tup = pair.second->front();
-			pair.second->pop();
-
-			int node_id = std::get<0>(tup);
-			std::shared_ptr<ConnectionInfo> info = std::get<1>(tup);
-
-			this->setup_connection_pool(
-				node_id,
-				info,
-				pair.first ? &this->controllers_mut : &this->data_mut,
-				pair.first ? &this->controller_node_connections : &this->data_node_connections,
-				pair.second
-			);
 		}
 
-	this->logger->log_info("Initial connection with all controller quorum nodes established");
+		bool succeed1 = this->setup_connection_pool(node_id, info, &this->controllers_mut, &this->controller_node_connections);
+		bool succeed2 = this->setup_connection_pool(node_id, info, &this->data_mut, &this->data_node_connections);
+
+		failed_occurunces += (!succeed1 ? 1 : 0) + (!succeed2 ? 1 : 0);
+		successfull_occurunces += (int)succeed1 + (int)succeed2;
+	}
+
+	std::string log_msg = failed_occurunces > 0 && successfull_occurunces > 0
+		? "Partial connections with controller quorum nodes established" 
+		: failed_occurunces == 0
+			? "All connections with controller quorum nodes established"
+			: "No connection could be established with any controller quorum node";
+
+	this->logger->log_info(log_msg);
 }
 
-void ConnectionsManager::setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections, std::queue<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* failed) {
+bool ConnectionsManager::setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections) {
 	std::shared_ptr<ConnectionPool> connection_pool = std::shared_ptr<ConnectionPool>(new ConnectionPool(3, info));
 
-	if (!this->create_node_connection_pool(node_id, connection_pool.get(), 3000))
-		failed->emplace(std::tuple<int, std::shared_ptr<ConnectionInfo>>(node_id, info));
-	else {
-		std::lock_guard<std::mutex> lock(*connections_mut);
-		(*connections)[node_id] = connection_pool;
-	}
+	bool failed = this->create_node_connection_pool(node_id, connection_pool.get(), 3000);
+	
+	std::lock_guard<std::mutex> lock(*connections_mut);
+	(*connections)[node_id] = connection_pool;
+
+	return failed;
 }
 
 bool ConnectionsManager::add_connection_to_pool(ConnectionPool* pool) {

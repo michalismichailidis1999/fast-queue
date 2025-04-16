@@ -22,7 +22,9 @@ static const int TOTAL_METADATA_BYTES = sizeof(long);
 static const int TOTAL_METADATA_BYTES_OFFSET = 0;
 static const int VERSION_SIZE = sizeof(int);
 static const int VERSION_SIZE_OFFSET = TOTAL_METADATA_BYTES + TOTAL_METADATA_BYTES_OFFSET;
-static const int COMMON_METADATA_TOTAL_BYTES = TOTAL_METADATA_BYTES + VERSION_SIZE;
+static const int CHECKSUM_SIZE = sizeof(unsigned long long);
+static const int CHECKSUM_OFFSET = VERSION_SIZE + VERSION_SIZE_OFFSET;
+static const int COMMON_METADATA_TOTAL_BYTES = TOTAL_METADATA_BYTES + VERSION_SIZE + CHECKSUM_SIZE;
 
 static const int QUEUE_NAME_SIZE = MAX_QUEUE_NAME_CHARS * sizeof(char);
 static const int QUEUE_NAME_OFFSET = COMMON_METADATA_TOTAL_BYTES;

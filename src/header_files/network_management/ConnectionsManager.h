@@ -51,7 +51,7 @@ private:
 	
 	void add_connections_to_pools(std::mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
 
-	void setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections, std::queue<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* failed);
+	bool setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
 
 	bool should_wait_for_response(RequestType request_type);
 

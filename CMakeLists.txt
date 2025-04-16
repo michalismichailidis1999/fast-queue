@@ -29,3 +29,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 find_package(OpenSSL REQUIRED)
 target_link_libraries(FastQueue PRIVATE OpenSSL::SSL)
 target_link_libraries(FastQueue PRIVATE OpenSSL::Crypto)
+
+find_package(ZLIB REQUIRED)
+target_link_libraries(FastQueue PRIVATE ZLIB::ZLIB)

@@ -654,6 +654,8 @@ int Controller::get_active_nodes_count() {
 }
 
 void Controller::insert_commands_to_log(std::vector<Command>* commands) {
+	// TODO: Insert commands to disk
+
 	std::lock_guard<std::mutex> lock(this->log_mut);
 
 	if (commands->size() == 0) return;
