@@ -1,12 +1,18 @@
 #include "../../header_files/file_management/FileStream.h"
 
-FileStream::FileStream(const std::string& file_path) {
-	this->file_path = file_path;
-	this->buffer_size = 0;
+FileStream::FileStream() {
+	this->end_pos = 0;
+	this->file = NULL;
+	this->fd = -1;
+	this->file_path = "";
 }
 
-void FileStream::compute_buffer_size() {
-	this->seekg(0, this->end);
-	this->buffer_size = this->tellg();
-	this->clear();
+void FileStream::set_file(const std::string& file_path, FILE* file) {
+	this->file_path = file_path;
+	this->file = file;
+
+	this->fd = fileno(file);
+
+	fseek(file, 0, SEEK_END);
+	this->end_pos = ftell(file);
 }

@@ -1,18 +1,19 @@
 #pragma once
 #include <string>
-#include <fstream>
 #include <mutex>
 
-class FileStream : public std::fstream {
+class FileStream {
 private:
-	long buffer_size;
 	std::string file_path;
+	long end_pos;
+	int fd;
+	FILE* file;
 
 	std::mutex mut;
 public:
-	FileStream(const std::string& file_path);
+	FileStream();
 
-	void compute_buffer_size();
+	void set_file(const std::string& file_path, FILE* file);
 
 	friend class FileHandler;
 };

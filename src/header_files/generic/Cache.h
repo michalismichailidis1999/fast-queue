@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include <map>
+#include <unordered_map>
 #include <mutex>
 
 template <typename K, typename V>
@@ -29,7 +29,7 @@ class Cache {
 private:
 	uint32_t capacity;
 	V empty_value;
-	std::map<K, CacheNode<K, V>*> cache;
+	std::unordered_map<K, CacheNode<K, V>*> cache;
 	CacheNode<K, V>* left;
 	CacheNode<K, V>* right;
 
@@ -66,20 +66,14 @@ private:
 		return this->empty_value;
 	}
 
-	bool put_value(K key, V value, bool update_with_new_if_found = false) {
+	V put_value(K key, V value) {
 		CacheNode<K, V>* node;
 
-		bool is_new = true;
+		V old_removed_value = this->empty_value;
 
 		if (this->cache.find(key) != this->cache.end()) {
 			node = this->cache[key];
-			this->remove(node, update_with_new_if_found);
-
-			if (update_with_new_if_found) {
-				node = new CacheNode<K, V>(key, value);
-				this->cache[key] = node;
-			}
-			else is_new = false;
+			this->remove(node, false);
 		}
 		else {
 			node = new CacheNode<K, V>(key, value);
@@ -88,13 +82,14 @@ private:
 
 		if (this->cache.size() > this->capacity) {
 			CacheNode<K, V>* to_remove = this->right->prev;
+			old_removed_value = to_remove->value;
 			this->cache.erase(to_remove->key);
 			this->remove(to_remove, true);
 		}
 
 		this->insert(node);
 
-		return is_new;
+		return old_removed_value;
 	}
 
 public:
@@ -116,21 +111,17 @@ public:
 
 	V get(K key) {
 		std::lock_guard<std::mutex> lock(this->cache_mut);
-
 		return this->get_value(key);
 	}
 
-	bool put(K key, V value, bool update_with_new_if_found = false) {
+	V put(K key, V value) {
 		std::lock_guard<std::mutex> lock(this->cache_mut);
-
-		return this->put_value(key, value, update_with_new_if_found);
+		return this->put_value(key, value);
 	}
 
-	V put_and_get(K key, V value, bool update_with_new_if_found = false) {
+	V put_and_get(K key, V value) {
 		std::lock_guard<std::mutex> lock(this->cache_mut);
-
-		this->put_value(key, value, update_with_new_if_found);
-
+		this->put_value(key, value);
 		return this->get_value(key);
 	}
 

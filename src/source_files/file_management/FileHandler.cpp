@@ -1,51 +1,22 @@
 #include "../../header_files/file_management/FileHandler.h"
 
 FileHandler::FileHandler() {
-	this->cache = new Cache<std::string, std::shared_ptr<FileStream>>(500, "", NULL);
+	this->cache = new Cache<std::string, std::shared_ptr<FileStream>>(500, "", nullptr);
 }
 
-void FileHandler::open_file(FileStream* fs, const std::string& path) {
-	if (fs->is_open()) return;
+void FileHandler::create_new_file(const std::string& path, long bytes_to_write, void* data, const std::string& key, bool flush_data, bool is_static) {
+	std::shared_ptr<FileStream> fs = std::shared_ptr<FileStream>(new FileStream());
+	
+	this->open_file(fs.get(), path, true);
 
-	fs->open(path, std::ios::out | std::ios::in | std::ios::binary);
+	if (bytes_to_write > 0 && data != NULL)
+		this->write_to_file(fs.get(), bytes_to_write, 0, data, flush_data);
 
-	this->handle_file_failure(fs);
-}
-
-void FileHandler::create_new_file(const std::string& path, long data_to_allocate, void* data_to_write, const std::string& key, bool is_static) {
-	std::shared_ptr<FileStream> fs = std::shared_ptr<FileStream>(new FileStream(path));
-
-	fs.get()->open(path, std::ios::out);
-
-	this->handle_file_failure(fs.get());
-
-	if (data_to_allocate > 0) {
-		if (data_to_write == NULL) {
-			std::unique_ptr<char> empty_data = std::unique_ptr<char>(new char[data_to_allocate]);
-			fs.get()->write(empty_data.get(), data_to_allocate);
-		}
-		else fs.get()->write((char*)data_to_write, data_to_allocate);
-
-		this->handle_file_failure(fs.get());
-
-		fs.get()->flush();
-
-		this->handle_file_failure(fs.get());
-	}
-
-	if (key == "") {
-		fs.get()->close();
-
-		this->handle_file_failure(fs.get());
-	}
+	if (key == "") this->close_file(fs.get());
 	else if (is_static) this->static_files[key] = fs;
-	else this->cache->put(key, fs);
-}
-
-void FileHandler::handle_file_failure(FileStream* fs) {
-	if (fs->fail()) {
-		// TODO: Throw exception
-		throw std::exception("File error occured");
+	else {
+		std::shared_ptr<FileStream> old_fs = this->cache->put(key, fs);
+		if (old_fs != nullptr) this->close_file(old_fs.get());
 	}
 }
 
@@ -67,13 +38,6 @@ void FileHandler::delete_dir_or_file(const std::string& path) {
 	std::filesystem::remove_all(path);
 }
 
-void FileHandler::copy_all_path_directories(const std::string& path, std::vector<std::string>* list) {
-	if (!this->check_if_exists(path)) return;
-
-	for (const auto& entry : std::filesystem::directory_iterator(path))
-		list->push_back(entry.path().u8string());
-}
-
 void FileHandler::execute_action_to_dir_subfiles(const std::string& path, std::function<void(const std::filesystem::directory_entry&)> action) {
 	if (!this->check_if_exists(path)) return;
 
@@ -81,98 +45,18 @@ void FileHandler::execute_action_to_dir_subfiles(const std::string& path, std::f
 		action(entry);
 }
 
-void FileHandler::write_to_file(std::string file_key, const std::string& file_path, long buffer_size, long pos, void* data, bool is_static) {
-	if (!this->check_if_exists(file_path)) {
-		const std::string err_msg = "Invalid path " + file_path;
-		printf("Tried to write to invalid path %s\n", file_path.c_str());
-		throw std::exception(err_msg.c_str());
-	}
+std::tuple<long, std::shared_ptr<char>> FileHandler::get_complete_file_content(const std::string& path) {
+	std::shared_ptr<FileStream> fs = std::shared_ptr<FileStream>(new FileStream());
 
-	FileStream* fs = file_key == "" ? NULL : !is_static ? this->cache->get(file_key).get() : this->static_files[file_key].get();
+	this->open_file(fs.get(), path);
 
-	if (fs == NULL) {
-		std::shared_ptr<FileStream> new_fs = std::shared_ptr<FileStream>(new FileStream(file_path));
-		this->open_file(new_fs.get(), file_path);
-		fs = new_fs.get();
+	long file_size = fs.get()->end_pos;
 
-		if (!is_static && file_key != "") this->cache->put(file_key, new_fs, true);
-		else if (file_key != "") this->static_files[file_key] = new_fs;
-	}
+	std::shared_ptr<char> content = std::shared_ptr<char>(new char[file_size]);
 
-	std::lock_guard<std::mutex> lock(fs->mut);
+	this->read_from_file(fs.get(), file_size, 0, content.get());
 
-	if (!fs->is_open())
-		this->open_file(fs, fs->file_path);
-
-	if (buffer_size == 0 || data == NULL) return;
-
-	if (pos == -1) fs->seekp(0, fs->end);
-	else fs->seekp(pos, fs->beg);
-
-	fs->write((char*)data, buffer_size);
-
-	fs->flush();
-
-	this->handle_file_failure(fs);
-
-	fs->clear();
-
-	fs->compute_buffer_size();
-}
-
-void FileHandler::read_from_file(std::string file_key, const std::string& file_path, long buffer_size, long pos, void* dest, bool is_static) {
-	if (!this->check_if_exists(file_path)) {
-		const std::string err_msg = "Invalid path " + file_path;
-		printf("Tried to read from invalid path %s\n", file_path.c_str());
-		throw std::exception(err_msg.c_str());
-	}
-
-	FileStream* fs = file_key == "" ? NULL : !is_static ? this->cache->get(file_key).get() : this->static_files[file_key].get();
-
-	if (fs == NULL) {
-		std::shared_ptr<FileStream> new_fs = std::shared_ptr<FileStream>(new FileStream(file_path));
-		this->open_file(new_fs.get(), file_path);
-		fs = new_fs.get();
-
-		if (!is_static && file_key != "") this->cache->put(file_key, new_fs, true);
-		else if (file_key != "") this->static_files[file_key] = new_fs;
-	}
-
-	std::lock_guard<std::mutex> lock(fs->mut);
-
-	if (!fs->is_open())
-		this->open_file(fs, fs->file_path);
-
-	if (buffer_size == 0 || dest == NULL) return;
-
-	fs->seekg(pos, fs->beg);
-	fs->read((char*)dest, buffer_size);
-
-	this->handle_file_failure(fs);
-
-	fs->clear();
-}
-
-void FileHandler::clear_file_contents(std::string file_key, const std::string& file_path) {
-
-}
-
-std::tuple<long, std::shared_ptr<char>> FileHandler::get_complete_file_content(const std::string& file_path) {
-	std::shared_ptr<FileStream> new_fs = std::shared_ptr<FileStream>(new FileStream(file_path));
-	this->open_file(new_fs.get(), file_path);
-
-	new_fs.get()->compute_buffer_size();
-
-	std::shared_ptr<char> content = std::shared_ptr<char>(new char[new_fs.get()->buffer_size]);
-
-	new_fs.get()->seekg(0, new_fs.get()->beg);
-	new_fs.get()->read(content.get(), new_fs.get()->buffer_size);
-
-	this->handle_file_failure(new_fs.get());
-
-	new_fs.get()->clear();
-
-	return std::tuple<long, std::shared_ptr<char>>(new_fs.get()->buffer_size, content);
+	return std::tuple<long, std::shared_ptr<char>>(file_size, content);
 }
 
 std::string FileHandler::get_dir_entry_path(std::filesystem::directory_entry dir_entry) {
@@ -183,4 +67,135 @@ std::string FileHandler::get_dir_entry_path(std::filesystem::directory_entry dir
 			str_path[i] = '/';
 
 	return str_path;
+}
+
+void FileHandler::write_to_file(std::string key, const std::string& path, long buffer_size, long pos, void* data, bool flush_data, bool is_static) {
+	if (!this->check_if_exists(path)) {
+		const std::string err_msg = "Invalid path " + path;
+		printf("Tried to write to invalid path %s\n", path.c_str());
+		throw std::exception(err_msg.c_str());
+	}
+
+	std::shared_ptr<FileStream> fs = key == ""
+		? nullptr 
+		: !is_static 
+			? this->cache->get(key)
+			: this->static_files[key];
+
+	if (fs == NULL) {
+		this->open_file(fs.get(), path);
+
+		if (!is_static && key != "") {
+			std::shared_ptr<FileStream> old_fs = this->cache->put(key, fs);
+			if (old_fs != nullptr) this->close_file(old_fs.get());
+		}
+		else if (key != "") this->static_files[key] = fs;
+	}
+
+	this->write_to_file(fs.get(), buffer_size, pos, data, flush_data);
+}
+
+void FileHandler::read_from_file(std::string key, const std::string& path, long buffer_size, long pos, void* dest, bool is_static) {
+	if (!this->check_if_exists(path)) {
+		const std::string err_msg = "Invalid path " + path;
+		printf("Tried to read from invalid path %s\n", path.c_str());
+		throw std::exception(err_msg.c_str());
+	}
+
+	std::shared_ptr<FileStream> fs = key == ""
+		? nullptr
+		: !is_static ? this->cache->get(key) : this->static_files[key];
+
+	if (fs == NULL) {
+		this->open_file(fs.get(), path);
+
+		if (!is_static && key != "") {
+			std::shared_ptr<FileStream> old_fs = this->cache->put(key, fs);
+			if (old_fs != nullptr) this->close_file(old_fs.get());
+		}
+		else if (key != "") this->static_files[key] = fs;
+	}
+
+	this->read_from_file(fs.get(), buffer_size, pos, dest);
+}
+
+void FileHandler::flush_output_streams() {
+	std::lock_guard<std::mutex> lock(this->unflushed_streams_mut);
+
+	for (auto& stream_iter : this->unflushed_streams)
+		fflush(stream_iter.second);
+
+	this->unflushed_streams.clear();
+}
+
+void FileHandler::write_to_file(FileStream* fs, long buffer_size, long pos, void* data, bool flush_data) {
+	std::lock_guard<std::mutex> lock(fs->mut);
+
+	if (buffer_size == 0 || data == NULL) return;
+
+	if (pos == -1) fseek(fs->file, 0, SEEK_END);
+	else fseek(fs->file, pos, SEEK_SET);
+
+	fwrite((char*)data, sizeof(char), buffer_size, fs->file);
+
+	fs->end_pos += buffer_size;
+
+	if(flush_data) fflush(fs->file);
+
+	this->handle_file_failure(fs);
+
+	if (!flush_data) this->add_unflushed_stream(fs);
+}
+
+void FileHandler::read_from_file(FileStream* fs, long buffer_size, long pos, void* dest) {
+	std::lock_guard<std::mutex> lock(fs->mut);
+
+	if (buffer_size == 0 || dest == NULL) return;
+
+	fseek(fs->file, pos, SEEK_SET);
+	fread(dest, sizeof(char), buffer_size, fs->file);
+
+	this->handle_file_failure(fs);
+}
+
+void FileHandler::open_file(FileStream* fs, const std::string& path, bool is_new_file) {
+	std::string mode = is_new_file ? "wb+" : "rb+";
+
+	if (this->check_if_exists(path))
+		mode = "rb+";
+
+	FILE* file = fopen(path.c_str(), mode.c_str());
+
+	if (file == NULL)
+		throw std::exception("Could not open file");
+
+	fs->set_file(path, file);
+
+	this->handle_file_failure(fs);
+}
+
+void FileHandler::close_file(FileStream* fs) {
+	std::lock_guard<std::mutex> lock(fs->mut);
+	this->remove_unflushed_stream(fs);
+	fclose(fs->file);
+}
+
+void FileHandler::handle_file_failure(FileStream* fs) {
+	if (!ferror(fs->file)) return;
+
+	clearerr(fs->file);
+
+	// TODO: Throw error message based on error flag
+
+	throw std::exception("Error occured during file action");
+}
+
+void FileHandler::add_unflushed_stream(FileStream* fs) {
+	std::lock_guard<std::mutex> lock(this->unflushed_streams_mut);
+	this->unflushed_streams[fs->fd] = fs->file;
+}
+
+void FileHandler::remove_unflushed_stream(FileStream* fs) {
+	std::lock_guard<std::mutex> lock(this->unflushed_streams_mut);
+	this->unflushed_streams.erase(fs->fd);
 }

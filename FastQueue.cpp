@@ -57,7 +57,9 @@ std::shared_ptr<QueueMetadata> get_queue_metadata(
         fh->create_new_file(
             queue_metadata_file_path,
             std::get<0>(bytes_tup),
-            std::get<1>(bytes_tup).get()
+            std::get<1>(bytes_tup).get(),
+            "",
+            true
         );
 
         return metadata;
@@ -118,7 +120,8 @@ void set_partition_active_segment(FileHandler* fh, QueueSegmentFilePathMapper* p
         new_segment_path,
         std::get<0>(bytes_tup),
         std::get<1>(bytes_tup).get(),
-        pm->get_file_key(queue_name, new_segment_id)
+        pm->get_file_key(queue_name, new_segment_id),
+        true
     );
 
     partition->set_active_segment(segment);
