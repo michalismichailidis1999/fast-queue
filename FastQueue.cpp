@@ -127,10 +127,6 @@ void set_partition_active_segment(FileHandler* fh, QueueSegmentFilePathMapper* p
     partition->set_active_segment(segment);
 }
 
-inline bool is_internal_queue(const std::string& queue) {
-    return queue == CLUSTER_METADATA_QUEUE_NAME;
-}
-
 void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandler* fh, QueueManager* qm, QueueSegmentFilePathMapper* pm, Util* util) {
     std::regex get_queue_name_rgx(settings->get_log_path() + "/((__|)[a-zA-Z][a-zA-Z0-9_-]*)$", std::regex_constants::icase);
     std::regex get_segment_num_rgx("_cluster_snap_0*([1-9][0-9]*).*|0*([1-9][0-9]*).*$", std::regex_constants::icase);
@@ -223,7 +219,7 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
             return;
         }
 
-        std::shared_ptr<Partition> partition = std::shared_ptr<Partition>(new Partition(partition_id));
+        std::shared_ptr<Partition> partition = std::shared_ptr<Partition>(new Partition(partition_id, queue_name));
 
         partitions[partition_id] = partition;
 
@@ -244,7 +240,7 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
 
         queue_name = match[1];
 
-        if (queue_name.size() >= 2 && queue_name[0] == '_' && queue_name[1] == '_' && !is_internal_queue(queue_name)) {
+        if (queue_name.size() >= 2 && queue_name[0] == '_' && queue_name[1] == '_' && !Helper::is_internal_queue(queue_name)) {
             _logger->log_warning("Unknown queue folder detected with path " + path + ".Only internal queues can start with __ in their name.");
             fh->delete_dir_or_file(path);
             _logger->log_warning("Folder/File with path " + path + " deleted.");
@@ -256,7 +252,7 @@ void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandl
         if (queue_name == CLUSTER_METADATA_QUEUE_NAME) {
             partition_id = 0;
             is_cluster_metadata_queue = true;
-            partitions[0] = std::shared_ptr<Partition>(new Partition(0U));
+            partitions[0] = std::shared_ptr<Partition>(new Partition(0U, CLUSTER_METADATA_QUEUE_NAME));
         }
         else is_cluster_metadata_queue = false;
 
@@ -521,8 +517,11 @@ int main(int argc, char* argv[])
     std::unique_ptr<RequestMapper> request_mapper = std::unique_ptr<RequestMapper>(new RequestMapper());
     std::unique_ptr<ResponseMapper> response_mapper = std::unique_ptr<ResponseMapper>(new ResponseMapper());
 
-    std::unique_ptr<DiskFlusher> df = std::unique_ptr<DiskFlusher>(new DiskFlusher(qm.get(), fh.get(), pm.get(), server_logger.get(), settings.get(), &should_terminate));
+    std::unique_ptr<DiskFlusher> df = std::unique_ptr<DiskFlusher>(new DiskFlusher(qm.get(), fh.get(), server_logger.get(), settings.get(), &should_terminate));
     std::unique_ptr<DiskReader> dr = std::unique_ptr<DiskReader>(new DiskReader(fh.get(), server_logger.get(), settings.get()));
+
+    std::unique_ptr<SegmentAllocator> sa = std::unique_ptr<SegmentAllocator>(new SegmentAllocator(fh.get()));
+    std::unique_ptr<MessagesHandler> mh = std::unique_ptr<MessagesHandler>(new MessagesHandler(df.get(), dr.get(), pm.get(), sa.get(), settings.get()));
 
     std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), ssl_context_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
 
@@ -530,7 +529,7 @@ int main(int argc, char* argv[])
     std::unique_ptr<ClusterMetadata> future_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 
     std::unique_ptr<Controller> controller = settings.get()->get_is_controller_node()
-        ? std::unique_ptr<Controller>(new Controller(cm.get(), df.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), cluster_metadata.get(), future_cluster_metadata.get(), &should_terminate))
+        ? std::unique_ptr<Controller>(new Controller(cm.get(), mh.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), cluster_metadata.get(), future_cluster_metadata.get(), &should_terminate))
         : nullptr;
 
     std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), cluster_metadata.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));

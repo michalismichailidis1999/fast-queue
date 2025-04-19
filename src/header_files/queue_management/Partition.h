@@ -2,11 +2,14 @@
 #include <memory>
 #include <mutex>
 #include <map>
+#include <string>
 #include "./PartitionSegment.h"
 #include "../Constants.h"
 
 class Partition {
 private:
+	std::string queue_name;
+
 	unsigned int partition_id;
 	unsigned long long current_segment;
 	unsigned long long oldest_segment;
@@ -17,9 +20,11 @@ private:
 
 	std::mutex mut;
 public:
-	Partition(unsigned int partition_id);
+	Partition(unsigned int partition_id, const std::string& queue_name);
 
-	int get_partition_id();
+	const std::string& get_queue_name();
+
+	unsigned int get_partition_id();
 
 	unsigned long long get_current_segment();
 	void set_current_segment(unsigned long long current_segment);

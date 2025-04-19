@@ -49,7 +49,7 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "request_polling_interval_ms"
 			|| lhs == "maximum_connections"
 		) {
-			int* val = lhs == "node_id" ? &this->node_id
+			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
 				: lhs == "external_port" ? &this->external_port
 				: lhs == "request_parallelism" ? &this->request_parallelism
@@ -65,7 +65,7 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "flush_to_disk_after_ms"
 			|| lhs == "request_timeout_ms"
 		) {
-			long* val = lhs == "max_message_size" ? &this->max_message_size
+			unsigned long* val = lhs == "max_message_size" ? &this->max_message_size
 				: lhs == "segment_size" ? &this->segment_size
 				: lhs == "max_cached_memory" ? &this->max_cached_memory
 				: lhs == "request_timeout_ms" ? &this->request_timeout_ms
@@ -160,39 +160,39 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 
 // general properties getters
 
-int Settings::get_node_id() {
+unsigned int Settings::get_node_id() {
 	return this->node_id;
 }
 
-long Settings::get_max_message_size() {
+unsigned long Settings::get_max_message_size() {
 	return this->max_message_size;
 }
 
-long Settings::get_segment_size() {
+unsigned long Settings::get_segment_size() {
 	return this->segment_size;
 }
 
-long Settings::get_max_cached_memory() {
+unsigned long Settings::get_max_cached_memory() {
 	return this->max_cached_memory;
 }
 
-long Settings::get_flush_to_disk_after_ms() {
+unsigned long Settings::get_flush_to_disk_after_ms() {
 	return this->flush_to_disk_after_ms;
 }
 
-int Settings::get_request_parallelism() {
+unsigned int Settings::get_request_parallelism() {
 	return this->request_parallelism;
 }
 
-int Settings::get_request_polling_interval_ms() {
+unsigned int Settings::get_request_polling_interval_ms() {
 	return this->request_polling_interval_ms;
 }
 
-int Settings::get_maximum_connections() {
+unsigned int Settings::get_maximum_connections() {
 	return this->maximum_connections;
 }
 
-long Settings::get_request_timeout_ms() {
+unsigned long Settings::get_request_timeout_ms() {
 	return this->request_timeout_ms;
 }
 
@@ -228,7 +228,7 @@ const std::string& Settings::get_internal_ip() {
 	return this->internal_ip;
 }
 
-int Settings::get_internal_port() {
+unsigned int Settings::get_internal_port() {
 	return this->internal_port;
 }
 
@@ -256,7 +256,7 @@ const std::string& Settings::get_external_ip() {
 	return this->external_ip;
 }
 
-int Settings::get_external_port() {
+unsigned int Settings::get_external_port() {
 	return this->external_port;
 }
 

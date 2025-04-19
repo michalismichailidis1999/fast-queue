@@ -91,6 +91,12 @@ bool PartitionSegment::get_is_read_only() {
 	return this->is_read_only;
 }
 
+long PartitionSegment::add_written_bytes(long bytes) {
+	std::lock_guard<std::mutex> lock(this->mut);
+	this->total_written_bytes += bytes;
+	return this->total_written_bytes;
+}
+
 std::tuple<long, std::shared_ptr<char>> PartitionSegment::get_metadata_bytes() {
 	std::lock_guard<std::mutex> lock(this->mut);
 

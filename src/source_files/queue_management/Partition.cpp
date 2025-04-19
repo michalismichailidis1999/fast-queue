@@ -1,13 +1,18 @@
 #include "../../header_files/queue_management/Partition.h"
 
-Partition::Partition(unsigned int partition_id) {
+Partition::Partition(unsigned int partition_id, const std::string& queue_name) {
+	this->queue_name = queue_name;
 	this->partition_id = partition_id;
 	this->current_segment = 0;
 	this->oldest_segment = 0;
 	this->largest_message_offset = 0;
 }
 
-int Partition::get_partition_id() {
+const std::string& Partition::get_queue_name() {
+	return this->queue_name;
+}
+
+unsigned int Partition::get_partition_id() {
 	return this->partition_id;
 }
 

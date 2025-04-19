@@ -9,17 +9,17 @@ struct ConnectionInfo;
 class Settings {
 private:
 	// general properties
-	int node_id;
+	unsigned int node_id;
 
-	long max_message_size;
-	long segment_size;
-	long max_cached_memory;
-	long flush_to_disk_after_ms;
+	unsigned long max_message_size;
+	unsigned long segment_size;
+	unsigned long max_cached_memory;
+	unsigned long flush_to_disk_after_ms;
 
-	int request_parallelism;
-	int request_polling_interval_ms;
-	int maximum_connections;
-	long request_timeout_ms;
+	unsigned int request_parallelism;
+	unsigned int request_polling_interval_ms;
+	unsigned int maximum_connections;
+	unsigned long request_timeout_ms;
 
 	std::string log_path;
 	std::string trace_log_path;
@@ -33,7 +33,7 @@ private:
 
 	// internal communication properties
 	std::string internal_ip;
-	int internal_port;
+	unsigned int internal_port;
 
 	bool internal_ssl_enabled;
 	std::string internal_ssl_cert_path;
@@ -43,7 +43,7 @@ private:
 
 	// external communication properties
 	std::string external_ip;
-	int external_port;
+	unsigned int external_port;
 
 	bool external_ssl_enabled;
 	std::string external_ssl_cert_path;
@@ -56,17 +56,17 @@ public:
 	Settings(char* conf, long total_conf_chars);
 
 	// general properties getters
-	int get_node_id();
+	unsigned int get_node_id();
 
-	long get_max_message_size();
-	long get_segment_size();
-	long get_max_cached_memory();
-	long get_flush_to_disk_after_ms();
+	unsigned long get_max_message_size();
+	unsigned long get_segment_size();
+	unsigned long get_max_cached_memory();
+	unsigned long get_flush_to_disk_after_ms();
 
-	int get_request_parallelism();
-	int get_request_polling_interval_ms();
-	int get_maximum_connections();
-	long get_request_timeout_ms();
+	unsigned int get_request_parallelism();
+	unsigned int get_request_polling_interval_ms();
+	unsigned int get_maximum_connections();
+	unsigned long get_request_timeout_ms();
 
 	const std::string& get_log_path();
 	const std::string& get_trace_log_path();
@@ -80,7 +80,7 @@ public:
 
 	// internal communication properties getters
 	const std::string& get_internal_ip();
-	int get_internal_port();
+	unsigned int get_internal_port();
 
 	bool get_internal_ssl_enabled();
 	const std::string& get_internal_ssl_cert_path();
@@ -90,7 +90,7 @@ public:
 
 	// external communication properties getters
 	const std::string& get_external_ip();
-	int get_external_port();
+	unsigned int get_external_port();
 
 	bool get_external_ssl_enabled();
 	const std::string& get_external_ssl_cert_path();

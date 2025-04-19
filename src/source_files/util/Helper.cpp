@@ -28,3 +28,7 @@ bool Helper::has_valid_checksum(void* metadata) {
 
 	return metadata_checksum == checksum;
 }
+
+bool Helper::is_internal_queue(const std::string& queue_name) {
+	return queue_name == CLUSTER_METADATA_QUEUE_NAME;
+}

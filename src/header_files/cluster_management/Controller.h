@@ -9,7 +9,7 @@
 #include "../Settings.h"
 #include "../network_management/ConnectionsManager.h"
 #include "../requests_management/ResponseMapper.h"
-#include "../file_management/DiskFlusher.h"
+#include "../queue_management/messages_management/MessagesHandler.h"
 #include "../queue_management/QueueMetadata.h"
 #include "../requests_management/ClassToByteTransformer.h"
 #include "./ClusterMetadata.h"
@@ -28,7 +28,7 @@ class Controller {
 private:
 	ConnectionsManager* cm;
 	ResponseMapper* response_mapper;
-	DiskFlusher* df;
+	MessagesHandler* mh;
 	Util* util;
 	Logger* logger;
 	Settings* settings;
@@ -89,7 +89,7 @@ private:
 
 	void insert_commands_to_log(std::vector<Command>* commands);
 public:
-	Controller(ConnectionsManager* cm, DiskFlusher* df, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, std::atomic_bool* should_terminate);
+	Controller(ConnectionsManager* cm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, std::atomic_bool* should_terminate);
 
 	std::shared_ptr<AppendEntriesResponse> handle_leader_append_entries(AppendEntriesRequest* request);
 	std::shared_ptr<RequestVoteResponse> handle_candidate_request_vote(RequestVoteRequest* request);
