@@ -1,8 +1,9 @@
 #include "../../header_files/cluster_management/Commands.h"
 
-Command::Command(CommandType type, unsigned long long metadata_version, unsigned long long timestamp, std::shared_ptr<void> command_info) {
+Command::Command(CommandType type, unsigned long long term, unsigned long long timestamp, std::shared_ptr<void> command_info) {
+	this->term = term;
 	this->type = type;
-	this->metadata_version = metadata_version;
+	this->metadata_version = 0;
 	this->timestamp = timestamp;
 	this->command_info = command_info;
 }
@@ -10,8 +11,8 @@ Command::Command(CommandType type, unsigned long long metadata_version, unsigned
 Command::Command(void* metadata) {
 	memcpy_s(&this->type, COMMAND_TYPE_SIZE, (char*)metadata + COMMAND_TYPE_OFFSET, COMMAND_TYPE_SIZE);
 	memcpy_s(&this->term, COMMAND_TERM_SIZE, (char*)metadata + COMMAND_TERM_SIZE, COMMAND_TERM_SIZE);
-	memcpy_s(&this->metadata_version, COMMAND_METADATA_VERSION_SIZE, (char*)metadata + COMMAND_METADATA_VERSION_OFFSET, COMMAND_METADATA_VERSION_SIZE);
-	memcpy_s(&this->timestamp, COMMAND_TIMESTAMP_SIZE, (char*)metadata + COMMAND_TIMESTAMP_OFFSET, COMMAND_TIMESTAMP_SIZE);
+
+	Helper::retrieve_message_metadata_values(metadata, &this->metadata_version, &this->timestamp);
 
 	switch (this->type) {
 	case CommandType::CREATE_QUEUE:
@@ -37,11 +38,17 @@ void* Command::get_command_info() {
 }
 
 unsigned long long Command::get_metadata_version() {
+	std::lock_guard<std::mutex> lock(this->mut);
 	return this->metadata_version;
 }
 
 unsigned long long Command::get_timestamp() {
 	return this->timestamp;
+}
+
+void Command::set_metadata_version(unsigned long long metadata_version) {
+	std::lock_guard<std::mutex> lock(this->mut);
+	this->metadata_version = metadata_version;
 }
 
 std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
@@ -68,11 +75,10 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[total_bytes]);
 
 	Helper::add_common_metadata_values(bytes.get(), total_bytes);
+	Helper::add_message_metadata_values(bytes.get(), this->metadata_version, this->timestamp);
 
 	memcpy_s(bytes.get() + COMMAND_TYPE_OFFSET, COMMAND_TYPE_SIZE, &this->type, COMMAND_TYPE_SIZE);
 	memcpy_s(bytes.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE, &this->term, COMMAND_TERM_SIZE);
-	memcpy_s(bytes.get() + COMMAND_METADATA_VERSION_OFFSET, COMMAND_METADATA_VERSION_SIZE, &this->metadata_version, COMMAND_METADATA_VERSION_SIZE);
-	memcpy_s(bytes.get() + COMMAND_TIMESTAMP_OFFSET, COMMAND_TIMESTAMP_SIZE, &this->timestamp, COMMAND_TIMESTAMP_SIZE);
 
 	switch (this->type) {
 	case CommandType::CREATE_QUEUE:

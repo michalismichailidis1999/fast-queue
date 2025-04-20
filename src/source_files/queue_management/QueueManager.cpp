@@ -31,3 +31,11 @@ void QueueManager::get_all_queue_names(std::vector<std::string>* queues_list) {
 	for (auto iter : this->queues)
 		(*queues_list).push_back(iter.first);
 }
+
+void QueueManager::create_queue(QueueMetadata* metadata) {
+
+}
+
+void QueueManager::delete_queue(const std::string& queue_name) {
+
+}

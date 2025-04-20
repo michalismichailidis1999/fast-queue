@@ -13,6 +13,16 @@ void Helper::add_common_metadata_values(void* metadata, long total_bytes) {
 	memcpy_s((char*)metadata + CHECKSUM_OFFSET, CHECKSUM_SIZE, &checksum, CHECKSUM_SIZE);
 }
 
+void Helper::add_message_metadata_values(void* metadata, unsigned long long message_id, unsigned long long timestamp) {
+	memcpy_s((char*)metadata + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &message_id, MESSAGE_ID_SIZE);
+	memcpy_s((char*)metadata + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE, &timestamp, MESSAGE_TIMESTAMP_SIZE);
+}
+
+void Helper::retrieve_message_metadata_values(void* metadata, unsigned long long* message_id, unsigned long long* timestamp) {
+	memcpy_s(message_id, MESSAGE_ID_SIZE, (char*)metadata + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+	memcpy_s(timestamp, MESSAGE_TIMESTAMP_SIZE, (char*)metadata + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE);
+}
+
 bool Helper::has_valid_checksum(void* metadata) {
 	unsigned long long metadata_checksum = 0;
 	long total_bytes = 0;

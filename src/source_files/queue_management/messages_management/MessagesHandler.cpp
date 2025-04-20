@@ -20,6 +20,10 @@ void MessagesHandler::save_messages(Partition* partition, void* messages, long t
 
 	long total_segment_bytes = partition->get_active_segment()->add_written_bytes(total_bytes);
 
-	if (this->settings->get_segment_size() < total_segment_bytes)
+	//if (this->settings->get_segment_size() < total_segment_bytes)
+	//	this->sa->allocate_new_segment(partition);
+
+	if (100 < total_segment_bytes) {
 		this->sa->allocate_new_segment(partition);
+	}
 }

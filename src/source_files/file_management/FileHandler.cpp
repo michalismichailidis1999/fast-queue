@@ -138,7 +138,7 @@ void FileHandler::write_to_file(FileStream* fs, long buffer_size, long pos, void
 
 	fwrite((char*)data, sizeof(char), buffer_size, fs->file);
 
-	fs->end_pos += buffer_size;
+	if(pos == -1 || fs->end_pos - pos < buffer_size) fs->end_pos += pos == -1 ? buffer_size : buffer_size - (fs->end_pos - pos);
 
 	if(flush_data) fflush(fs->file);
 

@@ -176,6 +176,50 @@ void Controller::append_entries_to_followers() {
 	req.get()->prev_log_index = 0;
 	req.get()->prev_log_term = 0;
 
+	long commands_total_bytes = 0;
+	int total_commands = 0;
+
+	long remaining_messsage_bytes = this->settings->get_max_message_size();
+
+	remaining_messsage_bytes -= 2 * sizeof(long) - sizeof(RequestType) - sizeof(int) * 2 - sizeof(unsigned long long) * 4 - sizeof(RequestValueKey) * 8;
+
+	for (auto& command : this->log) {
+		switch (command.get_command_type()) {
+		case CommandType::CREATE_QUEUE:
+			remaining_messsage_bytes -= CQ_COMMAND_TOTAL_BYTES;
+			commands_total_bytes += CQ_COMMAND_TOTAL_BYTES;
+			break;
+		case CommandType::ALTER_PARTITION_ASSIGNMENT:
+			remaining_messsage_bytes -= PA_COMMAND_TOTAL_BYTES;
+			commands_total_bytes += PA_COMMAND_TOTAL_BYTES;
+			break;
+		case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
+			remaining_messsage_bytes -= PLA_COMMAND_TOTAL_BYTES;
+			commands_total_bytes += PLA_COMMAND_TOTAL_BYTES;
+			break;
+		default:
+			continue;
+		}
+
+		if (remaining_messsage_bytes < 0) break;
+
+		total_commands++;
+	}
+
+	std::unique_ptr<char> commands = std::unique_ptr<char>(new char[commands_total_bytes]);
+	long offset = 0;
+
+	for (int i = 0; i < total_commands; i++) {
+		std::tuple<long, std::shared_ptr<void>> bytes_tup = this->log[i].get_metadata_bytes();
+		long total_bytes = std::get<0>(bytes_tup);
+		memcpy_s(commands.get() + offset, total_bytes, std::get<1>(bytes_tup).get(), total_bytes);
+		offset += total_bytes;
+	}
+
+	req.get()->total_commands = total_commands;
+	req.get()->commands_total_bytes = commands_total_bytes;
+	req.get()->commands_data = commands.get();
+
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
 
 	int replication_count = 1;
@@ -230,12 +274,15 @@ void Controller::append_entries_to_followers() {
 		else replication_count++;
 	}
 
-	if (replication_count >= this->half_quorum_nodes_count)
-		for (auto& command : this->log)
-			this->cluster_metadata->apply_command(&command);
+	if (replication_count >= this->half_quorum_nodes_count) {
+		for (int i = 0; i < total_commands; i++)
+			this->apply_command(&this->log[i], false);
 
-	connections_lock.unlock();
+		this->log.erase(this->log.begin(), this->log.begin() + total_commands);
+	}
+
 	log_lock.unlock();
+	connections_lock.unlock();
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(LEADER_TIMEOUT));
 }
@@ -544,7 +591,7 @@ void Controller::repartition_node_data(int node_id) {
 		for (auto& change : cluster_changes)
 			commands.emplace_back(Command(
 				std::get<0>(change),
-				++this->future_cluster_metadata->metadata_version,
+				this->term,
 				timestamp,
 				std::get<1>(change)
 			));
@@ -589,7 +636,7 @@ void Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetad
 
 	commands.emplace_back(Command(
 		CommandType::CREATE_QUEUE,
-		++this->future_cluster_metadata->metadata_version,
+		this->term,
 		timestamp,
 		command_info
 	));
@@ -597,7 +644,7 @@ void Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetad
 	for (auto& change : cluster_changes)
 		commands.emplace_back(Command(
 			std::get<0>(change),
-			++this->future_cluster_metadata->metadata_version,
+			this->term,
 			timestamp,
 			std::get<1>(change)
 		));
@@ -650,15 +697,36 @@ bool Controller::is_data_node_alive(int node_id) {
 
 int Controller::get_active_nodes_count() {
 	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
-	return this->data_nodes_heartbeats.size() + 1;
+	return this->data_nodes_heartbeats.size() + 1; // +1 is for current node running
 }
 
 void Controller::insert_commands_to_log(std::vector<Command>* commands) {
-	// TODO: Insert commands to disk
-
 	std::lock_guard<std::mutex> lock(this->log_mut);
 
 	if (commands->size() == 0) return;
 
+	for (auto& command : *commands)
+		command.set_metadata_version(++this->future_cluster_metadata->metadata_version);
+
 	this->log.insert(this->log.end(), commands->begin(), commands->end());
+}
+
+void Controller::apply_command(Command* command, bool execute_command) {
+	this->cluster_metadata->apply_command(command);
+
+	if (execute_command) {
+		switch (command->get_command_type()) {
+		case CommandType::CREATE_QUEUE:
+			this->execute_create_queue_command((CreateQueueCommand*)command->get_command_info());
+			break;
+		default:
+			break;
+		}
+	}
+
+	// TODO: Commit command
+}
+
+void Controller::execute_create_queue_command(CreateQueueCommand* command) {
+	QueueMetadata* metadata = this->cluster_metadata->get_queue_metadata(command->get_queue_name());
 }

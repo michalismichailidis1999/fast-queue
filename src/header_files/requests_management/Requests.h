@@ -4,10 +4,13 @@
 
 struct AppendEntriesRequest {
 	int leader_id;
-	long long term;
-	long long prev_log_index;
-	long long prev_log_term;
-	long long leader_commit;
+	unsigned long long term;
+	unsigned long long prev_log_index;
+	unsigned long long prev_log_term;
+	unsigned long long leader_commit;
+	int total_commands;
+	long commands_total_bytes;
+	void* commands_data;
 };
 
 struct CreateQueueRequest {

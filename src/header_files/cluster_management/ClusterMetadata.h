@@ -29,6 +29,10 @@ private:
 	std::mutex nodes_partitions_mut;
 	std::mutex queues_mut;
 
+	void apply_create_queue_command(CreateQueueCommand* command);
+	void apply_partition_assignment_command(PartitionAssignmentCommand* command);
+	void apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command);
+
 public:
 	ClusterMetadata(int node_id);
 	ClusterMetadata();

@@ -54,11 +54,11 @@ private:
 
 	std::atomic_int vote_for;
 
-	std::atomic<long long> term;
-	std::atomic<long long> commit_index;
-	std::atomic<long long> last_applied;
-	std::atomic<long long> last_log_index;
-	std::atomic<long long> last_log_term;
+	std::atomic<unsigned long long> term;
+	std::atomic<unsigned long long> commit_index;
+	std::atomic<unsigned long long> last_applied;
+	std::atomic<unsigned long long> last_log_index;
+	std::atomic<unsigned long long> last_log_term;
 
 	std::vector<Command> log;
 	std::mutex log_mut;
@@ -88,6 +88,10 @@ private:
 	void rollback_cluster_metadata_changes(std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes);
 
 	void insert_commands_to_log(std::vector<Command>* commands);
+
+	void apply_command(Command* command, bool execute_command = true);
+
+	void execute_create_queue_command(CreateQueueCommand* command);
 public:
 	Controller(ConnectionsManager* cm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, std::atomic_bool* should_terminate);
 

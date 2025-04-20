@@ -2,6 +2,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <mutex>
 #include "../util/Helper.h"
 #include "../Enums.h"
 #include "../Constants.h"
@@ -14,8 +15,10 @@ private:
 	unsigned long long timestamp;
 
 	std::shared_ptr<void> command_info;
+
+	std::mutex mut;
 public:
-	Command(CommandType type, unsigned long long metadata_version, unsigned long long timestamp, std::shared_ptr<void> command_info);
+	Command(CommandType type, unsigned long long term, unsigned long long timestamp, std::shared_ptr<void> command_info);
 
 	Command(void* metadata);
 
@@ -24,6 +27,8 @@ public:
 	void* get_command_info();
 	unsigned long long get_metadata_version();
 	unsigned long long get_timestamp();
+
+	void set_metadata_version(unsigned long long metadata_version);
 
 	std::tuple<long, std::shared_ptr<char>> get_metadata_bytes();
 };
