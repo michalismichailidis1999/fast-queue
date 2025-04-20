@@ -1,9 +1,10 @@
 #include "../../header_files/cluster_management/Controller.h"
 
-Controller::Controller(ConnectionsManager* cm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, std::atomic_bool* should_terminate)
+Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, std::atomic_bool* should_terminate)
 	: generator(std::random_device{}()), distribution(HEARTBEAT_SIGNAL_MIN_BOUND, HEARTBEAT_SIGNAL_MAX_BOUND)
 {
 	this->cm = cm;
+	this->qm = qm;
 	this->mh = mh;
 	this->response_mapper = response_mapper;
 	this->transformer = transformer;
@@ -722,4 +723,6 @@ void Controller::apply_command(void* command_metadata, bool execute_command) {
 
 void Controller::execute_create_queue_command(CreateQueueCommand* command) {
 	QueueMetadata* metadata = this->cluster_metadata->get_queue_metadata(command->get_queue_name());
+
+	this->qm->create_queue(metadata);
 }

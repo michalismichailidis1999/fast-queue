@@ -54,5 +54,6 @@ void Partition::set_largest_message_offset(unsigned long long largest_message_of
 void Partition::set_active_segment(std::shared_ptr<PartitionSegment> segment) {
 	std::lock_guard<std::mutex> lock(this->mut);
 	this->active_segment = segment;
+	this->oldest_segment = this->current_segment;
 	this->current_segment = this->active_segment.get()->get_id();
 }

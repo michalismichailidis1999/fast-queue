@@ -5,6 +5,22 @@ QueueSegmentFilePathMapper::QueueSegmentFilePathMapper(Util* util, Settings* set
 	this->settings = settings;
 }
 
+std::string QueueSegmentFilePathMapper::get_queue_folder_path(const std::string& queue_name) {
+	return this->settings->get_log_path()
+		+ "/"
+		+ queue_name;
+}
+
+std::string QueueSegmentFilePathMapper::get_partition_folder_path(const std::string& queue_name, int partition_id) {
+	if (Helper::is_internal_queue(queue_name)) return "";
+
+	return this->settings->get_log_path()
+		+ "/"
+		+ queue_name
+		+ "/partition-"
+		+ std::to_string(partition_id);
+}
+
 std::string QueueSegmentFilePathMapper::get_file_key(const std::string& queue_name, unsigned long long segment_id) {
 	return queue_name + "_" + std::to_string(segment_id);
 }

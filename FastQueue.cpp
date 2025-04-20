@@ -506,7 +506,7 @@ int main(int argc, char* argv[])
 
     std::unique_ptr<QueueSegmentFilePathMapper> pm = std::unique_ptr<QueueSegmentFilePathMapper>(new QueueSegmentFilePathMapper(util.get(), settings.get()));
 
-    std::unique_ptr<QueueManager> qm = std::unique_ptr<QueueManager>(new QueueManager());
+    std::unique_ptr<QueueManager> qm = std::unique_ptr<QueueManager>(new QueueManager(fh.get(), pm.get(), server_logger.get()));
 
     initialize_required_folders_and_queues(settings.get(), fh.get(), pm.get(), qm.get(), util.get());
 
@@ -529,7 +529,7 @@ int main(int argc, char* argv[])
     std::unique_ptr<ClusterMetadata> future_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 
     std::unique_ptr<Controller> controller = settings.get()->get_is_controller_node()
-        ? std::unique_ptr<Controller>(new Controller(cm.get(), mh.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), cluster_metadata.get(), future_cluster_metadata.get(), &should_terminate))
+        ? std::unique_ptr<Controller>(new Controller(cm.get(), qm.get(), mh.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), cluster_metadata.get(), future_cluster_metadata.get(), &should_terminate))
         : nullptr;
 
     std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), cluster_metadata.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));

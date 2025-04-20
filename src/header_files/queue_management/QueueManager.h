@@ -7,14 +7,21 @@
 #include "./Queue.h"
 #include "./messages_management/Producer.h"
 #include "./messages_management/Consumer.h"
+#include "../file_management/FileHandler.h"
+#include "../file_management/QueueSegmentFilePathMapper.h"
+#include "../logging/Logger.h"
 
 class QueueManager {
 private:
+	FileHandler* fh;
+	QueueSegmentFilePathMapper* pm;
+	Logger* logger;
+
 	std::map<std::string, std::shared_ptr<Queue>> queues;
 
 	std::mutex mut;
 public:
-	QueueManager();
+	QueueManager(FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger);
 
 	void add_queue(std::shared_ptr<Queue> queue);
 	bool has_queue(const std::string& queue_name);
