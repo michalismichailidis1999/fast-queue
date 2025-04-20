@@ -58,13 +58,16 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 
 	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &total_commands_type, sizeof(RequestValueKey));
 	offset += sizeof(RequestValueKey);
-
+	
 	memcpy_s(buf.get() + offset, sizeof(int), &obj->total_commands, sizeof(int));
 	offset += sizeof(int);
-
+	
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &commands_total_bytes_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+	
 	memcpy_s(buf.get() + offset, sizeof(long), &obj->commands_total_bytes, sizeof(int));
 	offset += sizeof(long);
-
+	
 	memcpy_s(buf.get() + offset, obj->commands_total_bytes, obj->commands_data, obj->commands_total_bytes);
 
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);

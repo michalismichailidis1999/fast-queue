@@ -184,24 +184,15 @@ void Controller::append_entries_to_followers() {
 	remaining_messsage_bytes -= 2 * sizeof(long) - sizeof(RequestType) - sizeof(int) * 2 - sizeof(unsigned long long) * 4 - sizeof(RequestValueKey) * 8;
 
 	for (auto& command : this->log) {
-		switch (command.get_command_type()) {
-		case CommandType::CREATE_QUEUE:
-			remaining_messsage_bytes -= CQ_COMMAND_TOTAL_BYTES;
-			commands_total_bytes += CQ_COMMAND_TOTAL_BYTES;
-			break;
-		case CommandType::ALTER_PARTITION_ASSIGNMENT:
-			remaining_messsage_bytes -= PA_COMMAND_TOTAL_BYTES;
-			commands_total_bytes += PA_COMMAND_TOTAL_BYTES;
-			break;
-		case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
-			remaining_messsage_bytes -= PLA_COMMAND_TOTAL_BYTES;
-			commands_total_bytes += PLA_COMMAND_TOTAL_BYTES;
-			break;
-		default:
-			continue;
-		}
+		long command_bytes = 0;
+
+		memcpy_s(&command_bytes, sizeof(long), command.get() + TOTAL_METADATA_BYTES_OFFSET, sizeof(long));
+
+		remaining_messsage_bytes -= command_bytes;
 
 		if (remaining_messsage_bytes < 0) break;
+
+		commands_total_bytes += command_bytes;
 
 		total_commands++;
 	}
@@ -210,10 +201,10 @@ void Controller::append_entries_to_followers() {
 	long offset = 0;
 
 	for (int i = 0; i < total_commands; i++) {
-		std::tuple<long, std::shared_ptr<void>> bytes_tup = this->log[i].get_metadata_bytes();
-		long total_bytes = std::get<0>(bytes_tup);
-		memcpy_s(commands.get() + offset, total_bytes, std::get<1>(bytes_tup).get(), total_bytes);
-		offset += total_bytes;
+		long command_bytes = 0;
+		memcpy_s(&command_bytes, sizeof(long), this->log[i].get() + TOTAL_METADATA_BYTES_OFFSET, sizeof(long));
+		memcpy_s(commands.get() + offset, command_bytes, this->log[i].get(), command_bytes);
+		offset += command_bytes;
 	}
 
 	req.get()->total_commands = total_commands;
@@ -276,7 +267,7 @@ void Controller::append_entries_to_followers() {
 
 	if (replication_count >= this->half_quorum_nodes_count) {
 		for (int i = 0; i < total_commands; i++)
-			this->apply_command(&this->log[i], false);
+			this->apply_command(this->log[i].get(), false);
 
 		this->log.erase(this->log.begin(), this->log.begin() + total_commands);
 	}
@@ -705,19 +696,21 @@ void Controller::insert_commands_to_log(std::vector<Command>* commands) {
 
 	if (commands->size() == 0) return;
 
-	for (auto& command : *commands)
+	for (auto& command : *commands) {
 		command.set_metadata_version(++this->future_cluster_metadata->metadata_version);
-
-	this->log.insert(this->log.end(), commands->begin(), commands->end());
+		this->log.emplace_back(std::get<1>(command.get_metadata_bytes()));
+	}
 }
 
-void Controller::apply_command(Command* command, bool execute_command) {
-	this->cluster_metadata->apply_command(command);
+void Controller::apply_command(void* command_metadata, bool execute_command) {
+	Command command = Command(command_metadata);
+
+	this->cluster_metadata->apply_command(&command);
 
 	if (execute_command) {
-		switch (command->get_command_type()) {
+		switch (command.get_command_type()) {
 		case CommandType::CREATE_QUEUE:
-			this->execute_create_queue_command((CreateQueueCommand*)command->get_command_info());
+			this->execute_create_queue_command((CreateQueueCommand*)command.get_command_info());
 			break;
 		default:
 			break;

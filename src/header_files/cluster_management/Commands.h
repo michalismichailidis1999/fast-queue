@@ -16,7 +16,7 @@ private:
 
 	std::shared_ptr<void> command_info;
 
-	std::mutex mut;
+	//std::mutex mut;
 public:
 	Command(CommandType type, unsigned long long term, unsigned long long timestamp, std::shared_ptr<void> command_info);
 

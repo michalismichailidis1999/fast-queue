@@ -37,17 +37,17 @@ void* Command::get_command_info() {
 	return this->command_info.get();
 }
 
-unsigned long long Command::get_metadata_version() {
-	std::lock_guard<std::mutex> lock(this->mut);
-	return this->metadata_version;
-}
-
 unsigned long long Command::get_timestamp() {
 	return this->timestamp;
 }
 
+unsigned long long Command::get_metadata_version() {
+	//std::lock_guard<std::mutex> lock(this->mut);
+	return this->metadata_version;
+}
+
 void Command::set_metadata_version(unsigned long long metadata_version) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	//std::lock_guard<std::mutex> lock(this->mut);
 	this->metadata_version = metadata_version;
 }
 

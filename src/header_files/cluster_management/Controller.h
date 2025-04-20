@@ -60,7 +60,7 @@ private:
 	std::atomic<unsigned long long> last_log_index;
 	std::atomic<unsigned long long> last_log_term;
 
-	std::vector<Command> log;
+	std::vector<std::shared_ptr<char>> log;
 	std::mutex log_mut;
 
 	long long first_cached_log_index;
@@ -89,7 +89,7 @@ private:
 
 	void insert_commands_to_log(std::vector<Command>* commands);
 
-	void apply_command(Command* command, bool execute_command = true);
+	void apply_command(void* command_metadata, bool execute_command = true);
 
 	void execute_create_queue_command(CreateQueueCommand* command);
 public:
