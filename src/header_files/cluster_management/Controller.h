@@ -87,11 +87,9 @@ private:
 
 	void repartition_node_data(int node_id);
 
-	void rollback_cluster_metadata_changes(std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes);
-
 	void insert_commands_to_log(std::vector<Command>* commands);
 
-	void apply_command(void* command_metadata, bool execute_command = true);
+	void execute_command(void* command_metadata);
 
 	void execute_create_queue_command(CreateQueueCommand* command);
 public:

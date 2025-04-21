@@ -43,6 +43,11 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 void Controller::run_controller_quorum_communication() {
 	while (!(*this->should_terminate)) {
 		if (this->is_the_only_controller_node) {
+			for(auto& command : this->log)
+				this->execute_command(command.get());
+
+			this->log.clear();
+
 			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 			continue;
 		}
@@ -268,7 +273,7 @@ void Controller::append_entries_to_followers() {
 
 	if (replication_count >= this->half_quorum_nodes_count) {
 		for (int i = 0; i < total_commands; i++)
-			this->apply_command(this->log[i].get(), false);
+			this->execute_command(this->log[i].get());
 
 		this->log.erase(this->log.begin(), this->log.begin() + total_commands);
 	}
@@ -381,10 +386,6 @@ void Controller::update_data_node_heartbeat(int node_id, bool is_first_connectio
 	}
 
 	this->logger->log_info("Node " + std::to_string(node_id) + " heartbeat updated");
-}
-
-void Controller::rollback_cluster_metadata_changes(std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes) {
-
 }
 
 void Controller::assign_partition_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int owner_node) {
@@ -703,26 +704,36 @@ void Controller::insert_commands_to_log(std::vector<Command>* commands) {
 	}
 }
 
-void Controller::apply_command(void* command_metadata, bool execute_command) {
+void Controller::execute_command(void* command_metadata) {
 	Command command = Command(command_metadata);
 
 	this->cluster_metadata->apply_command(&command);
 
-	if (execute_command) {
-		switch (command.get_command_type()) {
-		case CommandType::CREATE_QUEUE:
-			this->execute_create_queue_command((CreateQueueCommand*)command.get_command_info());
-			break;
-		default:
-			break;
-		}
+	switch (command.get_command_type()) {
+	case CommandType::CREATE_QUEUE:
+		this->execute_create_queue_command((CreateQueueCommand*)command.get_command_info());
+		break;
+	default:
+		break;
 	}
 
-	// TODO: Commit command
+	this->commit_index = command.get_metadata_version();
 }
 
 void Controller::execute_create_queue_command(CreateQueueCommand* command) {
 	QueueMetadata* metadata = this->cluster_metadata->get_queue_metadata(command->get_queue_name());
 
+	if (metadata == NULL) {
+		std::shared_ptr<QueueMetadata> new_metadata = std::shared_ptr<QueueMetadata>(
+			new QueueMetadata(command->get_queue_name(), command->get_partitions(), command->get_replication_factor())
+		);
+
+		new_metadata.get()->set_status(Status::PENDING_CREATION);
+
+		metadata = new_metadata.get();
+	}
+
 	this->qm->create_queue(metadata);
+
+	metadata->set_status(Status::ACTIVE);
 }

@@ -1,8 +1,9 @@
 #include "../../header_files/util/Helper.h"
 
-void Helper::add_common_metadata_values(void* metadata, long total_bytes) {
+void Helper::add_common_metadata_values(void* metadata, long total_bytes, ObjectType type) {
 	memcpy_s((char*)metadata + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES, &total_bytes, TOTAL_METADATA_BYTES);
 	memcpy_s((char*)metadata + VERSION_SIZE_OFFSET, VERSION_SIZE, &VERSION_INT_FORMAT, VERSION_SIZE);
+	memcpy_s((char*)metadata + OBJECT_TYPE_OFFSET, OBJECT_TYPE_SIZE, &type, OBJECT_TYPE_SIZE);
 
 	unsigned long long checksum = crc32(
 		crc32(0L, Z_NULL, 0), 

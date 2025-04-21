@@ -102,7 +102,7 @@ std::tuple<long, std::shared_ptr<char>> PartitionSegment::get_metadata_bytes() {
 
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
 
-	Helper::add_common_metadata_values((void*)(bytes.get()), SEGMENT_METADATA_TOTAL_BYTES);
+	Helper::add_common_metadata_values((void*)(bytes.get()), SEGMENT_METADATA_TOTAL_BYTES, ObjectType::METADATA);
 
 	memcpy_s(bytes.get() + SEGMENT_ID_OFFSET, SEGMENT_ID_SIZE, &this->id, SEGMENT_ID_SIZE);
 	memcpy_s(bytes.get() + SEGMENT_OLDEST_MESSAGE_TMSTMP_OFFSET, SEGMENT_OLDEST_MESSAGE_TMSTMP_SIZE, &this->oldest_message_timestamp, SEGMENT_OLDEST_MESSAGE_TMSTMP_SIZE);

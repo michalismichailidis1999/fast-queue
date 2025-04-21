@@ -74,7 +74,7 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[total_bytes]);
 
-	Helper::add_common_metadata_values(bytes.get(), total_bytes);
+	Helper::add_common_metadata_values(bytes.get(), total_bytes, ObjectType::MESSAGE);
 	Helper::add_message_metadata_values(bytes.get(), this->metadata_version, this->timestamp);
 
 	memcpy_s(bytes.get() + COMMAND_TYPE_OFFSET, COMMAND_TYPE_SIZE, &this->type, COMMAND_TYPE_SIZE);

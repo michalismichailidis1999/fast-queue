@@ -9,6 +9,9 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 }
 
 void MessagesHandler::save_messages(Partition* partition, void* messages, long total_bytes) {
+	if(partition->get_active_segment()->get_is_read_only())
+		this->sa->allocate_new_segment(partition);
+
 	const std::string& queue_name = partition->get_queue_name();
 	unsigned long long current_segment = partition->get_current_segment();
 	unsigned int partition_id = partition->get_partition_id();

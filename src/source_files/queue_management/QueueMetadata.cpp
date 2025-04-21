@@ -49,7 +49,7 @@ std::tuple<int, std::shared_ptr<char>> QueueMetadata::get_metadata_bytes() {
 
 	int queue_name_length = this->name.size();
 
-	Helper::add_common_metadata_values((void*)(bytes.get()), QUEUE_METADATA_TOTAL_BYTES);
+	Helper::add_common_metadata_values((void*)(bytes.get()), QUEUE_METADATA_TOTAL_BYTES, ObjectType::METADATA);
 
 	memcpy_s(bytes.get() + QUEUE_NAME_OFFSET, queue_name_length, this->name.c_str(), queue_name_length);
 	memcpy_s(bytes.get() + QUEUE_NAME_LENGTH_OFFSET, QUEUE_NAME_LENGTH_SIZE, &queue_name_length, QUEUE_NAME_LENGTH_SIZE);

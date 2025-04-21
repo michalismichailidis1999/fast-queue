@@ -60,6 +60,8 @@ void QueueManager::create_queue(QueueMetadata* metadata) {
 		new QueueMetadata(metadata->get_name(), metadata->get_partitions(), metadata->get_replication_factor())
 	);
 
+	new_metadata.get()->set_status(Status::ACTIVE);
+
 	std::shared_ptr<Queue> queue = std::shared_ptr<Queue>(new Queue(new_metadata));
 
 	for (int i = 0; i < metadata->get_partitions(); i++) {

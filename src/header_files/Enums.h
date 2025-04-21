@@ -124,3 +124,14 @@ enum class CommandType {
 	ALTER_PARTITION_ASSIGNMENT,
 	ALTER_PARTITION_LEADER_ASSIGNMENT
 };
+
+enum class ObjectType {
+	METADATA,
+	MESSAGE,
+	MARKER
+};
+
+enum class CommitMarkerStatus {
+	COMMITED,
+	ABORTED
+};

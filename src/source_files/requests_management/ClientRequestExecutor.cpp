@@ -62,6 +62,8 @@ void ClientRequestExecutor::handle_create_queue_request(SOCKET_ID socket, SSL* s
 		new QueueMetadata(queue_name, request->partitions, request->replication_factor)
 	);
 
+	queue_metadata.get()->set_status(Status::PENDING_CREATION);
+
 	this->controller->assign_new_queue_partitions_to_nodes(queue_metadata);
 
 	std::unique_ptr<CreateQueueResponse> res = std::make_unique<CreateQueueResponse>();

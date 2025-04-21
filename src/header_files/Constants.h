@@ -24,7 +24,12 @@ static const int VERSION_SIZE = sizeof(int);
 static const int VERSION_SIZE_OFFSET = TOTAL_METADATA_BYTES + TOTAL_METADATA_BYTES_OFFSET;
 static const int CHECKSUM_SIZE = sizeof(unsigned long long);
 static const int CHECKSUM_OFFSET = VERSION_SIZE + VERSION_SIZE_OFFSET;
-static const int COMMON_METADATA_TOTAL_BYTES = TOTAL_METADATA_BYTES + VERSION_SIZE + CHECKSUM_SIZE;
+static const int OBJECT_TYPE_SIZE = sizeof(int);
+static const int OBJECT_TYPE_OFFSET = CHECKSUM_SIZE + CHECKSUM_OFFSET;
+static const int COMMON_METADATA_TOTAL_BYTES = TOTAL_METADATA_BYTES + VERSION_SIZE + CHECKSUM_SIZE + OBJECT_TYPE_SIZE;
+
+static const int MARKER_TYPE_SIZE = sizeof(int);
+static const int MARKER_TYPE_OFFSET = COMMON_METADATA_TOTAL_BYTES;
 
 static const int MESSAGE_ID_SIZE = sizeof(unsigned long long); // will be message offset or metadata version of cluster
 static const int MESSAGE_ID_OFFSET = COMMON_METADATA_TOTAL_BYTES;
