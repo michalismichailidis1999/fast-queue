@@ -65,6 +65,9 @@ private:
 	std::vector<std::shared_ptr<char>> log;
 	std::mutex log_mut;
 
+	std::unordered_map<int, unsigned long long> lagging_followers;
+	std::mutex lagging_followers_mut;
+
 	long long first_cached_log_index;
 
 	std::map<int, std::chrono::milliseconds> data_nodes_heartbeats;
@@ -109,4 +112,8 @@ public:
 	void assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata);
 
 	int get_active_nodes_count();
+
+	void check_for_commit_and_last_applied_diff();
+
+	void make_lagging_followers_catchup();
 };

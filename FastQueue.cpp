@@ -575,6 +575,14 @@ int main(int argc, char* argv[])
             controller.get()->check_for_dead_data_nodes();
         };
 
+        auto check_for_commit_and_last_applied_diff = [&]() {
+            controller.get()->check_for_commit_and_last_applied_diff();
+        };
+
+        auto make_lagging_followers_catchup = [&]() {
+            controller.get()->make_lagging_followers_catchup();
+        };
+
         auto send_heartbeats_to_leader = [&]() {
             data_node.get()->send_heartbeats_to_leader(&should_terminate);
         };
@@ -597,11 +605,15 @@ int main(int argc, char* argv[])
 
         std::thread run_quorum_communication_thread;
         std::thread check_dead_data_nodes_thread;
+        std::thread check_for_commit_and_last_applied_diff_thread;
+        std::thread make_lagging_followers_catchup_thread;
         std::thread send_heartbeats_to_leader_thread;
 
         if (settings.get()->get_is_controller_node()) {
             run_quorum_communication_thread = std::thread(run_controller_quorum_communication);
             check_dead_data_nodes_thread = std::thread(check_dead_data_nodes);
+            check_for_commit_and_last_applied_diff_thread = std::thread(check_for_commit_and_last_applied_diff);
+            make_lagging_followers_catchup_thread = std::thread(make_lagging_followers_catchup);
         }
 
         if (!settings.get()->get_is_controller_node())
@@ -612,6 +624,12 @@ int main(int argc, char* argv[])
 
         if (check_dead_data_nodes_thread.joinable())
             check_dead_data_nodes_thread.join();
+
+        if (check_for_commit_and_last_applied_diff_thread.joinable())
+            check_for_commit_and_last_applied_diff_thread.join();
+
+        if (make_lagging_followers_catchup_thread.joinable())
+            make_lagging_followers_catchup_thread.join();
 
         if (send_heartbeats_to_leader_thread.joinable())
             send_heartbeats_to_leader_thread.join();

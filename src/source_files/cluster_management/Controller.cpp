@@ -42,16 +42,6 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 
 void Controller::run_controller_quorum_communication() {
 	while (!(*this->should_terminate)) {
-		if (this->is_the_only_controller_node) {
-			for(auto& command : this->log)
-				this->execute_command(command.get());
-
-			this->log.clear();
-
-			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-			continue;
-		}
-
 		switch (this->get_state())
 		{
 			case NodeState::FOLLOWER:
@@ -167,6 +157,8 @@ void Controller::start_election() {
 	this->set_state(NodeState::LEADER);
 	this->cluster_metadata->set_leader_id(this->settings->get_node_id());
 	this->logger->log_info("Elected as leader");
+	std::lock_guard<std::mutex> lag_lock(this->lagging_followers_mut);
+	this->lagging_followers.clear();
 }
 
 void Controller::append_entries_to_followers() {
@@ -185,6 +177,8 @@ void Controller::append_entries_to_followers() {
 	long commands_total_bytes = 0;
 	int total_commands = 0;
 
+	unsigned long long largest_version_sent = 0;
+
 	long remaining_messsage_bytes = this->settings->get_max_message_size();
 
 	remaining_messsage_bytes -= 2 * sizeof(long) - sizeof(RequestType) - sizeof(int) * 2 - sizeof(unsigned long long) * 4 - sizeof(RequestValueKey) * 8;
@@ -192,7 +186,8 @@ void Controller::append_entries_to_followers() {
 	for (auto& command : this->log) {
 		long command_bytes = 0;
 
-		memcpy_s(&command_bytes, sizeof(long), command.get() + TOTAL_METADATA_BYTES_OFFSET, sizeof(long));
+		memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, command.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+		memcpy_s(&largest_version_sent, MESSAGE_ID_SIZE, command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
 		remaining_messsage_bytes -= command_bytes;
 
@@ -272,10 +267,9 @@ void Controller::append_entries_to_followers() {
 	}
 
 	if (replication_count >= this->half_quorum_nodes_count) {
-		for (int i = 0; i < total_commands; i++)
-			this->execute_command(this->log[i].get());
-
-		this->log.erase(this->log.begin(), this->log.begin() + total_commands);
+		unsigned long long prev_commit_index = this->commit_index;
+		this->commit_index = largest_version_sent;
+		// TODO: Commit here
 	}
 
 	log_lock.unlock();
@@ -598,8 +592,6 @@ void Controller::repartition_node_data(int node_id) {
 }
 
 void Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata) {
-	if (this->get_state() != NodeState::LEADER) return;
-
 	std::lock_guard<std::mutex> partition_assignment_lock(this->partition_assignment_mut);
 	std::lock_guard<std::mutex> heatbeats_lock(this->heartbeats_mut);
 	std::lock_guard<std::mutex> partitions_lock(this->future_cluster_metadata->nodes_partitions_mut);
@@ -698,10 +690,33 @@ void Controller::insert_commands_to_log(std::vector<Command>* commands) {
 
 	if (commands->size() == 0) return;
 
+	long total_bytes = 0;
+	int start_index = this->log.size() - 1;
+
+	if (start_index < 0) start_index = 0;
+
 	for (auto& command : *commands) {
 		command.set_metadata_version(++this->future_cluster_metadata->metadata_version);
-		this->log.emplace_back(std::get<1>(command.get_metadata_bytes()));
+		auto bytes_tup = command.get_metadata_bytes();
+		this->log.emplace_back(std::get<1>(bytes_tup));
+		total_bytes += std::get<0>(bytes_tup);
 	}
+
+	std::unique_ptr<char> messages_bytes = std::unique_ptr<char>(new char[total_bytes]);
+	long offset = 0;
+
+	for (int i = start_index; i < this->log.size(); i++) {
+		long command_bytes = 0;
+		memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, this->log[i].get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+		memcpy_s(messages_bytes.get() + offset, command_bytes, this->log[i].get(), command_bytes);
+		offset += command_bytes;
+	}
+
+	this->mh->save_messages(
+		this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+		messages_bytes.get(),
+		total_bytes
+	);
 }
 
 void Controller::execute_command(void* command_metadata) {
@@ -717,7 +732,7 @@ void Controller::execute_command(void* command_metadata) {
 		break;
 	}
 
-	this->commit_index = command.get_metadata_version();
+	this->last_applied = command.get_metadata_version();
 }
 
 void Controller::execute_create_queue_command(CreateQueueCommand* command) {
@@ -736,4 +751,51 @@ void Controller::execute_create_queue_command(CreateQueueCommand* command) {
 	this->qm->create_queue(metadata);
 
 	metadata->set_status(Status::ACTIVE);
+}
+
+void Controller::check_for_commit_and_last_applied_diff() {
+	while (!(*this->should_terminate)) {
+		if (this->commit_index <= this->last_applied) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+			continue;
+		}
+
+		{
+			std::lock_guard<std::mutex> lock(this->log_mut);
+
+			int to_remove = 0;
+			for (auto& comamnd : this->log) {
+				unsigned long long metadata_version = 0;
+				memcpy_s(&metadata_version, MESSAGE_ID_SIZE, comamnd.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+				if (metadata_version > this->commit_index) break;
+				this->execute_command(comamnd.get());
+				to_remove++;
+			}
+
+			this->log.erase(this->log.begin(), this->log.begin() + to_remove);
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+	}
+}
+
+void Controller::make_lagging_followers_catchup() {
+	while (!(*this->should_terminate)) {
+		std::unique_lock<std::mutex> lock(this->lagging_followers_mut);
+
+		if (this->lagging_followers.size() == 0) {
+			lock.unlock();
+			std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+			continue;
+		}
+
+		// TODO: Do some job here
+		this->logger->log_info("Fixing lagging followers...");
+
+		this->lagging_followers.clear();
+
+		lock.unlock();
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+	}
 }
