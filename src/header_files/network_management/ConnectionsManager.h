@@ -64,6 +64,7 @@ public:
 	bool respond_to_socket_with_error(SOCKET_ID socket, SSL* ssl, ErrorCode error_code, const std::string& error_message);
 
 	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, long buf_len, const std::string& internal_requets_type);
+	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(ConnectionPool* pool, int retries, char* buf, long buf_len, const std::string& internal_requets_type);
 
 	bool connect_to_data_node(int node_id, std::shared_ptr<ConnectionInfo> info, long fail_wait_milli = 3000);
 

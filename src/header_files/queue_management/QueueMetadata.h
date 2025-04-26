@@ -12,6 +12,10 @@ private:
 	unsigned int partitions;
 	unsigned int replication_factor;
 
+	// for __cluster_metadata queue only
+	unsigned long long last_commit_index;
+	unsigned long long last_applied_index;
+
 	Status status;
 
 	std::mutex mut;
@@ -23,6 +27,9 @@ public:
 	const std::string& get_name();
 	unsigned int get_partitions();
 	unsigned int get_replication_factor();
+
+	unsigned long long get_last_commit_index();
+	unsigned long long get_last_applied_index();
 
 	void set_status(Status status);
 	Status get_status();

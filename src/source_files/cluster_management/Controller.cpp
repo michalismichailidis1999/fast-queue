@@ -28,12 +28,13 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	}
 
 	this->term = 0;
-	this->commit_index = 0;
-	this->last_applied = 0;
 	this->last_log_index = 0;
 	this->last_log_term = 0;
 
-	this->first_cached_log_index = 0;
+	QueueMetadata* cluster_metadata_queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_metadata();
+
+	this->commit_index = cluster_metadata_queue->get_last_commit_index();
+	this->last_applied = cluster_metadata_queue->get_last_applied_index();
 
 	this->half_quorum_nodes_count = this->settings->get_controller_nodes()->size() / 2 + 1;
 
@@ -85,31 +86,16 @@ void Controller::start_election() {
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
 
 	for (auto iter : *controller_node_connections) {
-		std::shared_ptr<Connection> connection = iter.second.get()->get_connection();
-
-		if (connection.get() == NULL) {
-			this->logger->log_error(
-				"Could not request vote from node " + std::to_string(iter.first) + ". No connections left in connection pool."
-			);
-			continue;
-		}
-
 		std::tuple<std::shared_ptr<char>, long, bool> res_tup = this->cm->send_request_to_socket(
-			connection.get()->socket,
-			connection.get()->ssl,
+			iter.second.get(),
+			3,
 			std::get<1>(buf_tup).get(),
 			std::get<0>(buf_tup),
 			"RequestVote"
 		);
 
 		if (std::get<1>(res_tup) == -1) {
-			iter.second.get()->add_connection(std::get<2>(res_tup) ? nullptr : connection, true);
-
-			if (std::get<2>(res_tup)) {
-				this->cm->remove_socket_connection_heartbeat(connection.get()->socket);
-				this->logger->log_error("Network issue occured while communicating with node " + std::to_string(iter.first));
-			}
-
+			this->logger->log_error("Network issue occured while communicating with node " + std::to_string(iter.first));
 			continue;
 		}
 
@@ -117,8 +103,6 @@ void Controller::start_election() {
 			std::get<0>(res_tup).get(),
 			std::get<1>(res_tup)
 		);
-
-		iter.second.get()->add_connection(connection, true);
 
 		if (res.get() == NULL) {
 			this->logger->log_error("Invalid mapping value in RequestVoteResponse type");
@@ -171,8 +155,8 @@ void Controller::append_entries_to_followers() {
 	req.get()->leader_id = this->settings->get_node_id();
 	req.get()->term = this->term;
 	req.get()->leader_commit = this->commit_index;
-	req.get()->prev_log_index = 0;
-	req.get()->prev_log_term = 0;
+	req.get()->prev_log_index = this->last_log_index;
+	req.get()->prev_log_term = this->last_log_term;
 
 	long commands_total_bytes = 0;
 	int total_commands = 0;
@@ -217,31 +201,16 @@ void Controller::append_entries_to_followers() {
 	int replication_count = 1;
 
 	for (auto iter : *controller_node_connections) {
-		std::shared_ptr<Connection> connection = iter.second.get()->get_connection();
-
-		if (connection.get() == NULL) {
-			this->logger->log_error(
-				"Could not append entries to node " + std::to_string(iter.first) + ". No connections left in connection pool."
-			);
-			continue;
-		}
-
 		std::tuple<std::shared_ptr<char>, long, bool> res_tup = this->cm->send_request_to_socket(
-			connection.get()->socket,
-			connection.get()->ssl,
+			iter.second.get(),
+			3,
 			std::get<1>(buf_tup).get(),
 			std::get<0>(buf_tup),
 			"AppendEntries"
 		);
 
 		if (std::get<1>(res_tup) == -1) {
-			iter.second.get()->add_connection(std::get<2>(res_tup) ? nullptr : connection, true);
-
-			if (std::get<2>(res_tup)) {
-				this->cm->remove_socket_connection_heartbeat(connection.get()->socket);
-				this->logger->log_error("Network issue occured while communicating with node " + std::to_string(iter.first));
-			}
-
+			this->logger->log_error("Network issue occured while communicating with node " + std::to_string(iter.first));
 			continue;
 		}
 
@@ -249,8 +218,6 @@ void Controller::append_entries_to_followers() {
 			std::get<0>(res_tup).get(),
 			std::get<1>(res_tup)
 		);
-
-		iter.second.get()->add_connection(connection, true);
 
 		if (res.get() == NULL) {
 			this->logger->log_error("Invalid mapping value in AppendEntriesResponse type");
@@ -717,6 +684,17 @@ void Controller::insert_commands_to_log(std::vector<Command>* commands) {
 		messages_bytes.get(),
 		total_bytes
 	);
+
+	auto& last_command = this->log.back();
+
+	unsigned long long last_log_index = 0;
+	unsigned long long last_log_term = 0;
+
+	memcpy_s(&this->last_log_index, MESSAGE_ID_SIZE, last_command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+	memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, last_command.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+
+	this->last_log_index = last_log_index;
+	this->last_log_term = last_log_term;
 }
 
 void Controller::execute_command(void* command_metadata) {

@@ -61,38 +61,21 @@ void DataNode::notify_controllers_about_node_existance(std::atomic_bool* should_
 }
 
 void DataNode::notify_controller_about_node_existance(int node_id, char* req_buf, long req_buf_size, ConnectionPool* pool, std::queue<std::pair<int, ConnectionPool*>>* failed) {
-	std::shared_ptr<Connection> connection = pool->get_connection();
-
-	if (connection.get() == NULL) {
-		this->logger->log_error("Could not notify controller node " + std::to_string(node_id) + " about this node existence. No connections left in pool");
-		if(failed != NULL) failed->emplace(node_id, pool);
-		return;
-	}
-
 	std::tuple<std::shared_ptr<char>, long, bool> res_tup = this->cm->send_request_to_socket(
-		connection.get()->socket,
-		connection.get()->ssl,
+		pool,
+		3,
 		req_buf,
 		req_buf_size,
 		"DataNodeConnection"
 	);
 
 	if (std::get<1>(res_tup) == -1) {
-		pool->add_connection(std::get<2>(res_tup) ? nullptr : connection, true);
-
-		if (std::get<2>(res_tup)) {
-			this->cm->remove_socket_connection_heartbeat(connection.get()->socket);
-			this->logger->log_error("Network issue occured while communicating with node " + std::to_string(node_id));
-		}
-
+		this->logger->log_error("Network issue occured while communicating with node " + std::to_string(node_id));
 		if (failed != NULL) failed->emplace(node_id, pool);
-
 		return;
 	}
 
 	std::unique_ptr<DataNodeConnectionResponse> res = this->response_mapper->to_data_node_connection_response(std::get<0>(res_tup).get(), std::get<1>(res_tup));
-
-	pool->add_connection(connection, true);
 
 	if (res.get() == NULL) {
 		if (failed != NULL) failed->emplace(node_id, pool);
@@ -146,38 +129,21 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 }
 
 bool DataNode::send_heartbeat_to_leader(int* leader_id, char* req_buf, long req_buf_size, ConnectionPool* pool) {
-	std::shared_ptr<Connection> connection = pool->get_connection();
-
-	if (connection.get() == NULL) {
-		this->logger->log_error("Could not send heartbeat to leader (id=" + std::to_string(*leader_id) + "). No connections found in connection pool");
-		*leader_id = this->get_next_leader_id(*leader_id);
-		return false;
-	}
-
 	std::tuple<std::shared_ptr<char>, long, bool> res_tup = this->cm->send_request_to_socket(
-		connection.get()->socket,
-		connection.get()->ssl,
+		pool,
+		3,
 		req_buf,
 		req_buf_size,
 		"DataNodeHeartbeat"
 	);
 
 	if (std::get<1>(res_tup) == -1) {
-		pool->add_connection(std::get<2>(res_tup) ? nullptr : connection, true);
-
-		if (std::get<2>(res_tup)) {
-			this->cm->remove_socket_connection_heartbeat(connection.get()->socket);
-			this->logger->log_error("Could not send heartbeat to leader (id=" + std::to_string(*leader_id) + ").");
-		}
-
+		this->logger->log_error("Could not send heartbeat to leader (id=" + std::to_string(*leader_id) + ").");
 		*leader_id = this->get_next_leader_id(*leader_id);
-
 		return false;
 	}
 
 	std::unique_ptr<DataNodeHeartbeatResponse> res = this->response_mapper->to_data_node_heartbeat_response(std::get<0>(res_tup).get(), std::get<1>(res_tup));
-
-	pool->add_connection(connection, true);
 
 	if (res.get() == NULL) {
 		this->logger->log_error("Invalid mapping value in DataNodeHeartbeatResponse type");

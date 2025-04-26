@@ -5,6 +5,8 @@ QueueMetadata::QueueMetadata(const std::string& name, unsigned int partitions, u
 	this->partitions = partitions;
 	this->replication_factor = replication_factor;
 	this->status = Status::UNKNOWN;
+	this->last_applied_index = 0;
+	this->last_commit_index = 0;
 }
 
 QueueMetadata::QueueMetadata(void* metadata) {
@@ -17,6 +19,8 @@ QueueMetadata::QueueMetadata(void* metadata) {
 	memcpy_s(&queue_name_length, QUEUE_NAME_LENGTH_SIZE, (char*)metadata + QUEUE_NAME_LENGTH_OFFSET, QUEUE_NAME_LENGTH_SIZE);
 	memcpy_s(&this->partitions, QUEUE_PARTITIONS_SIZE, (char*)metadata + QUEUE_PARTITIONS_OFFSET, QUEUE_PARTITIONS_SIZE);
 	memcpy_s(&this->replication_factor, QUEUE_REPLICATION_FACTOR_SIZE, (char*)metadata + QUEUE_REPLICATION_FACTOR_OFFSET, QUEUE_REPLICATION_FACTOR_SIZE);
+	memcpy_s(&this->last_commit_index, QUEUE_LAST_COMMIT_INDEX_SIZE, (char*)metadata + QUEUE_LAST_COMMIT_INDEX_OFFSET, QUEUE_LAST_COMMIT_INDEX_SIZE);
+	memcpy_s(&this->last_applied_index, QUEUE_LAST_APPLIED_INDEX_SIZE, (char*)metadata + QUEUE_LAST_APPLIED_INDEX_OFFSET, QUEUE_LAST_APPLIED_INDEX_SIZE);
 
 	this->name = std::string((char*)metadata + QUEUE_NAME_OFFSET, queue_name_length);
 	this->status = Status::ACTIVE;
@@ -44,17 +48,29 @@ Status QueueMetadata::get_status() {
 	return this->status;
 }
 
+unsigned long long QueueMetadata::get_last_commit_index() {
+	std::lock_guard<std::mutex> lock(this->mut);
+	return this->last_commit_index;
+}
+
+unsigned long long QueueMetadata::get_last_applied_index() {
+	std::lock_guard<std::mutex> lock(this->mut);
+	return this->last_applied_index;
+}
+
 std::tuple<int, std::shared_ptr<char>> QueueMetadata::get_metadata_bytes() {
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[QUEUE_METADATA_TOTAL_BYTES]);
 
 	int queue_name_length = this->name.size();
 
-	Helper::add_common_metadata_values((void*)(bytes.get()), QUEUE_METADATA_TOTAL_BYTES, ObjectType::METADATA);
-
 	memcpy_s(bytes.get() + QUEUE_NAME_OFFSET, queue_name_length, this->name.c_str(), queue_name_length);
 	memcpy_s(bytes.get() + QUEUE_NAME_LENGTH_OFFSET, QUEUE_NAME_LENGTH_SIZE, &queue_name_length, QUEUE_NAME_LENGTH_SIZE);
 	memcpy_s(bytes.get() + QUEUE_PARTITIONS_OFFSET, QUEUE_PARTITIONS_SIZE, &this->partitions, QUEUE_PARTITIONS_SIZE);
 	memcpy_s(bytes.get() + QUEUE_REPLICATION_FACTOR_OFFSET, QUEUE_REPLICATION_FACTOR_SIZE, &this->replication_factor, QUEUE_REPLICATION_FACTOR_SIZE);
+	memcpy_s(bytes.get() + QUEUE_LAST_COMMIT_INDEX_OFFSET, QUEUE_LAST_COMMIT_INDEX_SIZE, &this->last_commit_index, QUEUE_LAST_COMMIT_INDEX_SIZE);
+	memcpy_s(bytes.get() + QUEUE_LAST_APPLIED_INDEX_OFFSET, QUEUE_LAST_APPLIED_INDEX_SIZE, &this->last_applied_index, QUEUE_LAST_APPLIED_INDEX_SIZE);
+
+	Helper::add_common_metadata_values((void*)(bytes.get()), QUEUE_METADATA_TOTAL_BYTES, ObjectType::METADATA);
 
 	return std::tuple<int, std::shared_ptr<char>>(QUEUE_METADATA_TOTAL_BYTES, bytes);
 }

@@ -116,6 +116,44 @@ std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_t
 	}
 }
 
+std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_to_socket(ConnectionPool* pool, int retries, char* buf, long buf_len, const std::string& internal_requets_type) {
+	try
+	{
+		while (retries > 0) {
+			std::shared_ptr<Connection> connection = pool->get_connection();
+
+			if (connection == nullptr) {
+				this->logger->log_error("No open connections found in pool");
+				return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, false);
+			}
+
+			auto res_tup = this->send_request_to_socket(
+				connection.get()->socket, 
+				connection.get()->ssl,
+				buf, 
+				buf_len,
+				internal_requets_type
+			);
+
+			pool->add_connection(std::get<2>(res_tup) ? nullptr : connection, true);
+
+			if (!std::get<2>(res_tup)) {
+				this->remove_socket_connection_heartbeat(connection.get()->socket);
+				return res_tup;
+			}
+
+			retries--;
+		}
+
+		return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, false);
+	}
+	catch (const std::exception& ex)
+	{
+		this->logger->log_error("Error occured while responding to socket. " + ((std::string)ex.what()));
+		return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, true);
+	}
+}
+
 bool ConnectionsManager::should_wait_for_response(RequestType request_type) {
 	//return request_type != RequestType::DATA_NODE_HEARTBEAT;
 	return true;

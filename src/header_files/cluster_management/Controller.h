@@ -68,8 +68,6 @@ private:
 	std::unordered_map<int, unsigned long long> lagging_followers;
 	std::mutex lagging_followers_mut;
 
-	long long first_cached_log_index;
-
 	std::map<int, std::chrono::milliseconds> data_nodes_heartbeats;
 	std::mutex heartbeats_mut;
 
