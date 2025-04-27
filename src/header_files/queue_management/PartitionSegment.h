@@ -19,16 +19,28 @@ private:
 
 	bool is_read_only;
 
+	std::string segment_key;
 	std::string segment_path;
+
+	std::string index_key;
+	std::string index_path;
 
 	unsigned long total_written_bytes;
 
 	std::mutex mut;
 public:
-	PartitionSegment(unsigned long long id, std::string segment_path);
-	PartitionSegment(void* metadata, std::string segment_path);
+	PartitionSegment(unsigned long long id, const std::string& segment_key, const std::string& segment_path);
+	PartitionSegment(void* metadata, const std::string& segment_key, const std::string& segment_path);
 
 	unsigned long long get_id();
+
+	const std::string& get_segment_key();
+	const std::string& get_segment_path();
+
+	const std::string& get_index_key();
+	const std::string& get_index_path();
+
+	void set_index(const std::string& index_key, const std::string& index_path);
 
 	long long get_newest_message_timestamp();
 	void set_newest_message_timestamp(long long timestamp);

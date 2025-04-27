@@ -1,6 +1,6 @@
 #include "../../header_files/queue_management/PartitionSegment.h"
 
-PartitionSegment::PartitionSegment(unsigned long long id, std::string segment_path) {
+PartitionSegment::PartitionSegment(unsigned long long id, const std::string& segment_key, const std::string& segment_path) {
 	this->id = id;
 	this->newest_message_timestamp = 0;
 	this->oldest_message_timestamp = 0;
@@ -8,14 +8,20 @@ PartitionSegment::PartitionSegment(unsigned long long id, std::string segment_pa
 	this->oldest_message_offset = 0;
 	this->compacted = false;
 	this->is_read_only = false;
-	this->segment_path = segment_path ;
+	this->segment_key = segment_key;
+	this->segment_path = segment_path;
+	this->index_key = "";
+	this->index_path = "";
 }
 
-PartitionSegment::PartitionSegment(void* metadata, std::string segment_path) {
+PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_key, const std::string& segment_path) {
 	if (metadata == NULL)
 		throw std::exception("Partition metadata was NULL");
 
+	this->segment_key = segment_key;
 	this->segment_path = segment_path;
+	this->index_key = "";
+	this->index_path = "";
 
 	memcpy_s(&this->id, SEGMENT_ID_SIZE, (char*)metadata + SEGMENT_ID_OFFSET, SEGMENT_ID_SIZE);
 	memcpy_s(&this->oldest_message_timestamp, SEGMENT_OLDEST_MESSAGE_TMSTMP_SIZE, (char*)metadata + SEGMENT_OLDEST_MESSAGE_TMSTMP_OFFSET, SEGMENT_OLDEST_MESSAGE_TMSTMP_SIZE);
@@ -29,6 +35,27 @@ PartitionSegment::PartitionSegment(void* metadata, std::string segment_path) {
 
 unsigned long long PartitionSegment::get_id() {
 	return this->id;
+}
+
+const std::string& PartitionSegment::get_segment_key() {
+	return this->segment_key;
+}
+
+const std::string& PartitionSegment::get_segment_path() {
+	return this->segment_path;
+}
+
+const std::string& PartitionSegment::get_index_key() {
+	return this->index_key;
+}
+
+const std::string& PartitionSegment::get_index_path() {
+	return this->index_path;
+}
+
+void PartitionSegment::set_index(const std::string& index_key, const std::string& index_path) {
+	this->index_key = index_key;
+	this->index_path = index_path;
 }
 
 long long PartitionSegment::get_newest_message_timestamp() {

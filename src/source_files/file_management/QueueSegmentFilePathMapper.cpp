@@ -21,16 +21,17 @@ std::string QueueSegmentFilePathMapper::get_partition_folder_path(const std::str
 		+ std::to_string(partition_id);
 }
 
-std::string QueueSegmentFilePathMapper::get_file_key(const std::string& queue_name, unsigned long long segment_id) {
-	return queue_name + "_" + std::to_string(segment_id);
+std::string QueueSegmentFilePathMapper::get_file_key(const std::string& queue_name, unsigned long long segment_id, bool index_file) {
+	return queue_name + "_" + (index_file ? "i_" : "") + std::to_string(segment_id);
 }
 
-std::string QueueSegmentFilePathMapper::get_file_path(const std::string& queue_name, unsigned long long segment_id, int partition) {
+std::string QueueSegmentFilePathMapper::get_file_path(const std::string& queue_name, unsigned long long segment_id, int partition, bool index_file) {
 	return this->settings->get_log_path()
 		+ "/"
 		+ queue_name
 		+ "/"
 		+ (partition >= 0 ? ("partition-" + std::to_string(partition) + "/") : "")
+		+ (index_file ? "index_" : "")
 		+ this->util->left_padding(segment_id, 20, '0')
 		+ FILE_EXTENSION;
 }

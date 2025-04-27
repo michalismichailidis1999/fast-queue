@@ -14,6 +14,12 @@ static const unsigned long HEARTBEAT_SIGNAL_MAX_BOUND = 5000;
 static const unsigned long LEADER_TIMEOUT = 1000;
 static const unsigned long APPEND_ENTRIES_MAX_BATCH_SIZE = 20;
 
+static const unsigned long INDEX_PAGE_SIZE = 4096; // 4KB
+
+static const unsigned long INDEX_PAGE_TYPE_SIZE = sizeof(unsigned int);
+static const unsigned long INDEX_PAGE_TYPE_OFFSET = 0;
+static const unsigned long INDEX_PAGE_METADATA_SIZE = INDEX_PAGE_TYPE_SIZE;
+
 static const unsigned long MAX_QUEUE_NAME_CHARS = 100;
 
 static const unsigned long MAX_QUEUE_PARTITIONS = 1000;

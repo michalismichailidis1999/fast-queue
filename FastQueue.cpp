@@ -5,10 +5,6 @@ std::atomic_int total_connections(0);
 
 Logger* _logger;
 
-struct CertInfo {
-    SSL_CTX* ctx;
-};
-
 void terminationSignalHandler(int signum) {
     if (signum == SIGSEGV) {
         _logger->log_error("Segmentation error occured. Shutting down...");
@@ -80,8 +76,16 @@ std::shared_ptr<QueueMetadata> get_queue_metadata(
     return std::shared_ptr<QueueMetadata>(new QueueMetadata(data.get()));
 }
 
+void set_segment_index(PartitionSegment* segment) {
+
+}
+
 void set_partition_active_segment(FileHandler* fh, QueueSegmentFilePathMapper* pm, Partition* partition, const std::string& queue_name, bool is_cluster_metadata_queue) {
     std::shared_ptr<PartitionSegment> segment = nullptr;
+
+    std::string segment_key = partition->get_current_segment() > 0
+        ? pm->get_file_key(queue_name, partition->get_current_segment())
+        : "";
 
     std::string segment_path = partition->get_current_segment() > 0
         ? pm->get_file_path(queue_name, partition->get_current_segment(), is_cluster_metadata_queue ? -1 : partition->get_partition_id())
@@ -91,27 +95,31 @@ void set_partition_active_segment(FileHandler* fh, QueueSegmentFilePathMapper* p
         std::unique_ptr<char> bytes = std::unique_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
 
         fh->read_from_file(
-            pm->get_file_key(queue_name, partition->get_current_segment()),
+            segment_key,
             segment_path,
             SEGMENT_METADATA_TOTAL_BYTES,
             0,
             bytes.get()
         );
 
-        segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(bytes.get(), segment_path));
+        segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(bytes.get(), segment_key, segment_path));
 
         if (!segment.get()->get_is_read_only()) {
             partition->set_active_segment(segment);
+            set_segment_index(segment.get());
             return;
         }
+
+        // TODO: Set segment largest message id to index mapper
     }
     
     unsigned long long new_segment_id = partition->get_current_segment() + 1;
 
+    std::string new_segment_key = pm->get_file_key(queue_name, new_segment_id);
     std::string new_segment_path = pm->get_file_path(queue_name, new_segment_id, is_cluster_metadata_queue ? -1 : partition->get_partition_id());
     
     segment = std::shared_ptr<PartitionSegment>(
-        new PartitionSegment(new_segment_id, new_segment_path)
+        new PartitionSegment(new_segment_id, new_segment_key, new_segment_path)
     );
     
     std::tuple<long, std::shared_ptr<char>> bytes_tup = segment.get()->get_metadata_bytes();
@@ -125,6 +133,7 @@ void set_partition_active_segment(FileHandler* fh, QueueSegmentFilePathMapper* p
     );
 
     partition->set_active_segment(segment);
+    set_segment_index(segment.get());
 }
 
 void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandler* fh, QueueManager* qm, QueueSegmentFilePathMapper* pm, Util* util) {
@@ -521,7 +530,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<DiskReader> dr = std::unique_ptr<DiskReader>(new DiskReader(fh.get(), server_logger.get(), settings.get()));
 
     std::unique_ptr<SegmentAllocator> sa = std::unique_ptr<SegmentAllocator>(new SegmentAllocator(fh.get()));
-    std::unique_ptr<MessagesHandler> mh = std::unique_ptr<MessagesHandler>(new MessagesHandler(df.get(), dr.get(), pm.get(), sa.get(), settings.get()));
+    std::unique_ptr<BPlusTreeIndexHandler> ih = std::unique_ptr<BPlusTreeIndexHandler>(new BPlusTreeIndexHandler(df.get(), dr.get()));
+    std::unique_ptr<MessagesHandler> mh = std::unique_ptr<MessagesHandler>(new MessagesHandler(df.get(), dr.get(), pm.get(), sa.get(), ih.get(), settings.get()));
 
     std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), ssl_context_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
 

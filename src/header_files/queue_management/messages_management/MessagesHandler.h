@@ -8,6 +8,7 @@
 #include "../Partition.h"
 #include "./SegmentAllocator.h"
 #include "../../Settings.h"
+#include "./index_management/BPlusTreeIndexHandler.h"
 
 class MessagesHandler {
 private:
@@ -15,6 +16,7 @@ private:
 	DiskReader* disk_reader;
 	QueueSegmentFilePathMapper* pm;
 	SegmentAllocator* sa;
+	BPlusTreeIndexHandler* index_handler;
 	Settings* settings;
 
 	std::unordered_map<std::string, unsigned long> remaining_bytes;
@@ -22,12 +24,10 @@ private:
 
 	void update_cluster_metadata_index_value(unsigned long long index_value, unsigned long index_size, unsigned long index_pos);
 
-	void update_segment_index(PartitionSegment* segment, unsigned long long message_id, long long message_pos);
-
 	std::string get_queue_partition_key(Partition* partition);
 	unsigned long remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned long bytes_written);
 public:
-	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, Settings* settings);
+	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, BPlusTreeIndexHandler* index_handler, Settings* settings);
 
 	void save_messages(Partition* partition, void* messages, unsigned long total_bytes);
 

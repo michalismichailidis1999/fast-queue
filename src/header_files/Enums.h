@@ -135,3 +135,8 @@ enum class CommitMarkerStatus {
 	COMMITED,
 	ABORTED
 };
+
+enum class PageType {
+	NON_LEAF,
+	LEAF
+};

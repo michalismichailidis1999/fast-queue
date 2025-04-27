@@ -74,9 +74,10 @@ void QueueManager::create_queue(QueueMetadata* metadata) {
 
 		queue->add_partition(partition);
 
+		std::string segment_key = this->pm->get_file_key(metadata->get_name(), 1);
 		std::string segment_path = this->pm->get_file_path(metadata->get_name(), 1, i);
 
-		std::shared_ptr<PartitionSegment> segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(1, segment_path));
+		std::shared_ptr<PartitionSegment> segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(1, segment_key, segment_path));
 
 		partition->set_active_segment(segment);
 
@@ -88,7 +89,7 @@ void QueueManager::create_queue(QueueMetadata* metadata) {
 				segment_path,
 				std::get<0>(bytes_tup),
 				std::get<1>(bytes_tup).get(),
-				this->pm->get_file_key(metadata->get_name(), 1),
+				segment_key,
 				true
 			);
 		}
