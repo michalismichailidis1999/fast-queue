@@ -4,7 +4,7 @@ FileHandler::FileHandler() {
 	this->cache = new Cache<std::string, std::shared_ptr<FileStream>>(500, "", nullptr);
 }
 
-void FileHandler::create_new_file(const std::string& path, long bytes_to_write, void* data, const std::string& key, bool flush_data, bool is_static) {
+void FileHandler::create_new_file(const std::string& path, unsigned long bytes_to_write, void* data, const std::string& key, bool flush_data, bool is_static) {
 	std::shared_ptr<FileStream> fs = std::shared_ptr<FileStream>(new FileStream());
 	
 	this->open_file(fs.get(), path, true);
@@ -69,7 +69,7 @@ std::string FileHandler::get_dir_entry_path(std::filesystem::directory_entry dir
 	return str_path;
 }
 
-void FileHandler::write_to_file(std::string key, const std::string& path, long buffer_size, long pos, void* data, bool flush_data, bool is_static) {
+long long  FileHandler::write_to_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* data, bool flush_data, bool is_static) {
 	if (!this->check_if_exists(path)) {
 		const std::string err_msg = "Invalid path " + path;
 		printf("Tried to write to invalid path %s\n", path.c_str());
@@ -92,10 +92,10 @@ void FileHandler::write_to_file(std::string key, const std::string& path, long b
 		else if (key != "") this->static_files[key] = fs;
 	}
 
-	this->write_to_file(fs.get(), buffer_size, pos, data, flush_data);
+	return this->write_to_file(fs.get(), buffer_size, pos, data, flush_data);
 }
 
-void FileHandler::read_from_file(std::string key, const std::string& path, long buffer_size, long pos, void* dest, bool is_static) {
+void FileHandler::read_from_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* dest, bool is_static) {
 	if (!this->check_if_exists(path)) {
 		const std::string err_msg = "Invalid path " + path;
 		printf("Tried to read from invalid path %s\n", path.c_str());
@@ -128,10 +128,12 @@ void FileHandler::flush_output_streams() {
 	this->unflushed_streams.clear();
 }
 
-void FileHandler::write_to_file(FileStream* fs, long buffer_size, long pos, void* data, bool flush_data) {
+long long  FileHandler::write_to_file(FileStream* fs, unsigned long buffer_size, long long pos, void* data, bool flush_data) {
 	std::lock_guard<std::mutex> lock(fs->mut);
 
-	if (buffer_size == 0 || data == NULL) return;
+	if (buffer_size == 0 || data == NULL) return - 1;
+
+	long long prev_end_pos = fs->end_pos;
 
 	if (pos == -1) fseek(fs->file, 0, SEEK_END);
 	else fseek(fs->file, pos, SEEK_SET);
@@ -145,9 +147,11 @@ void FileHandler::write_to_file(FileStream* fs, long buffer_size, long pos, void
 	this->handle_file_failure(fs);
 
 	if (!flush_data) this->add_unflushed_stream(fs);
+
+	return pos == -1 ? prev_end_pos : pos;
 }
 
-void FileHandler::read_from_file(FileStream* fs, long buffer_size, long pos, void* dest) {
+void FileHandler::read_from_file(FileStream* fs, unsigned long buffer_size, long long pos, void* dest) {
 	std::lock_guard<std::mutex> lock(fs->mut);
 
 	if (buffer_size == 0 || dest == NULL) return;

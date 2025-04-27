@@ -5,7 +5,7 @@
 class FileStream {
 private:
 	std::string file_path;
-	long end_pos;
+	long long end_pos;
 	int fd;
 	FILE* file;
 

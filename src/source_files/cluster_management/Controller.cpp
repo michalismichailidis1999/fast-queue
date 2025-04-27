@@ -234,9 +234,8 @@ void Controller::append_entries_to_followers() {
 	}
 
 	if (replication_count >= this->half_quorum_nodes_count) {
-		unsigned long long prev_commit_index = this->commit_index;
 		this->commit_index = largest_version_sent;
-		// TODO: Commit here
+		this->mh->update_cluster_metadata_commit_index(largest_version_sent);
 	}
 
 	log_lock.unlock();
@@ -733,7 +732,9 @@ void Controller::execute_create_queue_command(CreateQueueCommand* command) {
 
 void Controller::check_for_commit_and_last_applied_diff() {
 	while (!(*this->should_terminate)) {
-		if (this->commit_index <= this->last_applied) {
+		unsigned long long commit_index = this->commit_index;
+
+		if (commit_index <= this->last_applied) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 			continue;
 		}
@@ -745,13 +746,15 @@ void Controller::check_for_commit_and_last_applied_diff() {
 			for (auto& comamnd : this->log) {
 				unsigned long long metadata_version = 0;
 				memcpy_s(&metadata_version, MESSAGE_ID_SIZE, comamnd.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-				if (metadata_version > this->commit_index) break;
+				if (metadata_version > commit_index) break;
 				this->execute_command(comamnd.get());
 				to_remove++;
 			}
 
 			this->log.erase(this->log.begin(), this->log.begin() + to_remove);
 		}
+
+		this->mh->update_cluster_metadata_last_applied(commit_index);
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(1500));
 	}

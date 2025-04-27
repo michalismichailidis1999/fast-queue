@@ -21,7 +21,7 @@ private:
 
 	std::string segment_path;
 
-	long total_written_bytes;
+	unsigned long total_written_bytes;
 
 	std::mutex mut;
 public:
@@ -48,7 +48,7 @@ public:
 	void set_to_read_only();
 	bool get_is_read_only();
 
-	long add_written_bytes(long bytes);
+	unsigned long add_written_bytes(unsigned long bytes);
 
 	std::tuple<long, std::shared_ptr<char>> get_metadata_bytes();
 };

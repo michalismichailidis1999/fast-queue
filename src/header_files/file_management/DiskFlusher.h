@@ -33,5 +33,5 @@ public:
 
 	void flush_to_disk_periodically(int milliseconds);
 
-	void flush_data_to_disk(const std::string& key, const std::string& path, void* data, long total_bytes, long pos = -1, bool flush_immediatelly = false);
+	long long flush_data_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1, bool flush_immediatelly = false, bool is_static_file = false);
 };
