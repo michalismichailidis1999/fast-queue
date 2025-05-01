@@ -19,17 +19,20 @@ private:
 	BPlusTreeIndexHandler* index_handler;
 	Settings* settings;
 
-	std::unordered_map<std::string, unsigned long> remaining_bytes;
+	std::string cluster_metadata_file_key;
+	std::string cluster_metadata_file_path;
+
+	std::unordered_map<std::string, unsigned int> remaining_bytes;
 	std::mutex remaining_bytes_mut;
 
-	void update_cluster_metadata_index_value(unsigned long long index_value, unsigned long index_size, unsigned long index_pos);
+	void update_cluster_metadata_index_value(unsigned long long index_value, unsigned int index_size, unsigned int index_pos);
 
 	std::string get_queue_partition_key(Partition* partition);
-	unsigned long remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned long bytes_written);
+	unsigned long remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned int bytes_written);
 public:
 	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, BPlusTreeIndexHandler* index_handler, Settings* settings);
 
-	void save_messages(Partition* partition, void* messages, unsigned long total_bytes);
+	void save_messages(Partition* partition, void* messages, unsigned int total_bytes);
 
 	void update_cluster_metadata_commit_index(unsigned long long commit_index);
 

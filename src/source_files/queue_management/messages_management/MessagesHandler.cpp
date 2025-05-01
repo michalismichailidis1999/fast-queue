@@ -7,9 +7,12 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 	this->sa = sa;
 	this->index_handler = index_handler;
 	this->settings = settings;
+
+	this->cluster_metadata_file_key = this->pm->get_metadata_file_key(CLUSTER_METADATA_QUEUE_NAME);
+	this->cluster_metadata_file_path = this->pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
 }
 
-void MessagesHandler::save_messages(Partition* partition, void* messages, unsigned long total_bytes) {
+void MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes) {
 	if(partition->get_active_segment()->get_is_read_only())
 		this->sa->allocate_new_segment(partition);
 
@@ -48,13 +51,10 @@ void MessagesHandler::update_cluster_metadata_last_applied(unsigned long long la
 	this->update_cluster_metadata_index_value(last_applied, QUEUE_LAST_APPLIED_INDEX_SIZE, QUEUE_LAST_APPLIED_INDEX_OFFSET);
 }
 
-void MessagesHandler::update_cluster_metadata_index_value(unsigned long long index_value, unsigned long index_size, unsigned long index_pos) {
-	std::string file_key = this->pm->get_metadata_file_key(CLUSTER_METADATA_QUEUE_NAME);
-	std::string file_path = this->pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
-
+void MessagesHandler::update_cluster_metadata_index_value(unsigned long long index_value, unsigned int index_size, unsigned int index_pos) {
 	this->disk_flusher->flush_data_to_disk(
-		file_key,
-		file_path,
+		this->cluster_metadata_file_key,
+		this->cluster_metadata_file_path,
 		&index_value,
 		index_size,
 		index_pos,
@@ -69,7 +69,7 @@ std::string MessagesHandler::get_queue_partition_key(Partition* partition) {
 		+ "-" + std::to_string(partition->get_current_segment());
 }
 
-unsigned long MessagesHandler::remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned long bytes_written) {
+unsigned long MessagesHandler::remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned int bytes_written) {
 	std::lock_guard<std::mutex> lock(this->remaining_bytes_mut);
 
 	unsigned long remaining_bytes = this->remaining_bytes[queue_partition_key];

@@ -128,7 +128,8 @@ enum class CommandType {
 enum class ObjectType {
 	METADATA,
 	MESSAGE,
-	MARKER
+	MARKER,
+	BTREE_PAGE
 };
 
 enum class CommitMarkerStatus {

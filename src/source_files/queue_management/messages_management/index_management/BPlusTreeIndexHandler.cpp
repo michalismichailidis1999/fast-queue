@@ -5,6 +5,6 @@ BPlusTreeIndexHandler::BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskRead
 	this->disk_reader = disk_reader;
 }
 
-void BPlusTreeIndexHandler::add_message_to_index(PartitionSegment* segment, unsigned long long message_id, long long message_pos) {
+void BPlusTreeIndexHandler::add_message_to_index(PartitionSegment* segment, unsigned long long message_id, unsigned int message_pos) {
 
 }

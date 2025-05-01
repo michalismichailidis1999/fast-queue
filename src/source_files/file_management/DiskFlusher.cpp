@@ -29,10 +29,10 @@ void DiskFlusher::flush_to_disk_periodically(int milliseconds) {
 	}
 }
 
-long long DiskFlusher::flush_data_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly, bool is_static_file) {
+unsigned int DiskFlusher::flush_data_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly, bool is_static_file) {
 	std::unique_lock<std::mutex> lock(this->flush_mut);
 
-	long long begin_written_pos = this->fh->write_to_file(
+	unsigned int begin_written_pos = this->fh->write_to_file(
 		key,
 		path,
 		total_bytes,

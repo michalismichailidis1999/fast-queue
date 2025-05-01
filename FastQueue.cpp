@@ -76,8 +76,22 @@ std::shared_ptr<QueueMetadata> get_queue_metadata(
     return std::shared_ptr<QueueMetadata>(new QueueMetadata(data.get()));
 }
 
-void set_segment_index(PartitionSegment* segment) {
+void set_segment_index(const std::string& queue_name, PartitionSegment* segment, FileHandler* fh, QueueSegmentFilePathMapper* pm, int partition = -1) {
+    std::string index_file_key = pm->get_file_key(queue_name, segment->get_id(), true);
+    std::string index_file_path = pm->get_file_path(queue_name, segment->get_id(), partition, true);
 
+    segment->set_index(index_file_key, index_file_path);
+
+    if (fh->check_if_exists(index_file_path)) return;
+
+    fh->create_new_file(
+        index_file_path,
+        INDEX_PAGE_SIZE,
+        std::get<0>(BTreeNode(PageType::LEAF).get_page_bytes()).get(),
+        index_file_key,
+        true,
+        partition == -1
+    );
 }
 
 void set_partition_active_segment(FileHandler* fh, QueueSegmentFilePathMapper* pm, Partition* partition, const std::string& queue_name, bool is_cluster_metadata_queue) {
@@ -99,14 +113,15 @@ void set_partition_active_segment(FileHandler* fh, QueueSegmentFilePathMapper* p
             segment_path,
             SEGMENT_METADATA_TOTAL_BYTES,
             0,
-            bytes.get()
+            bytes.get(),
+            is_cluster_metadata_queue
         );
 
         segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(bytes.get(), segment_key, segment_path));
 
         if (!segment.get()->get_is_read_only()) {
             partition->set_active_segment(segment);
-            set_segment_index(segment.get());
+            set_segment_index(queue_name, segment.get(), fh, pm, is_cluster_metadata_queue ? -1 : partition->get_partition_id());
             return;
         }
 
@@ -129,11 +144,12 @@ void set_partition_active_segment(FileHandler* fh, QueueSegmentFilePathMapper* p
         std::get<0>(bytes_tup),
         std::get<1>(bytes_tup).get(),
         pm->get_file_key(queue_name, new_segment_id),
-        true
+        true,
+        is_cluster_metadata_queue
     );
 
     partition->set_active_segment(segment);
-    set_segment_index(segment.get());
+    set_segment_index(queue_name, segment.get(), fh, pm, is_cluster_metadata_queue ? -1 : partition->get_partition_id());
 }
 
 void clear_unnecessary_files_and_initialize_queues(Settings* settings, FileHandler* fh, QueueManager* qm, QueueSegmentFilePathMapper* pm, Util* util) {

@@ -69,7 +69,7 @@ std::string FileHandler::get_dir_entry_path(std::filesystem::directory_entry dir
 	return str_path;
 }
 
-long long  FileHandler::write_to_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* data, bool flush_data, bool is_static) {
+long long FileHandler::write_to_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* data, bool flush_data, bool is_static) {
 	if (!this->check_if_exists(path)) {
 		const std::string err_msg = "Invalid path " + path;
 		printf("Tried to write to invalid path %s\n", path.c_str());

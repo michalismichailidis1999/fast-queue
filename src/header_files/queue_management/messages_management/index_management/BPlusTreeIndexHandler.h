@@ -11,5 +11,5 @@ private:
 public:
 	BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader);
 
-	void add_message_to_index(PartitionSegment* segment, unsigned long long message_id, long long message_pos);
+	void add_message_to_index(PartitionSegment* segment, unsigned long long message_id, unsigned int message_pos);
 };

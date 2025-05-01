@@ -735,7 +735,7 @@ void Controller::check_for_commit_and_last_applied_diff() {
 		unsigned long long commit_index = this->commit_index;
 
 		if (commit_index <= this->last_applied) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_UNAPPLIED_COMMANDS));
 			continue;
 		}
 
@@ -756,7 +756,7 @@ void Controller::check_for_commit_and_last_applied_diff() {
 
 		this->mh->update_cluster_metadata_last_applied(commit_index);
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_UNAPPLIED_COMMANDS));
 	}
 }
 
@@ -766,7 +766,7 @@ void Controller::make_lagging_followers_catchup() {
 
 		if (this->lagging_followers.size() == 0) {
 			lock.unlock();
-			std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_LAGGING_FOLLOWERS));
 			continue;
 		}
 
@@ -777,6 +777,6 @@ void Controller::make_lagging_followers_catchup() {
 
 		lock.unlock();
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_LAGGING_FOLLOWERS));
 	}
 }
