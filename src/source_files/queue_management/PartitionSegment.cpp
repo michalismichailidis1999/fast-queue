@@ -28,9 +28,9 @@ PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_ke
 	memcpy_s(&this->newest_message_timestamp, SEGMENT_NEWEST_MESSAGE_TMSTMP_SIZE, (char*)metadata + SEGMENT_NEWEST_MESSAGE_TMSTMP_OFFSET, SEGMENT_NEWEST_MESSAGE_TMSTMP_SIZE);
 	memcpy_s(&this->oldest_message_offset, SEGMENT_OLDEST_MESSAGE_OFF_SIZE, (char*)metadata + SEGMENT_OLDEST_MESSAGE_OFF_OFFSET, SEGMENT_OLDEST_MESSAGE_OFF_SIZE);
 	memcpy_s(&this->newest_message_offset, SEGMENT_NEWEST_MESSAGE_OFF_SIZE, (char*)metadata + SEGMENT_NEWEST_MESSAGE_OFF_OFFSET, SEGMENT_NEWEST_MESSAGE_OFF_SIZE);
-
 	memcpy_s(&this->is_read_only, SEGMENT_IS_READ_ONLY_SIZE, (char*)metadata + SEGMENT_IS_READ_ONLY_OFFSET, SEGMENT_IS_READ_ONLY_SIZE);
 	memcpy_s(&this->compacted, SEGMENT_IS_COMPACTED_SIZE, (char*)metadata + SEGMENT_IS_COMPACTED_OFFSET, SEGMENT_IS_COMPACTED_SIZE);
+	memcpy_s(&this->last_index_page_offset, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE, (char*)metadata + SEGMENT_LAST_INDEX_PAGE_OFFSET_OFFSET, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE);
 }
 
 unsigned long long PartitionSegment::get_id() {
@@ -118,6 +118,17 @@ bool PartitionSegment::get_is_read_only() {
 	return this->is_read_only;
 }
 
+unsigned int PartitionSegment::get_last_index_page_offset(bool increase_before_get) {
+	std::lock_guard<std::mutex> lock(this->mut);
+	if (increase_before_get) this->last_index_page_offset++;
+	return this->last_index_page_offset;
+}
+
+void PartitionSegment::set_last_index_page_offset(unsigned int last_index_page_offset) {
+	std::lock_guard<std::mutex> lock(this->mut);
+	this->last_index_page_offset = last_index_page_offset;
+}
+
 unsigned long PartitionSegment::add_written_bytes(unsigned long bytes) {
 	std::lock_guard<std::mutex> lock(this->mut);
 	this->total_written_bytes += bytes;
@@ -138,6 +149,7 @@ std::tuple<long, std::shared_ptr<char>> PartitionSegment::get_metadata_bytes() {
 	memcpy_s(bytes.get() + SEGMENT_NEWEST_MESSAGE_OFF_OFFSET, SEGMENT_NEWEST_MESSAGE_OFF_SIZE, &this->newest_message_offset, SEGMENT_NEWEST_MESSAGE_OFF_SIZE);
 	memcpy_s(bytes.get() + SEGMENT_IS_READ_ONLY_OFFSET, SEGMENT_IS_READ_ONLY_SIZE, &this->is_read_only, SEGMENT_IS_READ_ONLY_SIZE);
 	memcpy_s(bytes.get() + SEGMENT_IS_COMPACTED_OFFSET, SEGMENT_IS_COMPACTED_SIZE, &this->compacted, SEGMENT_IS_READ_ONLY_SIZE);
+	memcpy_s(bytes.get() + SEGMENT_LAST_INDEX_PAGE_OFFSET_OFFSET, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE, &this->last_index_page_offset, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE);
 
 	return std::tuple<long, std::shared_ptr<char>>(SEGMENT_METADATA_TOTAL_BYTES, bytes);
 }

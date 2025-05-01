@@ -45,3 +45,28 @@ std::tuple<std::shared_ptr<char>, unsigned int> BTreeNode::get_page_bytes() {
 
 	return std::tuple<std::shared_ptr<char>, unsigned int>(bytes, INDEX_PAGE_SIZE);
 }
+
+std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> BTreeNode::insert(BTreeNodeRow& row) {
+	if (this->rows_num == INDEX_PAGE_TOTAL_ROWS) {
+		std::shared_ptr<BTreeNode> left = std::shared_ptr<BTreeNode>(new BTreeNode(this->type));
+		std::shared_ptr<BTreeNode> right = std::shared_ptr<BTreeNode>(new BTreeNode(this->type));
+
+		this->type = PageType::NON_LEAF;
+
+		unsigned int child_left = INDEX_PAGE_TOTAL_ROWS / 2 + INDEX_PAGE_TOTAL_ROWS & 1;
+
+		for (int i = 0; i < child_left; i++)
+			left.get()->insert(this->rows[i]);
+
+		for (int i = child_left; i < INDEX_PAGE_TOTAL_ROWS; i++)
+			right.get()->insert(this->rows[i]);
+
+		right.get()->insert(row);
+
+		return std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>>(left, right);
+	}
+
+	this->rows[this->rows_num++] = row;
+
+	return std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>>(nullptr, nullptr);
+}

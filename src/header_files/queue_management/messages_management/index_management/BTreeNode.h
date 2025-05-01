@@ -19,11 +19,13 @@ private:
 	unsigned int rows_num;
 
 	BTreeNodeRow rows[INDEX_PAGE_TOTAL_ROWS];
-
 public:
 	BTreeNode(PageType type);
 
 	BTreeNode(void* metadata);
+
+	// in case of split it returns left and right childs and current node becomes parent
+	std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> insert(BTreeNodeRow& row);
 
 	std::tuple<std::shared_ptr<char>, unsigned int> get_page_bytes();
 

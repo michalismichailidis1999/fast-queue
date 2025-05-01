@@ -19,6 +19,8 @@ private:
 
 	bool is_read_only;
 
+	unsigned int last_index_page_offset;
+
 	std::string segment_key;
 	std::string segment_path;
 
@@ -59,6 +61,9 @@ public:
 
 	void set_to_read_only();
 	bool get_is_read_only();
+
+	unsigned int get_last_index_page_offset(bool increase_before_get = false);
+	void set_last_index_page_offset(unsigned int last_index_page_offset);
 
 	unsigned long add_written_bytes(unsigned long bytes);
 

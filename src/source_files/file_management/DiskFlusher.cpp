@@ -1,5 +1,7 @@
 #include "../../header_files/file_management/DiskFlusher.h"
 
+// TODO: Implement caching & add locking mechanism for index page updates
+
 DiskFlusher::DiskFlusher(QueueManager* qm, FileHandler* fh, Logger* logger, Settings* settings, std::atomic_bool* should_terminate) {
 	this->qm = qm;
 	this->fh = fh;
