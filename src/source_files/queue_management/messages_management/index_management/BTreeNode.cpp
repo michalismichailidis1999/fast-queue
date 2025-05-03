@@ -47,7 +47,7 @@ std::tuple<std::shared_ptr<char>, unsigned int> BTreeNode::get_page_bytes() {
 }
 
 bool BTreeNode::insert(BTreeNodeRow& row) {
-	if (this->rows_num == INDEX_PAGE_TOTAL_ROWS) return false;
+	if (this->is_full()) return false;
 
 	if (this->rows_num == 0) this->min_key = row.key;
 
@@ -56,4 +56,8 @@ bool BTreeNode::insert(BTreeNodeRow& row) {
 	this->max_key = row.key;
 
 	return true;
+}
+
+bool BTreeNode::is_full() {
+	return this->rows_num == INDEX_PAGE_TOTAL_ROWS;
 }

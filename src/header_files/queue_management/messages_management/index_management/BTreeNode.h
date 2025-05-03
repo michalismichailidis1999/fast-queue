@@ -18,7 +18,10 @@ private:
 	unsigned long long max_key;
 	unsigned int rows_num;
 
-	unsigned int parent_offset; // will only be used by leaf nodes
+	// will only be used by leaf nodes
+	unsigned int parent_offset;
+
+	// will only be used in same page types
 	unsigned int prev_page_offset;
 	unsigned int next_page_offset;
 
@@ -28,10 +31,12 @@ public:
 
 	BTreeNode(void* metadata);
 
-	// in case of split it returns left and right childs and current node becomes parent
+	// returns true if node is not full and row inserted
 	bool insert(BTreeNodeRow& row);
 
 	std::tuple<std::shared_ptr<char>, unsigned int> get_page_bytes();
+
+	bool is_full();
 
 	friend class BPlusTreeIndexHandler;
 };
