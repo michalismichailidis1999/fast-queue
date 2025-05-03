@@ -129,6 +129,16 @@ void PartitionSegment::set_last_index_page_offset(unsigned int last_index_page_o
 	this->last_index_page_offset = last_index_page_offset;
 }
 
+unsigned int PartitionSegment::get_last_index_non_leaf_offset() {
+	std::lock_guard<std::mutex> lock(this->mut);
+	return this->last_index_non_leaf_offset;
+}
+
+void PartitionSegment::set_last_index_non_leaf_offset(unsigned int last_index_non_leaf_offset) {
+	std::lock_guard<std::mutex> lock(this->mut);
+	this->last_index_non_leaf_offset = last_index_non_leaf_offset;
+}
+
 unsigned long PartitionSegment::add_written_bytes(unsigned long bytes) {
 	std::lock_guard<std::mutex> lock(this->mut);
 	this->total_written_bytes += bytes;

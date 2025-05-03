@@ -21,6 +21,8 @@ private:
 
 	unsigned int last_index_page_offset;
 
+	unsigned int last_index_non_leaf_offset;
+
 	std::string segment_key;
 	std::string segment_path;
 
@@ -64,6 +66,9 @@ public:
 
 	unsigned int get_last_index_page_offset(bool increase_before_get = false);
 	void set_last_index_page_offset(unsigned int last_index_page_offset);
+
+	unsigned int get_last_index_non_leaf_offset();
+	void set_last_index_non_leaf_offset(unsigned int last_index_non_leaf_offset);
 
 	unsigned long add_written_bytes(unsigned long bytes);
 

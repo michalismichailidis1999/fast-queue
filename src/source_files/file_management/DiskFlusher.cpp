@@ -1,7 +1,5 @@
 #include "../../header_files/file_management/DiskFlusher.h"
 
-// TODO: Implement caching & add locking mechanism for index page updates
-
 DiskFlusher::DiskFlusher(QueueManager* qm, FileHandler* fh, Logger* logger, Settings* settings, std::atomic_bool* should_terminate) {
 	this->qm = qm;
 	this->fh = fh;
@@ -31,7 +29,7 @@ void DiskFlusher::flush_to_disk_periodically(int milliseconds) {
 	}
 }
 
-unsigned int DiskFlusher::flush_data_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly, bool is_static_file) {
+unsigned int DiskFlusher::flush_data_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool is_internal_queue) {
 	std::unique_lock<std::mutex> lock(this->flush_mut);
 
 	unsigned int begin_written_pos = this->fh->write_to_file(
@@ -40,8 +38,8 @@ unsigned int DiskFlusher::flush_data_to_disk(const std::string& key, const std::
 		total_bytes,
 		pos,
 		data,
-		flush_immediatelly,
-		is_static_file
+		is_internal_queue,
+		is_internal_queue
 	);
 
 	this->bytes_to_flush += total_bytes;

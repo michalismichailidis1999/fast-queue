@@ -18,6 +18,10 @@ private:
 	unsigned long long max_key;
 	unsigned int rows_num;
 
+	unsigned int parent_offset; // will only be used by leaf nodes
+	unsigned int prev_page_offset;
+	unsigned int next_page_offset;
+
 	BTreeNodeRow rows[INDEX_PAGE_TOTAL_ROWS];
 public:
 	BTreeNode(PageType type);
@@ -25,7 +29,7 @@ public:
 	BTreeNode(void* metadata);
 
 	// in case of split it returns left and right childs and current node becomes parent
-	std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> insert(BTreeNodeRow& row);
+	bool insert(BTreeNodeRow& row);
 
 	std::tuple<std::shared_ptr<char>, unsigned int> get_page_bytes();
 

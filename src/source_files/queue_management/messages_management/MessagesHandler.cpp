@@ -17,14 +17,13 @@ void MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 		this->sa->allocate_new_segment(partition);
 
 	PartitionSegment* active_segment = partition->get_active_segment();
-	bool is_static_file = Helper::is_internal_queue(partition->get_queue_name());
 
 	long long first_message_pos = this->disk_flusher->flush_data_to_disk(
 		active_segment->get_segment_key(), 
 		active_segment->get_segment_path(), 
 		messages, 
-		-1, 
-		is_static_file
+		-1,
+		Helper::is_internal_queue(partition->get_queue_name())
 	);
 
 	unsigned long total_segment_bytes = partition->get_active_segment()->add_written_bytes(total_bytes);
@@ -58,7 +57,6 @@ void MessagesHandler::update_cluster_metadata_index_value(unsigned long long ind
 		&index_value,
 		index_size,
 		index_pos,
-		true,
 		true
 	);
 }
