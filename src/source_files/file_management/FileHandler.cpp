@@ -131,7 +131,7 @@ void FileHandler::flush_output_streams() {
 long long  FileHandler::write_to_file(FileStream* fs, unsigned long buffer_size, long long pos, void* data, bool flush_data) {
 	std::lock_guard<std::mutex> lock(fs->mut);
 
-	if (buffer_size == 0 || data == NULL) return - 1;
+	if (buffer_size == 0 || data == NULL) return -1;
 
 	long long prev_end_pos = fs->end_pos;
 
@@ -140,9 +140,9 @@ long long  FileHandler::write_to_file(FileStream* fs, unsigned long buffer_size,
 
 	fwrite((char*)data, sizeof(char), buffer_size, fs->file);
 
-	if(pos == -1 || fs->end_pos - pos < buffer_size) fs->end_pos += pos == -1 ? buffer_size : buffer_size - (fs->end_pos - pos);
+	if (pos == -1 || fs->end_pos - pos < buffer_size) fs->end_pos += pos == -1 ? buffer_size : buffer_size - (fs->end_pos - pos);
 
-	if(flush_data) fflush(fs->file);
+	if (flush_data) fflush(fs->file);
 
 	this->handle_file_failure(fs);
 
@@ -185,13 +185,34 @@ void FileHandler::close_file(FileStream* fs) {
 }
 
 void FileHandler::handle_file_failure(FileStream* fs) {
-	if (!ferror(fs->file)) return;
+	if (ferror(fs->file) == 0) return;
 
-	clearerr(fs->file);
+	if (feof(fs->file) != 0) {
+		clearerr(fs->file);
+		return;
+	}
 
-	// TODO: Throw error message based on error flag
+	int err = errno;
 
-	throw std::exception("Error occured during file action");
+	switch (err) {
+	case ENOENT:
+		printf("No such file or directory\n");
+		exit(1);
+	case EACCES:
+		printf("Permission denied\n");
+		exit(1);
+	case EIO:
+		printf("I/O error\n");
+		exit(1);
+	case ENOSPC:
+		printf("No space left on device\n");
+		exit(1);
+	case EBADF:
+		printf("Bad file descriptor\n");
+		exit(1);
+	default:
+		return;
+	}
 }
 
 void FileHandler::add_unflushed_stream(FileStream* fs) {

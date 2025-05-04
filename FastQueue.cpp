@@ -6,15 +6,18 @@ std::atomic_int total_connections(0);
 Logger* _logger;
 
 void terminationSignalHandler(int signum) {
-    if (signum == SIGSEGV) {
-        _logger->log_error("Segmentation error occured. Shutting down...");
-        should_terminate = true;
+    switch (signum) {
+    case SIGSEGV:
+        _logger->log_error("Segmentation error occured. Shutting down immediatelly...");
+        exit(1);
+    case SIGINT:
+    case SIGTERM:
+        _logger->log_info("Termination signal received. Initiating graceful shutdown...");
+        break;
+    default:
         return;
     }
 
-    if (signum != SIGINT && signum != SIGTERM) return;
-
-    _logger->log_info("Termination signal received. Initiating graceful shutdown...");
     should_terminate = true;  // Set the termination flag
 }
 
