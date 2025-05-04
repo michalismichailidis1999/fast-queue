@@ -11,6 +11,7 @@
 
 #include "./src/header_files/logging/Logger.h"
 #include "./src/header_files/Settings.h"
+#include "./src/header_files/BeforeServerStartupHandler.h"
 #include "./src/header_files/Constants.h"
 #include "./src/header_files/util/ThreadPool.h"
 #include "./src/header_files/util/Util.h"
@@ -28,6 +29,7 @@
 #include "./src/header_files/queue_management/messages_management/Consumer.h"
 #include "./src/header_files/queue_management/messages_management/SegmentAllocator.h"
 #include "./src/header_files/queue_management/messages_management/MessagesHandler.h"
+#include "./src/header_files/queue_management/messages_management/index_management/SegmentMessageMap.h"
 #include "./src/header_files/queue_management/messages_management/index_management/BPlusTreeIndexHandler.h"
 #include "./src/header_files/queue_management/messages_management/index_management/BTreeNode.h"
 #include "./src/header_files/queue_management/QueueManager.h"

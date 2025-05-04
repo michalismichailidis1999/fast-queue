@@ -1,10 +1,11 @@
 #include "../../../header_files/queue_management/messages_management/MessagesHandler.h"
 
-MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, BPlusTreeIndexHandler* index_handler, Settings* settings) {
+MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, BPlusTreeIndexHandler* index_handler, Settings* settings) {
 	this->disk_flusher = disk_flusher;
 	this->disk_reader = disk_reader;
 	this->pm = pm;
 	this->sa = sa;
+	this->smm = smm;
 	this->index_handler = index_handler;
 	this->settings = settings;
 
