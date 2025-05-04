@@ -6,6 +6,9 @@ BTreeNode::BTreeNode(PageType type) {
 	this->min_key = 0;
 	this->max_key = 0;
 	this->rows_num = 0;
+	this->parent_offset = 0;
+	this->prev_page_offset = 0;
+	this->next_page_offset = 0;
 }
 
 BTreeNode::BTreeNode(void* metadata) {
@@ -14,6 +17,9 @@ BTreeNode::BTreeNode(void* metadata) {
 	memcpy_s(&this->min_key, INDEX_PAGE_MIN_KEY_SIZE, (char*)metadata + INDEX_PAGE_MIN_KEY_OFFSET, INDEX_PAGE_MIN_KEY_SIZE);
 	memcpy_s(&this->max_key, INDEX_PAGE_MAX_KEY_SIZE, (char*)metadata + INDEX_PAGE_MAX_KEY_OFFSET, INDEX_PAGE_MAX_KEY_SIZE);
 	memcpy_s(&this->rows_num, INDEX_PAGE_NUM_OF_ROWS_SIZE, (char*)metadata + INDEX_PAGE_NUM_OF_ROWS_OFFSET, INDEX_PAGE_NUM_OF_ROWS_SIZE);
+	memcpy_s(&this->parent_offset, INDEX_PAGE_PARENT_PAGE_SIZE, (char*)metadata + INDEX_PAGE_PARENT_PAGE_OFFSET, INDEX_PAGE_PARENT_PAGE_SIZE);
+	memcpy_s(&this->prev_page_offset, INDEX_PAGE_PREV_PAGE_SIZE, (char*)metadata + INDEX_PAGE_PREV_PAGE_OFFSET, INDEX_PAGE_PREV_PAGE_SIZE);
+	memcpy_s(&this->next_page_offset, INDEX_PAGE_NEXT_PAGE_SIZE, (char*)metadata + INDEX_PAGE_NEXT_PAGE_OFFSET, INDEX_PAGE_NEXT_PAGE_SIZE);
 
 	unsigned int offset = INDEX_PAGE_METADATA_SIZE;
 
@@ -32,6 +38,9 @@ std::tuple<std::shared_ptr<char>, unsigned int> BTreeNode::get_page_bytes() {
 	memcpy_s(bytes.get() + INDEX_PAGE_MIN_KEY_OFFSET, INDEX_PAGE_MIN_KEY_SIZE, &this->min_key, INDEX_PAGE_MIN_KEY_SIZE);
 	memcpy_s(bytes.get() + INDEX_PAGE_MAX_KEY_OFFSET, INDEX_PAGE_MAX_KEY_SIZE, &this->max_key, INDEX_PAGE_MAX_KEY_SIZE);
 	memcpy_s(bytes.get() + INDEX_PAGE_NUM_OF_ROWS_OFFSET, INDEX_PAGE_NUM_OF_ROWS_SIZE, &this->rows_num, INDEX_PAGE_NUM_OF_ROWS_SIZE);
+	memcpy_s(bytes.get() + INDEX_PAGE_PARENT_PAGE_OFFSET, INDEX_PAGE_PARENT_PAGE_SIZE, &this->parent_offset, INDEX_PAGE_PARENT_PAGE_SIZE);
+	memcpy_s(bytes.get() + INDEX_PAGE_PREV_PAGE_OFFSET, INDEX_PAGE_PREV_PAGE_SIZE, &this->prev_page_offset, INDEX_PAGE_PREV_PAGE_SIZE);
+	memcpy_s(bytes.get() + INDEX_PAGE_NEXT_PAGE_OFFSET, INDEX_PAGE_NEXT_PAGE_SIZE, &this->next_page_offset, INDEX_PAGE_NEXT_PAGE_SIZE);
 
 	unsigned int offset = INDEX_PAGE_METADATA_SIZE;
 

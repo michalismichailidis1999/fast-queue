@@ -46,4 +46,6 @@ public:
 	std::tuple<long, std::shared_ptr<char>> get_complete_file_content(const std::string& path);
 
 	std::string get_dir_entry_path(std::filesystem::directory_entry dir_entry);
+
+	void close_file(const std::string& key, bool is_static = false);
 };

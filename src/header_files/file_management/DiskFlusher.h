@@ -7,16 +7,17 @@
 #include <future>
 #include "../Settings.h"
 #include "../Constants.h"
+#include "../Enums.h"
 #include "./FileHandler.h"
 #include "../logging/Logger.h"
 #include "../util/Helper.h"
-#include "../queue_management/QueueManager.h"
+#include "../queue_management/PartitionSegment.h"
+#include "../queue_management/messages_management/index_management/BTreeNode.h"
 
 // will handle memory allocations (like buffers that need to store data for client requests etc.)
 // will handle also flushing to disk and deallocating data for new messages
 class DiskFlusher {
 private:
-	QueueManager* qm;
 	FileHandler* fh;
 	Logger* logger;
 	Settings* settings;
@@ -28,10 +29,20 @@ private:
 	std::condition_variable flush_cond;
 
 	std::atomic_bool* should_terminate;
+
+	unsigned int write_data_to_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1, bool is_internal_queue = false, bool flush_immediatelly = false);
 public:
-	DiskFlusher(QueueManager* qm, FileHandler* fh, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
+	DiskFlusher(FileHandler* fh, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
 	void flush_to_disk_periodically(int milliseconds);
 
-	unsigned int flush_data_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1, bool is_internal_queue = false);
+	unsigned int append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool is_internal_queue = false, bool flush_immediatelly = false);
+
+	void write_data_to_specific_file_location(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool is_internal_queue = false, bool flush_immediatelly = false);
+
+	void flush_metadata_updates_to_disk(PartitionSegment* segment, bool is_internal_queue);
+
+	void flush_new_metadata_to_disk(PartitionSegment* segment, const std::string& prev_segment_key, const std::string& prev_index_key, bool is_internal_queue);
+
+	void flush_metadata_updates_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, unsigned long pos, bool is_internal_queue = false);
 };

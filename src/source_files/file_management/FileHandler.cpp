@@ -224,3 +224,16 @@ void FileHandler::remove_unflushed_stream(FileStream* fs) {
 	std::lock_guard<std::mutex> lock(this->unflushed_streams_mut);
 	this->unflushed_streams.erase(fs->fd);
 }
+
+void FileHandler::close_file(const std::string& key, bool is_static) {
+	std::shared_ptr<FileStream> fs = is_static ? this->static_files[key] : this->cache->get(key);
+
+	if (fs == nullptr) return;
+
+	if (is_static)
+		this->static_files.erase(key);
+	else
+		this->cache->remove(key);
+
+	this->close_file(fs.get());
+}

@@ -9,14 +9,10 @@ class PartitionSegment {
 private:
 	unsigned long long id;
 
-	long long newest_message_timestamp;
-	long long oldest_message_timestamp;
-
-	unsigned long long newest_message_offset;
-	unsigned long long oldest_message_offset;
+	long long last_message_timestamp;
+	unsigned long long last_message_offset;
 
 	bool compacted;
-
 	bool is_read_only;
 
 	unsigned int last_index_page_offset;
@@ -46,17 +42,11 @@ public:
 
 	void set_index(const std::string& index_key, const std::string& index_path);
 
-	long long get_newest_message_timestamp();
-	void set_newest_message_timestamp(long long timestamp);
+	long long get_last_message_timestamp();
+	void set_last_message_timestamp(long long timestamp);
 
-	long long get_oldest_message_timestamp();
-	void set_oldest_message_timestamp(long long timestamp);
-
-	unsigned long long get_newest_message_offset();
-	void set_newest_message_offset(unsigned long long offset);
-
-	unsigned long long get_oldest_message_offset();
-	void set_oldest_message_offset(unsigned long long offset);
+	unsigned long long get_last_message_offset();
+	void set_last_message_offset(unsigned long long offset);
 
 	void set_to_compacted();
 	bool is_segment_compacted();

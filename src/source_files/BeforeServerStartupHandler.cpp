@@ -101,12 +101,9 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 
         Partition* partition = partitions[partition_id].get();
 
-        if (partition->get_oldest_segment() > segment_id || partition->get_oldest_segment() == 0)
-            partition->set_oldest_segment(segment_id);
-
-        if (partition->get_current_segment() < segment_id || partition->get_current_segment() == 0)
-            partition->set_current_segment(segment_id);
-        };
+        if (partition->get_current_segment_id() < segment_id || partition->get_current_segment_id() == 0)
+            partition->set_current_segment_id(segment_id);
+    };
 
     auto queue_partition_func = [&](const std::filesystem::directory_entry& dir_entry) {
         const std::string& path = this->fh->get_dir_entry_path(dir_entry);
@@ -256,15 +253,15 @@ std::shared_ptr<QueueMetadata> BeforeServerStartupHandler::get_queue_metadata(co
 void BeforeServerStartupHandler::set_partition_active_segment(Partition* partition, const std::string& queue_name, bool is_cluster_metadata_queue) {
     std::shared_ptr<PartitionSegment> segment = nullptr;
 
-    std::string segment_key = partition->get_current_segment() > 0
-        ? this->pm->get_file_key(queue_name, partition->get_current_segment())
+    std::string segment_key = partition->get_current_segment_id() > 0
+        ? this->pm->get_file_key(queue_name, partition->get_current_segment_id())
         : "";
 
-    std::string segment_path = partition->get_current_segment() > 0
-        ? this->pm->get_file_path(queue_name, partition->get_current_segment(), is_cluster_metadata_queue ? -1 : partition->get_partition_id())
+    std::string segment_path = partition->get_current_segment_id() > 0
+        ? this->pm->get_file_path(queue_name, partition->get_current_segment_id(), is_cluster_metadata_queue ? -1 : partition->get_partition_id())
         : "";
 
-    if (partition->get_current_segment() > 0 && this->fh->check_if_exists(segment_path)) {
+    if (partition->get_current_segment_id() > 0 && this->fh->check_if_exists(segment_path)) {
         std::unique_ptr<char> bytes = std::unique_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
 
         this->fh->read_from_file(
@@ -287,7 +284,7 @@ void BeforeServerStartupHandler::set_partition_active_segment(Partition* partiti
         // TODO: Set segment largest message id to index mapper
     }
 
-    unsigned long long new_segment_id = partition->get_current_segment() + 1;
+    unsigned long long new_segment_id = partition->get_current_segment_id() + 1;
 
     std::string new_segment_key = this->pm->get_file_key(queue_name, new_segment_id);
     std::string new_segment_path = this->pm->get_file_path(queue_name, new_segment_id, is_cluster_metadata_queue ? -1 : partition->get_partition_id());

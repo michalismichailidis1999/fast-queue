@@ -31,6 +31,8 @@ private:
 
 	std::string get_queue_partition_key(Partition* partition);
 	unsigned long remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned int bytes_written);
+
+	void set_last_message_id_and_timestamp(PartitionSegment* segment, void* messages, unsigned int total_bytes);
 public:
 	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, BPlusTreeIndexHandler* index_handler, Settings* settings);
 

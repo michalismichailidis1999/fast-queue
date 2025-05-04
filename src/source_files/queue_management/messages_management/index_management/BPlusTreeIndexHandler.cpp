@@ -130,14 +130,7 @@ std::shared_ptr<BTreeNode> BPlusTreeIndexHandler::create_new_node_pointer(Partit
 }
 
 void BPlusTreeIndexHandler::flush_segment_updated_metadata(PartitionSegment* segment, bool is_internal_queue) {
-	this->disk_flusher->flush_data_to_disk(
-		segment->get_segment_key(),
-		segment->get_segment_path(),
-		std::get<1>(segment->get_metadata_bytes()).get(),
-		SEGMENT_METADATA_TOTAL_BYTES,
-		0,
-		is_internal_queue
-	);
+	this->disk_flusher->flush_metadata_updates_to_disk(segment, is_internal_queue);
 }
 
 void BPlusTreeIndexHandler::flush_nodes_to_disk(PartitionSegment* segment, std::vector<BTreeNode*>* nodes, bool is_internal_queue) {
@@ -146,7 +139,7 @@ void BPlusTreeIndexHandler::flush_nodes_to_disk(PartitionSegment* segment, std::
 }
 
 void BPlusTreeIndexHandler::flush_node_to_disk(PartitionSegment* segment, BTreeNode* node, bool is_internal_queue) {
-	this->disk_flusher->flush_data_to_disk(
+	this->disk_flusher->write_data_to_specific_file_location(
 		segment->get_index_key(),
 		segment->get_index_path(),
 		std::get<0>(node->get_page_bytes()).get(),

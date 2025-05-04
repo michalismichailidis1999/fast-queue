@@ -2,10 +2,8 @@
 
 PartitionSegment::PartitionSegment(unsigned long long id, const std::string& segment_key, const std::string& segment_path) {
 	this->id = id;
-	this->newest_message_timestamp = 0;
-	this->oldest_message_timestamp = 0;
-	this->newest_message_offset = 0;
-	this->oldest_message_offset = 0;
+	this->last_message_timestamp = 0;
+	this->last_message_offset = 0;
 	this->compacted = false;
 	this->is_read_only = false;
 	this->segment_key = segment_key;
@@ -24,10 +22,8 @@ PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_ke
 	this->index_path = "";
 
 	memcpy_s(&this->id, SEGMENT_ID_SIZE, (char*)metadata + SEGMENT_ID_OFFSET, SEGMENT_ID_SIZE);
-	memcpy_s(&this->oldest_message_timestamp, SEGMENT_OLDEST_MESSAGE_TMSTMP_SIZE, (char*)metadata + SEGMENT_OLDEST_MESSAGE_TMSTMP_OFFSET, SEGMENT_OLDEST_MESSAGE_TMSTMP_SIZE);
-	memcpy_s(&this->newest_message_timestamp, SEGMENT_NEWEST_MESSAGE_TMSTMP_SIZE, (char*)metadata + SEGMENT_NEWEST_MESSAGE_TMSTMP_OFFSET, SEGMENT_NEWEST_MESSAGE_TMSTMP_SIZE);
-	memcpy_s(&this->oldest_message_offset, SEGMENT_OLDEST_MESSAGE_OFF_SIZE, (char*)metadata + SEGMENT_OLDEST_MESSAGE_OFF_OFFSET, SEGMENT_OLDEST_MESSAGE_OFF_SIZE);
-	memcpy_s(&this->newest_message_offset, SEGMENT_NEWEST_MESSAGE_OFF_SIZE, (char*)metadata + SEGMENT_NEWEST_MESSAGE_OFF_OFFSET, SEGMENT_NEWEST_MESSAGE_OFF_SIZE);
+	memcpy_s(&this->last_message_timestamp, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE, (char*)metadata + SEGMENT_LAST_MESSAGE_TMSTMP_OFFSET, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE);
+	memcpy_s(&this->last_message_offset, SEGMENT_LAST_MESSAGE_OFF_SIZE, (char*)metadata + SEGMENT_LAST_MESSAGE_OFF_OFFSET, SEGMENT_LAST_MESSAGE_OFF_SIZE);
 	memcpy_s(&this->is_read_only, SEGMENT_IS_READ_ONLY_SIZE, (char*)metadata + SEGMENT_IS_READ_ONLY_OFFSET, SEGMENT_IS_READ_ONLY_SIZE);
 	memcpy_s(&this->compacted, SEGMENT_IS_COMPACTED_SIZE, (char*)metadata + SEGMENT_IS_COMPACTED_OFFSET, SEGMENT_IS_COMPACTED_SIZE);
 	memcpy_s(&this->last_index_page_offset, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE, (char*)metadata + SEGMENT_LAST_INDEX_PAGE_OFFSET_OFFSET, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE);
@@ -58,44 +54,23 @@ void PartitionSegment::set_index(const std::string& index_key, const std::string
 	this->index_path = index_path;
 }
 
-long long PartitionSegment::get_newest_message_timestamp() {
+long long PartitionSegment::get_last_message_timestamp() {
 	std::lock_guard<std::mutex> lock(this->mut);
-	return this->newest_message_timestamp;
+	return this->last_message_timestamp;
 }
 
-void PartitionSegment::set_newest_message_timestamp(long long timestamp) {
+void PartitionSegment::set_last_message_timestamp(long long timestamp) {
 	std::lock_guard<std::mutex> lock(this->mut);
-	this->newest_message_timestamp = timestamp;
+	this->last_message_timestamp = timestamp;
 }
 
-long long PartitionSegment::get_oldest_message_timestamp() {
+unsigned long long PartitionSegment::get_last_message_offset() {
 	std::lock_guard<std::mutex> lock(this->mut);
-	return this->oldest_message_timestamp;
+	return this->last_message_offset;
 }
-
-void PartitionSegment::set_oldest_message_timestamp(long long timestamp) {
+void PartitionSegment::set_last_message_offset(unsigned long long offset) {
 	std::lock_guard<std::mutex> lock(this->mut);
-	this->oldest_message_timestamp = timestamp;
-}
-
-unsigned long long PartitionSegment::get_newest_message_offset() {
-	std::lock_guard<std::mutex> lock(this->mut);
-	return this->newest_message_offset;
-}
-
-void PartitionSegment::set_newest_message_offset(unsigned long long offset) {
-	std::lock_guard<std::mutex> lock(this->mut);
-	this->newest_message_offset = offset;
-}
-
-unsigned long long PartitionSegment::get_oldest_message_offset() {
-	std::lock_guard<std::mutex> lock(this->mut);
-	return this->oldest_message_offset;
-}
-
-void PartitionSegment::set_oldest_message_offset(unsigned long long offset) {
-	std::lock_guard<std::mutex> lock(this->mut);
-	this->oldest_message_offset = offset;
+	this->last_message_offset = offset;
 }
 
 void PartitionSegment::set_to_compacted() {
@@ -150,16 +125,14 @@ std::tuple<long, std::shared_ptr<char>> PartitionSegment::get_metadata_bytes() {
 
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
 
-	Helper::add_common_metadata_values((void*)(bytes.get()), SEGMENT_METADATA_TOTAL_BYTES, ObjectType::METADATA);
-
 	memcpy_s(bytes.get() + SEGMENT_ID_OFFSET, SEGMENT_ID_SIZE, &this->id, SEGMENT_ID_SIZE);
-	memcpy_s(bytes.get() + SEGMENT_OLDEST_MESSAGE_TMSTMP_OFFSET, SEGMENT_OLDEST_MESSAGE_TMSTMP_SIZE, &this->oldest_message_timestamp, SEGMENT_OLDEST_MESSAGE_TMSTMP_SIZE);
-	memcpy_s(bytes.get() + SEGMENT_NEWEST_MESSAGE_TMSTMP_OFFSET, SEGMENT_NEWEST_MESSAGE_TMSTMP_SIZE, &this->newest_message_timestamp, SEGMENT_NEWEST_MESSAGE_TMSTMP_SIZE);
-	memcpy_s(bytes.get() + SEGMENT_OLDEST_MESSAGE_OFF_OFFSET, SEGMENT_OLDEST_MESSAGE_OFF_SIZE, &this->oldest_message_offset, SEGMENT_OLDEST_MESSAGE_OFF_SIZE);
-	memcpy_s(bytes.get() + SEGMENT_NEWEST_MESSAGE_OFF_OFFSET, SEGMENT_NEWEST_MESSAGE_OFF_SIZE, &this->newest_message_offset, SEGMENT_NEWEST_MESSAGE_OFF_SIZE);
+	memcpy_s(bytes.get() + SEGMENT_LAST_MESSAGE_TMSTMP_OFFSET, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE, &this->last_message_timestamp, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE);
+	memcpy_s(bytes.get() + SEGMENT_LAST_MESSAGE_OFF_OFFSET, SEGMENT_LAST_MESSAGE_OFF_SIZE, &this->last_message_offset, SEGMENT_LAST_MESSAGE_OFF_SIZE);
 	memcpy_s(bytes.get() + SEGMENT_IS_READ_ONLY_OFFSET, SEGMENT_IS_READ_ONLY_SIZE, &this->is_read_only, SEGMENT_IS_READ_ONLY_SIZE);
 	memcpy_s(bytes.get() + SEGMENT_IS_COMPACTED_OFFSET, SEGMENT_IS_COMPACTED_SIZE, &this->compacted, SEGMENT_IS_READ_ONLY_SIZE);
 	memcpy_s(bytes.get() + SEGMENT_LAST_INDEX_PAGE_OFFSET_OFFSET, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE, &this->last_index_page_offset, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE);
+
+	Helper::add_common_metadata_values((void*)(bytes.get()), SEGMENT_METADATA_TOTAL_BYTES, ObjectType::METADATA);
 
 	return std::tuple<long, std::shared_ptr<char>>(SEGMENT_METADATA_TOTAL_BYTES, bytes);
 }

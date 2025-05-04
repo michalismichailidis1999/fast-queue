@@ -19,21 +19,25 @@ void MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 
 	PartitionSegment* active_segment = partition->get_active_segment();
 
-	long long first_message_pos = this->disk_flusher->flush_data_to_disk(
+	this->set_last_message_id_and_timestamp(active_segment, messages, total_bytes);
+
+	long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
 		active_segment->get_segment_key(), 
 		active_segment->get_segment_path(), 
 		messages, 
-		-1,
 		Helper::is_internal_queue(partition->get_queue_name())
 	);
 
 	unsigned long total_segment_bytes = partition->get_active_segment()->add_written_bytes(total_bytes);
 
-	//if (this->settings->get_segment_size() < total_segment_bytes)
+	//if (this->settings->get_segment_size() < total_segment_bytes) {
 	//	this->sa->allocate_new_segment(partition);
+	//	return;
+	//}
 
 	if (100 < total_segment_bytes) {
 		this->sa->allocate_new_segment(partition);
+		return;
 	}
 
 	if (this->remove_from_partition_remaining_bytes(this->get_queue_partition_key(partition), total_bytes) == 0) {
@@ -52,7 +56,7 @@ void MessagesHandler::update_cluster_metadata_last_applied(unsigned long long la
 }
 
 void MessagesHandler::update_cluster_metadata_index_value(unsigned long long index_value, unsigned int index_size, unsigned int index_pos) {
-	this->disk_flusher->flush_data_to_disk(
+	this->disk_flusher->flush_metadata_updates_to_disk(
 		this->cluster_metadata_file_key,
 		this->cluster_metadata_file_path,
 		&index_value,
@@ -65,7 +69,7 @@ void MessagesHandler::update_cluster_metadata_index_value(unsigned long long ind
 std::string MessagesHandler::get_queue_partition_key(Partition* partition) {
 	return partition->get_queue_name()
 		+ "-" + std::to_string(partition->get_partition_id()) 
-		+ "-" + std::to_string(partition->get_current_segment());
+		+ "-" + std::to_string(partition->get_current_segment_id());
 }
 
 unsigned long MessagesHandler::remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned int bytes_written) {
@@ -83,4 +87,23 @@ unsigned long MessagesHandler::remove_from_partition_remaining_bytes(const std::
 	this->remaining_bytes[queue_partition_key] = remaining_bytes;
 
 	return remaining_bytes;
+}
+
+void MessagesHandler::set_last_message_id_and_timestamp(PartitionSegment* segment, void* messages, unsigned int total_bytes) {
+	unsigned long long last_message_offset = 0;
+	long long last_message_timestamp = 0;
+
+	unsigned int offset = 0;
+
+	while (offset < total_bytes) {
+		unsigned int message_total_bytes = 0;
+
+		memcpy_s(&last_message_offset, SEGMENT_LAST_MESSAGE_OFF_SIZE, (char*)messages + SEGMENT_LAST_MESSAGE_OFF_OFFSET, SEGMENT_LAST_MESSAGE_OFF_SIZE);
+		memcpy_s(&last_message_timestamp, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE, (char*)messages + SEGMENT_LAST_MESSAGE_TMSTMP_OFFSET, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE);
+
+		offset += message_total_bytes;
+	}
+
+	segment->set_last_message_offset(last_message_offset);
+	segment->set_last_message_timestamp(last_message_timestamp);
 }
