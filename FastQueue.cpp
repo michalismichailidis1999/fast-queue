@@ -1,7 +1,6 @@
 ﻿#include "FastQueue.h"
 
 std::atomic_bool should_terminate(false);
-std::atomic_int total_connections(0);
 
 Logger* _logger;
 
@@ -35,162 +34,6 @@ std::unique_ptr<Settings> setup_settings(FileHandler* fh, const std::string& con
 
     return settings;
 }  
-
-void create_and_run_socket_listener(ConnectionsManager* cm, SocketHandler* socket_handler, SslContextHandler* ssl_context_handler, Settings* settings, RequestManager* rm, ThreadPool* thread_pool, bool internal_communication) {
-    std::shared_ptr<SSL_CTX> ctx = nullptr;
-
-    bool ssl_enabled = internal_communication
-        ? settings->get_internal_ssl_enabled()
-        : settings->get_external_ssl_enabled();
-
-    if (ssl_enabled) {
-        _logger->log_info("Enabling SSL...");
-
-        std::shared_ptr<SSL_CTX> ctx = ssl_context_handler->create_ssl_context(internal_communication);
-
-        if (!ctx.get()) {
-            _logger->log_error("Unable to create SSL context");
-            ERR_print_errors_fp(stderr);
-            should_terminate = true;
-            return;
-        }
-
-        _logger->log_info("SSL enabled");
-    }
-
-    SOCKET_ID listen_socket = socket_handler->get_listen_socket(internal_communication);
-
-    if (listen_socket == invalid_socket) {
-        should_terminate = true;
-        return;
-    }
-
-    {
-        std::string communication_info = internal_communication ? "internal" : "external";
-
-        _logger->log_info("Server started and listening for " + communication_info + " connections");
-    }
-
-    std::vector<POLLED_FD> fds;
-    fds.push_back({ listen_socket, POLLIN_EVENT, 0 });
-
-
-    std::map<SOCKET_ID, SSL*> fds_ssls;
-
-    if (ssl_enabled)
-        fds_ssls[listen_socket] = NULL;
-
-    while (should_terminate == 0) {
-        int pollResult = socket_handler->poll_events(&fds);
-
-        if (pollResult > 0)
-            for (int i = 0; i < fds.size(); ++i) {
-                if (socket_handler->pollin_event_occur(&fds[i]) && !socket_handler->error_event_occur(&fds[i])) {
-                    if (i == 0) {
-                        // Handle new incoming connection
-                        SOCKET_ID newConn = socket_handler->accept_connection(listen_socket);
-
-                        if ((++total_connections) > settings->get_maximum_connections()) {
-                            total_connections--;
-
-                            if (!socket_handler->close_socket(fds[i].fd))
-                                _logger->log_error("Socket closure failed with error");
-
-                            _logger->log_error("Could not accept any more connections.");
-                            continue;
-                        }
-
-                        if (newConn != invalid_socket) {
-                            SSL* ssl = NULL;
-
-                            if (ssl_enabled) {
-                                ssl = ssl_context_handler->wrap_connection_with_ssl(ctx.get(), newConn);
-
-                                if (ssl == NULL) {
-                                    socket_handler->close_socket(newConn);
-                                    continue;
-                                }
-
-                                fds_ssls[newConn] = ssl;
-                            }
-
-                            fds.push_back({ newConn, POLLIN, 0 });
-                            cm->initialize_connection_heartbeat(newConn, ssl);
-                            _logger->log_info("New connection accepted");
-                        }
-                        else
-                            _logger->log_error("Failed to accept new connection");
-
-                        cm->remove_socket_lock(newConn);
-                    }
-                    else {
-                        SOCKET_ID socket = fds[i].fd;
-
-                        if (!cm->add_socket_lock(socket)) continue;
-
-                        SSL* ssl = ssl_enabled ? fds_ssls[i] : NULL;
-
-                        thread_pool->enqueue([&, socket, internal_communication]() {
-                            try
-                            {
-                                rm->execute_request(socket, ssl, internal_communication);
-                            }
-                            catch (const std::exception& ex)
-                            {
-                                _logger->log_error(ex.what());
-                            }
-                            });
-                    }
-                }
-                else if (socket_handler->error_event_occur(&fds[i])) {
-                    SOCKET_ID socket = fds[i].fd;
-                    bool socket_expired = cm->socket_expired(socket);
-
-                    cm->remove_socket_lock(socket);
-
-                    if (!socket_expired && !socket_handler->close_socket(socket))
-                        _logger->log_error("Socket closure failed with error");
-
-                    _logger->log_error("Connection from socket " + std::to_string(socket) + " removed");
-
-                    fds.erase(fds.begin() + i);
-                    total_connections--;
-
-                    if (i > 0 && ssl_enabled && fds_ssls.find(socket) != fds_ssls.end()) {
-                        if (!socket_expired && !ssl_context_handler->free_ssl(fds_ssls[socket]))
-                            _logger->log_error("Failed to cleanup socket ssl");
-
-                        fds_ssls.erase(socket);
-                    }
-
-                    if (i == 0) {
-                        should_terminate = true;
-                        break;
-                    }
-
-                    --i;
-                }
-            }
-        else if (pollResult == poll_error) _logger->log_error("Request polling failed");
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(150));
-    }
-
-    if (fds.size() > 0)
-        for (int i = 0; i < fds.size(); i++) {
-            bool socket_expired = cm->socket_expired(fds[i].fd);
-
-            if (!socket_expired && !socket_handler->close_socket(fds[i].fd))
-                _logger->log_error("Socket closure failed with error");
-
-            if (i > 0 && ssl_enabled && !socket_expired)
-                SSL_free(fds_ssls[i]);
-        }
-
-    socket_handler->socket_cleanup();
-
-    thread_pool->stop_workers();
-}
 
 std::string get_config_path(int argc, char* argv[]) {
     const char* settings_path = std::getenv("CONFIGURATION_PATH");
@@ -260,6 +103,7 @@ int main(int argc, char* argv[])
 
     // needs to run before controller is created since it initialized some values based on existing queues metadata
     startup_handler.get()->initialize_required_folders_and_queues();
+    startup_handler.get()->rebuild_cluster_metadata();
 
     std::unique_ptr<Controller> controller = settings.get()->get_is_controller_node()
         ? std::unique_ptr<Controller>(new Controller(cm.get(), qm.get(), mh.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), cluster_metadata.get(), future_cluster_metadata.get(), &should_terminate))
@@ -271,13 +115,30 @@ int main(int argc, char* argv[])
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), transformer.get()));
     std::unique_ptr<RequestManager> rm = std::unique_ptr<RequestManager>(new RequestManager(cm.get(), settings.get(), client_request_executor.get(), internal_request_executor.get(), request_mapper.get(), server_logger.get()));
 
-    startup_handler.get()->rebuild_cluster_metadata();
+    std::unique_ptr<ThreadPool> thread_pool = std::unique_ptr<ThreadPool>(new ThreadPool(settings.get()->get_request_parallelism()));
+
+    std::unique_ptr<SocketListenerHandler> slh = std::unique_ptr<SocketListenerHandler>(
+        new SocketListenerHandler(
+            cm.get(),
+            socket_handler.get(),
+            ssl_context_handler.get(),
+            rm.get(),
+            thread_pool.get(),
+            server_logger.get(),
+            settings.get(),
+            &should_terminate
+        )
+    );
 
     server_logger->log_info("Server starting...");
 
     try
     {
         ssl_context_handler.get()->initialize_ssl();
+
+        auto create_and_run_socket_listener = [&](bool internal_communication) {
+            slh.get()->create_and_run_socket_listener(internal_communication);
+        };
 
         auto keep_connections_to_maximum = [&]() {
             cm.get()->keep_pool_connections_to_maximum();
@@ -315,11 +176,9 @@ int main(int argc, char* argv[])
             data_node.get()->send_heartbeats_to_leader(&should_terminate);
         };
 
-        std::unique_ptr<ThreadPool> thread_pool = std::unique_ptr<ThreadPool>(new ThreadPool(settings.get()->get_request_parallelism()));
+        std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, true);
 
-        std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, cm.get(), socket_handler.get(), ssl_context_handler.get(), settings.get(), rm.get(), thread_pool.get(), true);
-
-        std::thread external_listener_thread = std::thread(create_and_run_socket_listener, cm.get(), socket_handler.get(), ssl_context_handler.get(), settings.get(), rm.get(), thread_pool.get(), false);
+        std::thread external_listener_thread = std::thread(create_and_run_socket_listener, false);
 
         cm.get()->initialize_controller_nodes_connections();
 
