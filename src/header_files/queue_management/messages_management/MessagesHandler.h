@@ -41,4 +41,6 @@ public:
 	void update_cluster_metadata_commit_index(unsigned long long commit_index);
 
 	void update_cluster_metadata_last_applied(unsigned long long last_applied);
+
+	std::tuple<std::shared_ptr<char>, unsigned long> read_partition_messages(Partition* partition, unsigned long long read_from_message_id, unsigned int total_messages_to_read = 1, bool read_messages_batch = false);
 };

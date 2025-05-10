@@ -107,3 +107,18 @@ void MessagesHandler::set_last_message_id_and_timestamp(PartitionSegment* segmen
 	segment->set_last_message_offset(last_message_offset);
 	segment->set_last_message_timestamp(last_message_timestamp);
 }
+
+std::tuple<std::shared_ptr<char>, unsigned long> MessagesHandler::read_partition_messages(
+	Partition* partition, 
+	unsigned long long read_from_message_id, 
+	unsigned int total_messages_to_read, 
+	bool read_messages_batch
+) {
+	std::shared_ptr<PartitionSegment> old_segment = this->smm->find_message_segment(read_from_message_id);
+
+	PartitionSegment* segment_to_read = old_segment == nullptr
+		? partition->get_active_segment()
+		: old_segment.get();
+
+	return this->index_handler->read_segment_messages(segment_to_read, read_from_message_id, total_messages_to_read, read_messages_batch);
+}

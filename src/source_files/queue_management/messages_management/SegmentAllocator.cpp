@@ -31,7 +31,8 @@ void SegmentAllocator::allocate_new_segment(Partition* partition) {
 
 	this->df->flush_new_metadata_to_disk(new_segment.get(), segment->get_segment_key(), segment->get_index_key(), is_internal_queue);
 
-	this->smm->add_last_message_info_to_segment_map(segment, is_internal_queue);
+	if(new_segment_id > 1)
+		this->smm->add_last_message_info_to_segment_map(partition, segment, is_internal_queue);
 
 	partition->set_active_segment(new_segment);
 }

@@ -23,4 +23,8 @@ public:
 	std::string get_metadata_file_key(const std::string& queue_name);
 
 	std::string get_metadata_file_path(const std::string& queue_name);
+
+	std::string get_segment_message_map_key(const std::string& queue_name, int partition = -1);
+
+	std::string get_segment_message_map_path(const std::string& queue_name, int partition = -1);
 };

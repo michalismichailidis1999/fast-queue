@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
     std::unique_ptr<DiskReader> dr = std::unique_ptr<DiskReader>(new DiskReader(fh.get(), server_logger.get(), settings.get()));
 
     std::unique_ptr<BPlusTreeIndexHandler> ih = std::unique_ptr<BPlusTreeIndexHandler>(new BPlusTreeIndexHandler(df.get(), dr.get()));
-    std::unique_ptr<SegmentMessageMap> smm = std::unique_ptr<SegmentMessageMap>(new SegmentMessageMap(df.get(), dr.get()));
+    std::unique_ptr<SegmentMessageMap> smm = std::unique_ptr<SegmentMessageMap>(new SegmentMessageMap(df.get(), dr.get(), pm.get()));
 
     std::unique_ptr<SegmentAllocator> sa = std::unique_ptr<SegmentAllocator>(new SegmentAllocator(smm.get(), pm.get(), df.get()));
     std::unique_ptr<MessagesHandler> mh = std::unique_ptr<MessagesHandler>(new MessagesHandler(df.get(), dr.get(), pm.get(), sa.get(), smm.get(), ih.get(), settings.get()));
@@ -91,6 +91,7 @@ int main(int argc, char* argv[])
     std::unique_ptr<BeforeServerStartupHandler> startup_handler = std::unique_ptr<BeforeServerStartupHandler>(
         new BeforeServerStartupHandler(
             qm.get(),
+            sa.get(),
             cluster_metadata.get(),
             future_cluster_metadata.get(),
             fh.get(),

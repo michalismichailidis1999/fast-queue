@@ -47,3 +47,16 @@ std::string QueueSegmentFilePathMapper::get_metadata_file_path(const std::string
 		+ "/metadata"
 		+ FILE_EXTENSION;
 }
+
+std::string QueueSegmentFilePathMapper::get_segment_message_map_key(const std::string& queue_name, int partition) {
+	return queue_name + "_mmap_" + (partition >= 0 ? ("partition-" + std::to_string(partition)) : "");
+}
+
+std::string QueueSegmentFilePathMapper::get_segment_message_map_path(const std::string& queue_name, int partition) {
+	return this->settings->get_log_path()
+		+ "/"
+		+ queue_name
+		+ (partition >= 0 ? ("partition-" + std::to_string(partition) + "/") : "")
+		+ "messages_location_map"
+		+ FILE_EXTENSION;
+}

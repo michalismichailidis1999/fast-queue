@@ -22,6 +22,11 @@ static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
 static const unsigned int INDEX_PAGE_SIZE = 4096; // 4KB
 
+static const unsigned int MAX_READ_MESSAGES_BATCH_SIZE = INDEX_PAGE_SIZE * 8; // 32KB
+
+static const unsigned int MESSAGES_LOC_MAP_PAGE_SIZE = 4096; // 4KB
+static const unsigned int MAPPED_SEGMENTS_PER_PAGE = MESSAGES_LOC_MAP_PAGE_SIZE / sizeof(unsigned long long);
+
 static const unsigned int TOTAL_METADATA_BYTES = sizeof(unsigned long);
 static const unsigned int TOTAL_METADATA_BYTES_OFFSET = 0;
 static const unsigned int VERSION_SIZE = sizeof(unsigned int);

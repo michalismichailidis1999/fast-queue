@@ -34,3 +34,19 @@ void Partition::set_active_segment(std::shared_ptr<PartitionSegment> segment) {
 	this->active_segment = segment;
 	this->current_segment_id = segment->get_id();
 }
+
+void Partition::set_message_map(const std::string& message_map_key, const std::string& message_map_path) {
+	std::lock_guard<std::mutex> lock(this->mut);
+	this->message_map_key = message_map_key;
+	this->message_map_path = message_map_path;
+}
+
+const std::string& Partition::get_message_map_key() {
+	std::lock_guard<std::mutex> lock(this->mut);
+	return this->message_map_key;
+}
+
+const std::string& Partition::get_message_map_path() {
+	std::lock_guard<std::mutex> lock(this->mut);
+	return this->message_map_path;
+}

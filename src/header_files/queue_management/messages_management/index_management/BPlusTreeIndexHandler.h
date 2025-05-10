@@ -31,5 +31,7 @@ private:
 public:
 	BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader);
 
+	std::tuple<std::shared_ptr<char>, unsigned long> read_segment_messages(PartitionSegment* segment, unsigned long long read_from_message_id, unsigned int total_messages_to_read = 1, bool read_messages_batch = false);
+	
 	void add_message_to_index(Partition* partition, unsigned long long message_id, unsigned int message_pos);
 };
