@@ -61,8 +61,7 @@ void MessagesHandler::update_cluster_metadata_index_value(unsigned long long ind
 		this->cluster_metadata_file_path,
 		&index_value,
 		index_size,
-		index_pos,
-		true
+		index_pos
 	);
 }
 
@@ -114,7 +113,7 @@ std::tuple<std::shared_ptr<char>, unsigned long> MessagesHandler::read_partition
 	unsigned int total_messages_to_read, 
 	bool read_messages_batch
 ) {
-	std::shared_ptr<PartitionSegment> old_segment = this->smm->find_message_segment(read_from_message_id);
+	std::shared_ptr<PartitionSegment> old_segment = this->smm->find_message_segment(partition, read_from_message_id);
 
 	PartitionSegment* segment_to_read = old_segment == nullptr
 		? partition->get_active_segment()

@@ -19,7 +19,7 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 
 	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
 
-	auto node_to_insert_tup = this->find_node_to_insert(segment, is_internal_queue);
+	auto node_to_insert_tup = this->find_node_to_insert(segment);
 
 	std::shared_ptr<BTreeNode> node_to_insert = std::get<0>(node_to_insert_tup);
 	std::shared_ptr<BTreeNode> parent_node = std::get<1>(node_to_insert_tup);
@@ -28,7 +28,7 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 
 	if (!node_to_insert.get()->is_full()) {
 		node_to_insert.get()->insert(row_to_insert);
-		this->flush_node_to_disk(segment, node_to_insert.get(), is_internal_queue);
+		this->flush_node_to_disk(segment, node_to_insert.get());
 		return;
 	}
 
@@ -59,12 +59,12 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 
 	nodes_to_flush.emplace_back(new_node.get());
 
-	this->flush_segment_updated_metadata(segment, is_internal_queue);
+	this->flush_segment_updated_metadata(segment);
 
-	this->flush_nodes_to_disk(segment, &nodes_to_flush, is_internal_queue);
+	this->flush_nodes_to_disk(segment, &nodes_to_flush);
 }
 
-std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> BPlusTreeIndexHandler::find_node_to_insert(PartitionSegment* segment, bool is_internal_queue) {
+std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> BPlusTreeIndexHandler::find_node_to_insert(PartitionSegment* segment) {
 	std::unique_ptr<char> node_data = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
 	std::shared_ptr<BTreeNode> node_to_insert = nullptr;
 	std::shared_ptr<BTreeNode> prev_node = nullptr;
@@ -79,8 +79,7 @@ std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> BPlusTreeInde
 			segment->get_index_path(),
 			node_data.get(),
 			INDEX_PAGE_SIZE,
-			page_offset,
-			is_internal_queue
+			page_offset
 		);
 
 		if (!Helper::has_valid_checksum(node_data.get()))
@@ -138,22 +137,21 @@ std::shared_ptr<BTreeNode> BPlusTreeIndexHandler::create_new_node_pointer(Partit
 	return new_node;
 }
 
-void BPlusTreeIndexHandler::flush_segment_updated_metadata(PartitionSegment* segment, bool is_internal_queue) {
-	this->disk_flusher->flush_metadata_updates_to_disk(segment, is_internal_queue);
+void BPlusTreeIndexHandler::flush_segment_updated_metadata(PartitionSegment* segment) {
+	this->disk_flusher->flush_metadata_updates_to_disk(segment);
 }
 
-void BPlusTreeIndexHandler::flush_nodes_to_disk(PartitionSegment* segment, std::vector<BTreeNode*>* nodes, bool is_internal_queue) {
+void BPlusTreeIndexHandler::flush_nodes_to_disk(PartitionSegment* segment, std::vector<BTreeNode*>* nodes) {
 	for(int i = nodes->size(); i >= 0; i--)
-		this->flush_node_to_disk(segment, (*nodes)[i], is_internal_queue);
+		this->flush_node_to_disk(segment, (*nodes)[i]);
 }
 
-void BPlusTreeIndexHandler::flush_node_to_disk(PartitionSegment* segment, BTreeNode* node, bool is_internal_queue) {
+void BPlusTreeIndexHandler::flush_node_to_disk(PartitionSegment* segment, BTreeNode* node) {
 	this->disk_flusher->write_data_to_specific_file_location(
 		segment->get_index_key(),
 		segment->get_index_path(),
 		std::get<0>(node->get_page_bytes()).get(),
 		INDEX_PAGE_SIZE,
-		node->page_offset * INDEX_PAGE_SIZE,
-		is_internal_queue
+		node->page_offset * INDEX_PAGE_SIZE
 	);
 }

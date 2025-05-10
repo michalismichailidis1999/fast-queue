@@ -30,19 +30,19 @@ private:
 
 	std::atomic_bool* should_terminate;
 
-	unsigned int write_data_to_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1, bool is_internal_queue = false, bool flush_immediatelly = false);
+	unsigned int write_data_to_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1, bool flush_immediatelly = false);
 public:
 	DiskFlusher(FileHandler* fh, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
 	void flush_to_disk_periodically(int milliseconds);
 
-	unsigned int append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool is_internal_queue = false, bool flush_immediatelly = false);
+	unsigned int append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly = false);
 
-	void write_data_to_specific_file_location(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool is_internal_queue = false, bool flush_immediatelly = false);
+	void write_data_to_specific_file_location(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly = false);
 
-	void flush_metadata_updates_to_disk(PartitionSegment* segment, bool is_internal_queue);
+	void flush_metadata_updates_to_disk(PartitionSegment* segment);
 
-	void flush_new_metadata_to_disk(PartitionSegment* segment, const std::string& prev_segment_key, const std::string& prev_index_key, bool is_internal_queue);
+	void flush_new_metadata_to_disk(PartitionSegment* segment, const std::string& prev_segment_key, const std::string& prev_index_key);
 
-	void flush_metadata_updates_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, unsigned long pos, bool is_internal_queue = false);
+	void flush_metadata_updates_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, unsigned long pos);
 };

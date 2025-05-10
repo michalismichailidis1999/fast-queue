@@ -7,6 +7,8 @@ static const unsigned long VERSION_INT_FORMAT = 0b00000000'00000001'00000000'000
 
 static const std::string FILE_EXTENSION = ".txt";
 
+static const unsigned int MAXIMUM_OPEN_FILE_DESCRIPTORS = 750;
+
 static const std::string CLUSTER_METADATA_QUEUE_NAME = "__cluster_metadata";
 
 static const unsigned int HEARTBEAT_SIGNAL_MIN_BOUND = 1500;
@@ -25,7 +27,8 @@ static const unsigned int INDEX_PAGE_SIZE = 4096; // 4KB
 static const unsigned int MAX_READ_MESSAGES_BATCH_SIZE = INDEX_PAGE_SIZE * 8; // 32KB
 
 static const unsigned int MESSAGES_LOC_MAP_PAGE_SIZE = 4096; // 4KB
-static const unsigned int MAPPED_SEGMENTS_PER_PAGE = MESSAGES_LOC_MAP_PAGE_SIZE / sizeof(unsigned long long);
+// first position will hold starting segment id of the next N segments contained in the page 
+static const unsigned int MAPPED_SEGMENTS_PER_PAGE = MESSAGES_LOC_MAP_PAGE_SIZE / sizeof(unsigned long long) - 1;
 
 static const unsigned int TOTAL_METADATA_BYTES = sizeof(unsigned long);
 static const unsigned int TOTAL_METADATA_BYTES_OFFSET = 0;

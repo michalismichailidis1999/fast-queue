@@ -21,13 +21,13 @@ private:
 
 	// returns both node to insert and its parent
 	// tuple( node to insert, parent node )
-	std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> find_node_to_insert(PartitionSegment* segment, bool is_internal_queue);
+	std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> find_node_to_insert(PartitionSegment* segment);
 
-	void flush_segment_updated_metadata(PartitionSegment* segment, bool is_internal_queue);
+	void flush_segment_updated_metadata(PartitionSegment* segment);
 
-	void flush_nodes_to_disk(PartitionSegment* segment, std::vector<BTreeNode*>* nodes, bool is_internal_queue);
+	void flush_nodes_to_disk(PartitionSegment* segment, std::vector<BTreeNode*>* nodes);
 
-	void flush_node_to_disk(PartitionSegment* segment, BTreeNode* node, bool is_internal_queue);
+	void flush_node_to_disk(PartitionSegment* segment, BTreeNode* node);
 public:
 	BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader);
 

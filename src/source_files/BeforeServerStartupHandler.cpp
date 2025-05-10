@@ -268,13 +268,17 @@ void BeforeServerStartupHandler::set_partition_segment_message_map(Partition* pa
     if (!this->fh->check_if_exists(file_path)) {
         std::unique_ptr<char> data = std::unique_ptr<char>(new char[MAPPED_SEGMENTS_PER_PAGE]);
 
+        unsigned long long zero_value = 0;
+
+        for (unsigned int i = 1; i < MAPPED_SEGMENTS_PER_PAGE; i++)
+            memcpy_s(data.get() + i * sizeof(unsigned long long), sizeof(unsigned long long), &zero_value, sizeof(unsigned long long));
+
         this->fh->create_new_file(
             file_path,
             MAPPED_SEGMENTS_PER_PAGE,
             data.get(),
             file_key,
-            true,
-            is_cluster_metadata_queue
+            true
         );
     }
 
@@ -300,8 +304,7 @@ void BeforeServerStartupHandler::set_partition_active_segment(Partition* partiti
             segment_path,
             SEGMENT_METADATA_TOTAL_BYTES,
             0,
-            bytes.get(),
-            is_cluster_metadata_queue
+            bytes.get()
         );
 
         segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(bytes.get(), segment_key, segment_path));
@@ -311,8 +314,6 @@ void BeforeServerStartupHandler::set_partition_active_segment(Partition* partiti
             this->set_segment_index(partition->get_queue_name(), segment.get(), is_cluster_metadata_queue ? -1 : partition->get_partition_id());
             return;
         }
-
-        // TODO: Set segment largest message id to index mapper
     }
 
     this->sa->allocate_new_segment(partition);
@@ -331,8 +332,7 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
         INDEX_PAGE_SIZE,
         std::get<0>(BTreeNode(PageType::LEAF).get_page_bytes()).get(),
         index_file_key,
-        true,
-        partition == -1
+        true
     );
 }
 

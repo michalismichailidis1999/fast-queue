@@ -8,13 +8,12 @@ DiskReader::DiskReader(FileHandler* fh, Logger* logger, Settings* settings) {
 	this->settings = settings;
 }
 
-void DiskReader::read_data_from_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool is_internal_queue) {
+void DiskReader::read_data_from_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos) {
 	this->fh->read_from_file(
 		key,
 		path,
 		total_bytes,
 		pos,
-		data,
-		is_internal_queue
+		data
 	);
 }

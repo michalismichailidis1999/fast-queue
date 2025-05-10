@@ -10,10 +10,12 @@ private:
 	DiskFlusher* df;
 	DiskReader* dr;
 	QueueSegmentFilePathMapper* pm;
+
+	int get_page_segment_offset(void* map_page, unsigned long long message_id);
 public:
 	SegmentMessageMap(DiskFlusher* df, DiskReader* dr, QueueSegmentFilePathMapper* pm);
 
-	void add_last_message_info_to_segment_map(Partition* partition, PartitionSegment* segment, bool is_internal_queue);
+	void add_last_message_info_to_segment_map(Partition* partition, PartitionSegment* segment);
 
-	std::shared_ptr<PartitionSegment> find_message_segment(unsigned long long message_id);
+	std::shared_ptr<PartitionSegment> find_message_segment(Partition* partition, unsigned long long message_id);
 };

@@ -1,10 +1,10 @@
 #include "../../header_files/file_management/FileHandler.h"
 
 FileHandler::FileHandler() {
-	this->cache = new Cache<std::string, std::shared_ptr<FileStream>>(500, "", nullptr);
+	this->cache = new Cache<std::string, std::shared_ptr<FileStream>>(MAXIMUM_OPEN_FILE_DESCRIPTORS, "", nullptr);
 }
 
-void FileHandler::create_new_file(const std::string& path, unsigned long bytes_to_write, void* data, const std::string& key, bool flush_data, bool is_static) {
+void FileHandler::create_new_file(const std::string& path, unsigned long bytes_to_write, void* data, const std::string& key, bool flush_data) {
 	std::shared_ptr<FileStream> fs = std::shared_ptr<FileStream>(new FileStream());
 	
 	this->open_file(fs.get(), path, true);
@@ -13,7 +13,6 @@ void FileHandler::create_new_file(const std::string& path, unsigned long bytes_t
 		this->write_to_file(fs.get(), bytes_to_write, 0, data, flush_data);
 
 	if (key == "") this->close_file(fs.get());
-	else if (is_static) this->static_files[key] = fs;
 	else {
 		std::shared_ptr<FileStream> old_fs = this->cache->put(key, fs);
 		if (old_fs != nullptr) this->close_file(old_fs.get());
@@ -69,7 +68,7 @@ std::string FileHandler::get_dir_entry_path(std::filesystem::directory_entry dir
 	return str_path;
 }
 
-long long FileHandler::write_to_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* data, bool flush_data, bool is_static) {
+long long FileHandler::write_to_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* data, bool flush_data) {
 	if (!this->check_if_exists(path)) {
 		const std::string err_msg = "Invalid path " + path;
 		printf("Tried to write to invalid path %s\n", path.c_str());
@@ -77,25 +76,22 @@ long long FileHandler::write_to_file(std::string key, const std::string& path, u
 	}
 
 	std::shared_ptr<FileStream> fs = key == ""
-		? nullptr 
-		: !is_static 
-			? this->cache->get(key)
-			: this->static_files[key];
+		? nullptr
+		: this->cache->get(key);
 
 	if (fs == NULL) {
 		this->open_file(fs.get(), path);
 
-		if (!is_static && key != "") {
+		if (key != "") {
 			std::shared_ptr<FileStream> old_fs = this->cache->put(key, fs);
 			if (old_fs != nullptr) this->close_file(old_fs.get());
 		}
-		else if (key != "") this->static_files[key] = fs;
 	}
 
 	return this->write_to_file(fs.get(), buffer_size, pos, data, flush_data);
 }
 
-void FileHandler::read_from_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* dest, bool is_static) {
+void FileHandler::read_from_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* dest) {
 	if (!this->check_if_exists(path)) {
 		const std::string err_msg = "Invalid path " + path;
 		printf("Tried to read from invalid path %s\n", path.c_str());
@@ -104,16 +100,15 @@ void FileHandler::read_from_file(std::string key, const std::string& path, unsig
 
 	std::shared_ptr<FileStream> fs = key == ""
 		? nullptr
-		: !is_static ? this->cache->get(key) : this->static_files[key];
+		: this->cache->get(key) ;
 
 	if (fs == NULL) {
 		this->open_file(fs.get(), path);
 
-		if (!is_static && key != "") {
+		if (key != "") {
 			std::shared_ptr<FileStream> old_fs = this->cache->put(key, fs);
 			if (old_fs != nullptr) this->close_file(old_fs.get());
 		}
-		else if (key != "") this->static_files[key] = fs;
 	}
 
 	this->read_from_file(fs.get(), buffer_size, pos, dest);
@@ -225,15 +220,12 @@ void FileHandler::remove_unflushed_stream(FileStream* fs) {
 	this->unflushed_streams.erase(fs->fd);
 }
 
-void FileHandler::close_file(const std::string& key, bool is_static) {
-	std::shared_ptr<FileStream> fs = is_static ? this->static_files[key] : this->cache->get(key);
+void FileHandler::close_file(const std::string& key) {
+	std::shared_ptr<FileStream> fs = this->cache->get(key);
 
 	if (fs == nullptr) return;
 
-	if (is_static)
-		this->static_files.erase(key);
-	else
-		this->cache->remove(key);
+	this->cache->remove(key);
 
 	this->close_file(fs.get());
 }

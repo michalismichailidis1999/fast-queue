@@ -9,11 +9,9 @@ SegmentAllocator::SegmentAllocator(SegmentMessageMap* smm, QueueSegmentFilePathM
 void SegmentAllocator::allocate_new_segment(Partition* partition) {
 	PartitionSegment* segment = partition->get_active_segment();
 
-	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
-
 	segment->set_to_read_only();
 
-	this->df->flush_metadata_updates_to_disk(segment, is_internal_queue);
+	this->df->flush_metadata_updates_to_disk(segment);
 
 	unsigned long long new_segment_id = partition->get_current_segment_id() + 1;
 
@@ -29,10 +27,10 @@ void SegmentAllocator::allocate_new_segment(Partition* partition) {
 
 	new_segment.get()->set_index(new_segment_index_key, new_segment_index_path);
 
-	this->df->flush_new_metadata_to_disk(new_segment.get(), segment->get_segment_key(), segment->get_index_key(), is_internal_queue);
+	this->df->flush_new_metadata_to_disk(new_segment.get(), segment->get_segment_key(), segment->get_index_key());
 
 	if(new_segment_id > 1)
-		this->smm->add_last_message_info_to_segment_map(partition, segment, is_internal_queue);
+		this->smm->add_last_message_info_to_segment_map(partition, segment);
 
 	partition->set_active_segment(new_segment);
 }

@@ -9,11 +9,11 @@
 #include "../generic/Cache.h"
 #include "./FileStream.h"
 #include "../Settings.h"
+#include "../Constants.h"
 
 class FileHandler {
 private:
 	Cache<std::string, std::shared_ptr<FileStream>>* cache;
-	std::unordered_map<std::string, std::shared_ptr<FileStream>> static_files;
 
 	std::unordered_map<int, FILE*> unflushed_streams;
 	std::mutex unflushed_streams_mut;
@@ -30,10 +30,10 @@ private:
 public:
 	FileHandler();
 
-	long long write_to_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* data, bool flush_data = false, bool is_static = false);
-	void read_from_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* dest, bool is_static = false);
+	long long write_to_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* data, bool flush_data = false);
+	void read_from_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* dest);
 
-	void create_new_file(const std::string& path, unsigned long bytes_to_write, void* data = NULL, const std::string& key = "", bool flush_data = false, bool is_static = false);
+	void create_new_file(const std::string& path, unsigned long bytes_to_write, void* data = NULL, const std::string& key = "", bool flush_data = false);
 
 	void flush_output_streams();
 	
@@ -47,5 +47,5 @@ public:
 
 	std::string get_dir_entry_path(std::filesystem::directory_entry dir_entry);
 
-	void close_file(const std::string& key, bool is_static = false);
+	void close_file(const std::string& key);
 };
