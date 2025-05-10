@@ -12,5 +12,5 @@ private:
 public:
 	DiskReader(FileHandler* fh, Logger* logger, Settings* settings);
 
-	void read_data_from_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1);
+	bool read_data_from_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1);
 };

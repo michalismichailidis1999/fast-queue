@@ -47,13 +47,15 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 	std::unique_ptr<char> map_page = std::unique_ptr<char>(new char[MESSAGES_LOC_MAP_PAGE_SIZE]);
 
 	while (true) {
-		this->dr->read_data_from_disk(
+		bool success = this->dr->read_data_from_disk(
 			partition->get_message_map_key(),
 			partition->get_message_map_path(),
 			map_page.get(),
 			MESSAGES_LOC_MAP_PAGE_SIZE,
 			page_id * MESSAGES_LOC_MAP_PAGE_SIZE
 		);
+
+		if (!success) return nullptr;
 
 		memcpy_s(&starting_page_segment, sizeof(unsigned long long), map_page.get(), sizeof(unsigned long long));
 
