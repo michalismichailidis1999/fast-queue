@@ -5,13 +5,9 @@ BPlusTreeIndexHandler::BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskRead
 	this->disk_reader = disk_reader;
 }
 
-std::tuple<std::shared_ptr<char>, unsigned long> BPlusTreeIndexHandler::read_segment_messages(
-	PartitionSegment* segment, 
-	unsigned long long read_from_message_id, 
-	unsigned int total_messages_to_read, 
-	bool read_messages_batch
-) {
-	return std::tuple<std::shared_ptr<char>, unsigned long>(nullptr, 0);
+long long BPlusTreeIndexHandler::find_message_location(PartitionSegment* segment, unsigned long long read_from_message_id) {
+	// TODO: Add logic here
+	return -1;
 }
 
 void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned long long message_id, unsigned int message_pos) {

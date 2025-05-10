@@ -33,6 +33,10 @@ private:
 	unsigned long remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned int bytes_written);
 
 	void set_last_message_id_and_timestamp(PartitionSegment* segment, void* messages, unsigned int total_bytes);
+
+	unsigned int get_message_offset(void* read_batch, unsigned long long message_id);
+
+	unsigned int get_messages_read(void* read_batch, unsigned int message_offset);
 public:
 	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, BPlusTreeIndexHandler* index_handler, Settings* settings);
 
@@ -42,5 +46,5 @@ public:
 
 	void update_cluster_metadata_last_applied(unsigned long long last_applied);
 
-	std::tuple<std::shared_ptr<char>, unsigned long> read_partition_messages(Partition* partition, unsigned long long read_from_message_id, unsigned int total_messages_to_read = 1, bool read_messages_batch = false);
+	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int> read_partition_messages(Partition* partition, unsigned long long read_from_message_id);
 };

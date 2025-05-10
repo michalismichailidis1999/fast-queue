@@ -24,7 +24,7 @@ static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
 static const unsigned int INDEX_PAGE_SIZE = 4096; // 4KB
 
-static const unsigned int MAX_READ_MESSAGES_BATCH_SIZE = INDEX_PAGE_SIZE * 8; // 32KB
+static const unsigned int READ_MESSAGES_BATCH_SIZE = INDEX_PAGE_SIZE * 4; // 16KB
 
 static const unsigned int MESSAGES_LOC_MAP_PAGE_SIZE = 4096; // 4KB
 // first position will hold starting segment id of the next N segments contained in the page 

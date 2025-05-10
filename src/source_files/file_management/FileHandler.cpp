@@ -149,7 +149,7 @@ long long  FileHandler::write_to_file(FileStream* fs, unsigned long buffer_size,
 bool FileHandler::read_from_file(FileStream* fs, unsigned long buffer_size, long long pos, void* dest) {
 	std::lock_guard<std::mutex> lock(fs->mut);
 
-	if (buffer_size == 0 || dest == NULL) return;
+	if (buffer_size == 0 || dest == NULL) return false;
 
 	fseek(fs->file, pos, SEEK_SET);
 	fread(dest, sizeof(char), buffer_size, fs->file);
