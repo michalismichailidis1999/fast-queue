@@ -34,9 +34,9 @@ private:
 
 	void set_last_message_id_and_timestamp(PartitionSegment* segment, void* messages, unsigned int total_bytes);
 
-	unsigned int get_message_offset(void* read_batch, unsigned long long message_id);
+	unsigned int get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id);
 
-	unsigned int get_messages_read(void* read_batch, unsigned int message_offset);
+	unsigned int get_last_message_offset_from_batch(void* read_batch, unsigned int batch_size);
 public:
 	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, BPlusTreeIndexHandler* index_handler, Settings* settings);
 

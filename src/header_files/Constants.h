@@ -30,7 +30,7 @@ static const unsigned int MESSAGES_LOC_MAP_PAGE_SIZE = 4096; // 4KB
 // first position will hold starting segment id of the next N segments contained in the page 
 static const unsigned int MAPPED_SEGMENTS_PER_PAGE = MESSAGES_LOC_MAP_PAGE_SIZE / sizeof(unsigned long long) - 1;
 
-static const unsigned int TOTAL_METADATA_BYTES = sizeof(unsigned long);
+static const unsigned int TOTAL_METADATA_BYTES = sizeof(unsigned int);
 static const unsigned int TOTAL_METADATA_BYTES_OFFSET = 0;
 static const unsigned int VERSION_SIZE = sizeof(unsigned int);
 static const unsigned int VERSION_SIZE_OFFSET = TOTAL_METADATA_BYTES + TOTAL_METADATA_BYTES_OFFSET;

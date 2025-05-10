@@ -116,35 +116,86 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int> MessagesHandler::r
 
 	long long message_pos = this->index_handler->find_message_location(segment_to_read, read_from_message_id);
 
-	if(message_pos < 0) return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int>(nullptr, 0, 0);
+	if(message_pos <= 0) 
+		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int>(nullptr, 0, 0);
 
 	std::shared_ptr<char> read_batch = std::shared_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
 	unsigned int batch_size = READ_MESSAGES_BATCH_SIZE;
 
-	this->disk_reader->read_data_from_disk(
-		segment_to_read->get_segment_key(),
-		segment_to_read->get_segment_path(),
-		read_batch.get(),
-		READ_MESSAGES_BATCH_SIZE,
-		message_pos
-	);
+	unsigned int message_id_offset = 0;
+	unsigned int message_bytes = 0;
+	unsigned int last_message_offset = 0;
+	unsigned int last_message_bytes = 0;
+	unsigned long long last_message_id = 0;
 
-	unsigned int message_id_offset = this->get_message_offset(read_batch.get(), read_from_message_id);
-	unsigned int messages_read = this->get_messages_read(read_batch.get(), message_id_offset);
+	bool keep_searching = message_id_offset == 0 || message_id_offset + message_bytes > batch_size;
 
-	while (messages_read == 0) {
-		// TODO: Add logic here
+	// TODO: Fix this
+	while (keep_searching) {
+		this->disk_reader->read_data_from_disk(
+			segment_to_read->get_segment_key(),
+			segment_to_read->get_segment_path(),
+			read_batch.get(),
+			READ_MESSAGES_BATCH_SIZE,
+			message_pos
+		);
+
+		message_id_offset = this->get_message_offset(read_batch.get(), batch_size, read_from_message_id);
+		last_message_offset = this->get_last_message_offset_from_batch(read_batch.get(), batch_size);
+
+		if (message_id_offset > 0)
+			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + message_id_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+		memcpy_s(&last_message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + last_message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+		memcpy_s(&last_message_id, MESSAGE_ID_SIZE, read_batch.get() + last_message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+		if (message_id_offset == 0 && last_message_id > read_from_message_id)
+			return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int>(nullptr, 0, 0);
+
+		if (message_id_offset == 0) message_pos = last_message_offset + last_message_bytes;
+		else {
+			message_pos = message_id_offset;
+
+			if (message_bytes > batch_size) {
+				batch_size = message_bytes;
+				read_batch = std::shared_ptr<char>(new char[batch_size]);
+			}
+		}
+
+		keep_searching = message_id_offset == 0 || message_id_offset + message_bytes > batch_size;
 	}
 
 	return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int>(read_batch, batch_size, message_id_offset);
 }
 
-unsigned int MessagesHandler::get_message_offset(void* read_batch, unsigned long long message_id) {
-	// TODO: Add logic here
+unsigned int MessagesHandler::get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id) {
+	unsigned long long current_message_id = 0;
+	unsigned int message_bytes = 0;
+	unsigned int offset = 0;
+
+	while (offset < batch_size) {
+		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)read_batch + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+		memcpy_s(&current_message_id, MESSAGE_ID_SIZE, (char*)read_batch + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+		if (message_id == current_message_id) return offset;
+
+		offset += message_bytes;
+	}
+
 	return 0;
 }
 
-unsigned int MessagesHandler::get_messages_read(void* read_batch, unsigned int message_offset) {
-	// TODO: Add logic here
-	return 0;
+unsigned int MessagesHandler::get_last_message_offset_from_batch(void* read_batch, unsigned int batch_size) {
+	unsigned int message_bytes = 0;
+	unsigned int offset = 0;
+
+	while (offset < batch_size) {
+		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)read_batch + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+		if (offset + message_bytes >= batch_size) return offset;
+
+		offset += message_bytes;
+	}
+
+	return offset;
 }
