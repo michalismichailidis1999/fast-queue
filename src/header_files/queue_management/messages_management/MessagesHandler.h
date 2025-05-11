@@ -37,6 +37,10 @@ private:
 	unsigned int get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id);
 
 	unsigned int get_last_message_offset_from_batch(void* read_batch, unsigned int batch_size);
+
+	unsigned int get_total_messages_read(void* read_batch, unsigned int batch_size, unsigned int read_start, unsigned int read_end);
+
+	unsigned int get_second_last_message_offset_from_batch(void* read_batch, unsigned int batch_size, unsigned int starting_offset, unsigned int ending_offset);
 public:
 	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, BPlusTreeIndexHandler* index_handler, Settings* settings);
 
@@ -46,5 +50,5 @@ public:
 
 	void update_cluster_metadata_last_applied(unsigned long long last_applied);
 
-	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int> read_partition_messages(Partition* partition, unsigned long long read_from_message_id);
+	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> read_partition_messages(Partition* partition, unsigned long long read_from_message_id);
 };
