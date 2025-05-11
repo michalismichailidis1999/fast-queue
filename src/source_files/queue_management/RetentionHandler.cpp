@@ -3,6 +3,8 @@
 RetentionHandler::RetentionHandler(QueueManager* qm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings) {
 	this->qm = qm;
 	this->fh = fh;
+	this->pm = pm;
+	this->fh = fh;
 	this->logger = logger;
 	this->settings = settings;
 }
