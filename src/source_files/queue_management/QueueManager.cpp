@@ -7,17 +7,17 @@ QueueManager::QueueManager(FileHandler* fh, QueueSegmentFilePathMapper* pm, Logg
 }
 
 void QueueManager::add_queue(std::shared_ptr<Queue> queue) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::lock_guard<std::shared_mutex> lock(this->mut);
 	this->queues[queue.get()->get_metadata()->get_name()] = queue;
 }
 
 bool QueueManager::has_queue(const std::string& queue_name) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->queues.find(queue_name) != this->queues.end();
 }
 
 std::shared_ptr<Queue> QueueManager::get_queue(const std::string& queue_name) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 
 	if (this->queues.find(queue_name) == this->queues.end()) return nullptr;
 
@@ -25,12 +25,12 @@ std::shared_ptr<Queue> QueueManager::get_queue(const std::string& queue_name) {
 }
 
 void QueueManager::remove_queue(const std::string& queue_name) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::lock_guard<std::shared_mutex> lock(this->mut);
 	this->queues.erase(queue_name);
 }
 
 void QueueManager::get_all_queue_names(std::vector<std::string>* queues_list) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 
 	for (auto iter : this->queues)
 		(*queues_list).push_back(iter.first);
@@ -95,8 +95,7 @@ void QueueManager::create_queue(QueueMetadata* metadata) {
 		}
 	}
 
-	if (!this->has_queue(metadata->get_name()))
-		this->add_queue(queue);
+	this->add_queue(queue);
 }
 
 void QueueManager::delete_queue(const std::string& queue_name) {

@@ -33,6 +33,8 @@
 #include "./src/header_files/queue_management/messages_management/index_management/BPlusTreeIndexHandler.h"
 #include "./src/header_files/queue_management/messages_management/index_management/BTreeNode.h"
 #include "./src/header_files/queue_management/QueueManager.h"
+#include "./src/header_files/queue_management/CompactionHandler.h"
+#include "./src/header_files/queue_management/RetentionHandler.h"
 #include "./src/header_files/queue_management/Queue.h"
 #include "./src/header_files/queue_management/Partition.h"
 #include "./src/header_files/network_management/ConnectionsManager.h"

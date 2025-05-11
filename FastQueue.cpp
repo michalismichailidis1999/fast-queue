@@ -80,6 +80,9 @@ int main(int argc, char* argv[])
     std::unique_ptr<BPlusTreeIndexHandler> ih = std::unique_ptr<BPlusTreeIndexHandler>(new BPlusTreeIndexHandler(df.get(), dr.get()));
     std::unique_ptr<SegmentMessageMap> smm = std::unique_ptr<SegmentMessageMap>(new SegmentMessageMap(df.get(), dr.get(), pm.get()));
 
+    std::unique_ptr<RetentionHandler> rh = std::unique_ptr<RetentionHandler>(new RetentionHandler(qm.get(), fh.get(), pm.get(), server_logger.get(), settings.get()));
+    std::unique_ptr<CompactionHandler> ch = std::unique_ptr<CompactionHandler>(new CompactionHandler(qm.get(), server_logger.get(), settings.get()));
+
     std::unique_ptr<SegmentAllocator> sa = std::unique_ptr<SegmentAllocator>(new SegmentAllocator(smm.get(), pm.get(), df.get()));
     std::unique_ptr<MessagesHandler> mh = std::unique_ptr<MessagesHandler>(new MessagesHandler(df.get(), dr.get(), pm.get(), sa.get(), smm.get(), ih.get(), settings.get()));
 
@@ -153,8 +156,8 @@ int main(int argc, char* argv[])
             cm.get()->check_connections_heartbeats();
         };
 
-        auto flush_to_disk_periodically = [&](int milliseconds) {
-            df.get()->flush_to_disk_periodically(milliseconds);
+        auto flush_to_disk_periodically = [&]() {
+            df.get()->flush_to_disk_periodically();
         };
 
         auto run_controller_quorum_communication = [&]() {
@@ -177,58 +180,44 @@ int main(int argc, char* argv[])
             data_node.get()->send_heartbeats_to_leader(&should_terminate);
         };
 
-        std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, true);
+        auto compact_closed_segments = [&]() {
+            ch.get()->compact_closed_segments(&should_terminate);
+        };
 
+        auto remove_expired_segments = [&]() {
+            rh.get()->remove_expired_segments(&should_terminate);
+        };
+
+        std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, true);
         std::thread external_listener_thread = std::thread(create_and_run_socket_listener, false);
 
         cm.get()->initialize_controller_nodes_connections();
 
         std::thread connection_pools_thread = std::thread(keep_connections_to_maximum);
-
         std::thread notify_other_nodes_thread = std::thread(notify_other_nodes);
-
         std::thread check_connections_heartbeat_thread = std::thread(check_connections_heartbeat);
-
-        std::thread disk_flushing_thread(flush_to_disk_periodically, settings.get()->get_flush_to_disk_after_ms());
-
-        std::thread run_quorum_communication_thread;
-        std::thread check_dead_data_nodes_thread;
-        std::thread check_for_commit_and_last_applied_diff_thread;
-        std::thread make_lagging_followers_catchup_thread;
-        std::thread send_heartbeats_to_leader_thread;
-
-        if (settings.get()->get_is_controller_node()) {
-            run_quorum_communication_thread = std::thread(run_controller_quorum_communication);
-            check_dead_data_nodes_thread = std::thread(check_dead_data_nodes);
-            check_for_commit_and_last_applied_diff_thread = std::thread(check_for_commit_and_last_applied_diff);
-            make_lagging_followers_catchup_thread = std::thread(make_lagging_followers_catchup);
-        }
-
-        if (!settings.get()->get_is_controller_node())
-            send_heartbeats_to_leader_thread = std::thread(send_heartbeats_to_leader);
-
-        if (run_quorum_communication_thread.joinable())
-            run_quorum_communication_thread.join();
-
-        if (check_dead_data_nodes_thread.joinable())
-            check_dead_data_nodes_thread.join();
-
-        if (check_for_commit_and_last_applied_diff_thread.joinable())
-            check_for_commit_and_last_applied_diff_thread.join();
-
-        if (make_lagging_followers_catchup_thread.joinable())
-            make_lagging_followers_catchup_thread.join();
-
-        if (send_heartbeats_to_leader_thread.joinable())
-            send_heartbeats_to_leader_thread.join();
-
-        notify_other_nodes_thread.join();
-        check_connections_heartbeat_thread.join();
+        std::thread disk_flushing_thread = std::thread(flush_to_disk_periodically);
+        std::thread run_quorum_communication_thread = std::thread(run_controller_quorum_communication);
+        std::thread check_dead_data_nodes_thread = std::thread(check_dead_data_nodes);
+        std::thread check_for_commit_and_last_applied_diff_thread = std::thread(check_for_commit_and_last_applied_diff);
+        std::thread make_lagging_followers_catchup_thread = std::thread(make_lagging_followers_catchup);
+        std::thread send_heartbeats_to_leader_thread = std::thread(send_heartbeats_to_leader);
+        std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
+        std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
 
         internal_listener_thread.join();
         external_listener_thread.join();
         connection_pools_thread.join();
+        notify_other_nodes_thread.join();
+        check_connections_heartbeat_thread.join();
         disk_flushing_thread.join();
+        run_quorum_communication_thread.join();
+        check_dead_data_nodes_thread.join();
+        check_for_commit_and_last_applied_diff_thread.join();
+        make_lagging_followers_catchup_thread.join();
+        send_heartbeats_to_leader_thread.join();
+        compact_closed_segments_thread.join();
+        remove_expired_segments_thread.join();
     }
     catch (const std::exception&) {
         should_terminate = true;

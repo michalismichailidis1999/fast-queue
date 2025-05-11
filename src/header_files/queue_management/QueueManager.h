@@ -3,7 +3,7 @@
 #include <map>
 #include <string>
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include "./Queue.h"
 #include "./messages_management/Producer.h"
 #include "./messages_management/Consumer.h"
@@ -19,7 +19,7 @@ private:
 
 	std::map<std::string, std::shared_ptr<Queue>> queues;
 
-	std::mutex mut;
+	std::shared_mutex mut;
 public:
 	QueueManager(FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger);
 

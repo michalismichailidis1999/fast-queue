@@ -2,7 +2,7 @@
 #include <chrono>
 #include <unordered_map>
 #include "./QueueManager.h"
-#include "./PartitionPartition.h"
+#include "./Partition.h"
 #include "./PartitionSegment.h"
 #include "../logging/Logger.h"
 #include "../Settings.h"

@@ -9,6 +9,6 @@ CompactionHandler::CompactionHandler(QueueManager* qm, Logger* logger, Settings*
 void CompactionHandler::compact_closed_segments(std::atomic_bool* should_terminate) {
 	while (!(*should_terminate)) {
 		// TODO: Add logic here
-		std::this_thread::sleep_for(std::chrono::milliseconds(5000))
+		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 	}
 }

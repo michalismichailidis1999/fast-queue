@@ -34,7 +34,7 @@ private:
 public:
 	DiskFlusher(FileHandler* fh, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
-	void flush_to_disk_periodically(int milliseconds);
+	void flush_to_disk_periodically();
 
 	unsigned int append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly = false);
 

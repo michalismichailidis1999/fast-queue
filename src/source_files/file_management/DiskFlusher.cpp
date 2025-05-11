@@ -10,13 +10,13 @@ DiskFlusher::DiskFlusher(FileHandler* fh, Logger* logger, Settings* settings, st
 }
 
 // will run only once in a detached seperate thread
-void DiskFlusher::flush_to_disk_periodically(int milliseconds) {
+void DiskFlusher::flush_to_disk_periodically() {
 	while (!(*this->should_terminate)) {
 		std::unique_lock<std::mutex> lock(this->flush_mut);
 
 		this->flush_cond.wait_for(
 			lock, 
-			std::chrono::milliseconds(milliseconds), 
+			std::chrono::milliseconds(this->settings->get_flush_to_disk_after_ms()), 
 			[this] { return this->bytes_to_flush >= this->settings->get_max_cached_memory(); }
 		);
 
