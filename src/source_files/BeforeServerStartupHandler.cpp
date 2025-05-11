@@ -46,10 +46,11 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
 
 void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues() {
     std::regex get_queue_name_rgx(settings->get_log_path() + "/((__|)[a-zA-Z][a-zA-Z0-9_-]*)$", std::regex_constants::icase);
-    std::regex get_segment_num_rgx("_cluster_snap_0*([1-9][0-9]*).*|0*([1-9][0-9]*).*$", std::regex_constants::icase);
+    std::regex get_segment_num_rgx("_cluster_snap_0*([1-9][0-9]*).*$|0*([1-9][0-9]*).*$", std::regex_constants::icase);
     std::regex partition_match_rgx("partition-([0-9]|[1-9][0-9]+)$", std::regex_constants::icase);
-    std::regex ignore_file_deletion_rgx("_cluster_snap_0*[1-9][0-9]*$" + FILE_EXTENSION + "$", std::regex_constants::icase);
-    std::regex is_skippable_file_rgx("metadata" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex ignore_file_deletion_rgx("_cluster_snap_0*[1-9][0-9]*\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_skippable_file_rgx("metadata\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_compacted_file_rgx("compacted\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
 
     int partition_id = 0;
     bool is_cluster_metadata_queue = false;
@@ -80,6 +81,8 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 
         unsigned long long segment_id = std::stoull(match[1].matched ? match[1] : match[2]);
 
+        bool is_compacted = std::regex_search(path, match, is_compacted_file_rgx);
+
         // keep only last cluster metadata snapshot created
         if (is_cluster_metadata_queue && std::regex_search(path, match, ignore_file_deletion_rgx)) {
             if (ignored_snapshot == "") {
@@ -104,6 +107,13 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 
         if (partition->get_current_segment_id() < segment_id || partition->get_current_segment_id() == 0)
             partition->set_current_segment_id(segment_id);
+
+        if (partition->get_smallest_segment_id() == 0 || partition->get_smallest_segment_id() > segment_id) {
+            partition->set_smallest_segment_id(segment_id);
+
+            if(!is_compacted && (partition->get_smallest_uncompacted_segment_id() == 0 || partition->get_smallest_uncompacted_segment_id() > segment_id))
+                partition->set_smallest_uncompacted_segment_id(segment_id);
+        }
     };
 
     auto queue_partition_func = [&](const std::filesystem::directory_entry& dir_entry) {
