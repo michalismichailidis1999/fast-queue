@@ -8,12 +8,14 @@ BPlusTreeIndexHandler::BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskRead
 unsigned int BPlusTreeIndexHandler::find_message_location(PartitionSegment* segment, unsigned long long read_from_message_id) {
 	std::unique_ptr<char> node_data = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
 	std::shared_ptr<BTreeNode> node = nullptr;
+	std::shared_ptr<BTreeNode> prev_node = nullptr;
 
 	unsigned int page_offset = 0;
 
 	while (true) {
 		this->read_index_page_from_disk(segment, node_data.get(), page_offset);
 
+		prev_node = node;
 		node = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
 
 		if (node.get()->next_page_offset == 0) break;
@@ -23,8 +25,13 @@ unsigned int BPlusTreeIndexHandler::find_message_location(PartitionSegment* segm
 		page_offset = node.get()->next_page_offset;
 	}
 
+	if (prev_node != nullptr && prev_node.get()->max_key < read_from_message_id && read_from_message_id < node.get()->min_key)
+		node = prev_node;
+
 	if (node.get()->type == PageType::NON_LEAF) {
-		// TODO: Find leaf node where message location exists
+		page_offset = this->find_message_location(node.get(), read_from_message_id);
+		this->read_index_page_from_disk(segment, node_data.get(), page_offset);
+		node = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
 	}
 
 	return this->find_message_location(node.get(), read_from_message_id);
@@ -177,5 +184,26 @@ void BPlusTreeIndexHandler::read_index_page_from_disk(PartitionSegment* segment,
 }
 
 unsigned int BPlusTreeIndexHandler::find_message_location(BTreeNode* node, unsigned long long message_id) {
-	return 0;
+	if (message_id <= node->min_key) return node->rows[0].val_pos;
+	if (message_id >= node->max_key) return node->rows[node->rows_num].val_pos;
+
+	if (node->rows_num <= 2) return node->rows[0].val_pos;
+
+	unsigned long long middle_message_id = 0;
+
+	unsigned int start_pos = 1;
+	unsigned int end_pos = node->rows_num - 1;
+
+	unsigned int pos = start_pos + (end_pos - start_pos) / 2;
+
+	while (start_pos <= end_pos) {
+		if (message_id == node->rows[pos].key) return node->rows[pos].val_pos;
+
+		if (message_id > node->rows[pos].key) start_pos = pos + 1;
+		else end_pos = pos - 1;
+
+		pos = start_pos + (end_pos - start_pos) / 2;
+	}
+
+	return node->rows[pos].val_pos;
 }

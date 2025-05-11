@@ -144,16 +144,14 @@ int SegmentMessageMap::get_page_segment_offset(void* map_page, unsigned long lon
 	unsigned int pos = start_pos + (end_pos - start_pos) / 2;
 
 	while (start_pos <= end_pos) {
-		memcpy_s(&first_message_id, sizeof(unsigned long long), (char*)map_page + start_pos * sizeof(unsigned long long), sizeof(unsigned long long));
 		memcpy_s(&middle_message_id, sizeof(unsigned long long), (char*)map_page + pos * sizeof(unsigned long long), sizeof(unsigned long long));
-		memcpy_s(&last_message_id, sizeof(unsigned long long), (char*)map_page + end_pos * sizeof(unsigned long long), sizeof(unsigned long long));
 
-		if (last_message_id == message_id) return end_pos;
 		if (middle_message_id == message_id) return pos;
-		if (first_message_id == message_id) return start_pos;
 
 		if (middle_message_id > message_id) start_pos = pos + 1;
 		else end_pos = pos - 1;
+
+		pos = start_pos + (end_pos - start_pos) / 2;
 	}
 
 	return pos;

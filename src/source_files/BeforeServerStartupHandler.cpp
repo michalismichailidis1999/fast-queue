@@ -327,10 +327,14 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
 
     if (this->fh->check_if_exists(index_file_path)) return;
 
+    BTreeNode initial_node = BTreeNode(PageType::LEAF);
+    BTreeNodeRow default_initial_row = { 0, SEGMENT_METADATA_TOTAL_BYTES };
+    initial_node.insert(default_initial_row);
+
     this->fh->create_new_file(
         index_file_path,
         INDEX_PAGE_SIZE,
-        std::get<0>(BTreeNode(PageType::LEAF).get_page_bytes()).get(),
+        std::get<0>(initial_node.get_page_bytes()).get(),
         index_file_key,
         true
     );
