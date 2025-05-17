@@ -1,17 +1,21 @@
 #pragma once
 #include <chrono>
 #include "./QueueManager.h"
+#include "./SegmentLockManager.h"
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../Settings.h"
 #include "../logging/Logger.h"
 #include "../util/Helper.h"
+#include "../util/Util.h"
 
 class RetentionHandler {
 private:
 	QueueManager* qm;
+	SegmentLockManager* lock_manager;
 	FileHandler* fh;
 	QueueSegmentFilePathMapper* pm;
+	Util* util;
 	Logger* logger;
 	Settings* settings;
 
@@ -21,7 +25,7 @@ private:
 
 	bool continue_retention(Queue* queue);
 public:
-	RetentionHandler(QueueManager* qm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings);
+	RetentionHandler(QueueManager* qm, SegmentLockManager* lock_manager, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings);
 
 	void remove_expired_segments(std::atomic_bool* should_terminate);
 };

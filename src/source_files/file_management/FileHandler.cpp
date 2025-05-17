@@ -31,8 +31,10 @@ bool FileHandler::create_directory(const std::string& path) {
 	return true;
 }
 
-void FileHandler::delete_dir_or_file(const std::string& path) {
+void FileHandler::delete_dir_or_file(const std::string& path, const std::string& key) {
 	if (!this->check_if_exists(path)) return;
+
+	if (key != "") this->close_file(key);
 
 	std::filesystem::remove_all(path);
 }

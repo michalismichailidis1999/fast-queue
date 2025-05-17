@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
 #include <shared_mutex>
-#include <map>
+#include <unordered_set>
 #include <string>
 #include "./PartitionSegment.h"
 #include "../Constants.h"
@@ -20,6 +20,8 @@ private:
 
 	std::string message_map_key;
 	std::string message_map_path;
+
+	//std::unordered_set<unsigned long long> 
 
 	std::shared_mutex mut;
 public:

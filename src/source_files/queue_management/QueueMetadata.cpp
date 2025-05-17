@@ -1,12 +1,13 @@
 #include "../../header_files/queue_management/QueueMetadata.h"
 
-QueueMetadata::QueueMetadata(const std::string& name, unsigned int partitions, unsigned int replication_factor) {
+QueueMetadata::QueueMetadata(const std::string& name, unsigned int partitions, unsigned int replication_factor, bool compact_segments) {
 	this->name = name;
 	this->partitions = partitions;
 	this->replication_factor = replication_factor;
 	this->status = Status::UNKNOWN;
 	this->last_applied_index = 0;
 	this->last_commit_index = 0;
+	this->compact_segments = compact_segments;
 }
 
 QueueMetadata::QueueMetadata(void* metadata) {
@@ -21,6 +22,7 @@ QueueMetadata::QueueMetadata(void* metadata) {
 	memcpy_s(&this->replication_factor, QUEUE_REPLICATION_FACTOR_SIZE, (char*)metadata + QUEUE_REPLICATION_FACTOR_OFFSET, QUEUE_REPLICATION_FACTOR_SIZE);
 	memcpy_s(&this->last_commit_index, QUEUE_LAST_COMMIT_INDEX_SIZE, (char*)metadata + QUEUE_LAST_COMMIT_INDEX_OFFSET, QUEUE_LAST_COMMIT_INDEX_SIZE);
 	memcpy_s(&this->last_applied_index, QUEUE_LAST_APPLIED_INDEX_SIZE, (char*)metadata + QUEUE_LAST_APPLIED_INDEX_OFFSET, QUEUE_LAST_APPLIED_INDEX_SIZE);
+	memcpy_s(&this->compact_segments, QUEUE_COMPACT_SEGMENTS_SIZE, (char*)metadata + QUEUE_COMPACT_SEGMENTS_OFFSET, QUEUE_COMPACT_SEGMENTS_SIZE);
 
 	this->name = std::string((char*)metadata + QUEUE_NAME_OFFSET, queue_name_length);
 	this->status = Status::ACTIVE;
@@ -39,23 +41,27 @@ unsigned QueueMetadata::get_replication_factor() {
 }
 
 void QueueMetadata::set_status(Status status) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::lock_guard<std::shared_mutex> lock(this->mut);
 	this->status = status;
 }
 
 Status QueueMetadata::get_status() {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->status;
 }
 
 unsigned long long QueueMetadata::get_last_commit_index() {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->last_commit_index;
 }
 
 unsigned long long QueueMetadata::get_last_applied_index() {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->last_applied_index;
+}
+
+bool QueueMetadata::has_segment_compaction() {
+	return this->compact_segments;
 }
 
 std::tuple<int, std::shared_ptr<char>> QueueMetadata::get_metadata_bytes() {
@@ -69,6 +75,7 @@ std::tuple<int, std::shared_ptr<char>> QueueMetadata::get_metadata_bytes() {
 	memcpy_s(bytes.get() + QUEUE_REPLICATION_FACTOR_OFFSET, QUEUE_REPLICATION_FACTOR_SIZE, &this->replication_factor, QUEUE_REPLICATION_FACTOR_SIZE);
 	memcpy_s(bytes.get() + QUEUE_LAST_COMMIT_INDEX_OFFSET, QUEUE_LAST_COMMIT_INDEX_SIZE, &this->last_commit_index, QUEUE_LAST_COMMIT_INDEX_SIZE);
 	memcpy_s(bytes.get() + QUEUE_LAST_APPLIED_INDEX_OFFSET, QUEUE_LAST_APPLIED_INDEX_SIZE, &this->last_applied_index, QUEUE_LAST_APPLIED_INDEX_SIZE);
+	memcpy_s(bytes.get() + QUEUE_COMPACT_SEGMENTS_OFFSET, QUEUE_COMPACT_SEGMENTS_SIZE, &this->compact_segments, QUEUE_COMPACT_SEGMENTS_SIZE);
 
 	Helper::add_common_metadata_values((void*)(bytes.get()), QUEUE_METADATA_TOTAL_BYTES, ObjectType::METADATA);
 

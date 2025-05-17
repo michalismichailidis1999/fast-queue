@@ -44,7 +44,11 @@ std::chrono::milliseconds Util::get_current_time_milli() {
 }
 
 bool Util::has_timeframe_expired(std::chrono::milliseconds initial_frame, long long range) {
+    return this->has_timeframe_expired(initial_frame.count(), range);
+}
+
+bool Util::has_timeframe_expired(long long initial_milli, long long range) {
     long long current_milli = this->get_current_time_milli().count();
-    bool expired = current_milli > initial_frame.count() + range;
+    bool expired = current_milli > initial_milli + range;
     return expired;
 }

@@ -39,7 +39,7 @@ public:
 	
 	bool check_if_exists(const std::string& path);
 	bool create_directory(const std::string& path);
-	void delete_dir_or_file(const std::string& path);
+	void delete_dir_or_file(const std::string& path, const std::string& key = "");
 
 	void execute_action_to_dir_subfiles(const std::string& path, std::function<void(const std::filesystem::directory_entry&)> action);
 	

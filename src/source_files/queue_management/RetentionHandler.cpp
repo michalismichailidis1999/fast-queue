@@ -1,10 +1,11 @@
 #include "../../header_files/queue_management/RetentionHandler.h"
 
-RetentionHandler::RetentionHandler(QueueManager* qm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings) {
+RetentionHandler::RetentionHandler(QueueManager* qm, SegmentLockManager* lock_manager, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
 	this->qm = qm;
+	this->lock_manager = lock_manager;
 	this->fh = fh;
 	this->pm = pm;
-	this->fh = fh;
+	this->util = util;
 	this->logger = logger;
 	this->settings = settings;
 }
@@ -27,6 +28,8 @@ void RetentionHandler::remove_expired_segments(std::atomic_bool* should_terminat
 void RetentionHandler::handle_queue_partitions_segment_retention(const std::string& queue_name, std::atomic_bool* should_terminate) {
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
+	if (queue == nullptr || !queue->get_metadata()->has_segment_compaction()) return;
+
 	if (!(*should_terminate) && this->continue_retention(queue.get())) return;
 
 	unsigned int partitions = queue->get_metadata()->get_partitions();
@@ -35,8 +38,9 @@ void RetentionHandler::handle_queue_partitions_segment_retention(const std::stri
 		if (!(*should_terminate) && this->continue_retention(queue.get())) return;
 
 		Partition* partition = queue->get_partition(i);
+		unsigned int segments_checked_count = 20;
 
-		while (this->handle_partition_oldest_segment_retention(partition)) {
+		while (this->handle_partition_oldest_segment_retention(partition) && segments_checked_count > 0) {
 			std::lock_guard<std::shared_mutex> lock(partition->mut);
 
 			unsigned long long current_smallest_segment_id = partition->smallest_segment_id;
@@ -44,12 +48,16 @@ void RetentionHandler::handle_queue_partitions_segment_retention(const std::stri
 
 			if (current_smallest_segment_id == partition->smallest_uncompacted_segment_id)
 				partition->smallest_uncompacted_segment_id = current_smallest_segment_id + 1;
+
+			segments_checked_count--;
 		}
 	}
 }
 
 // Returns true if segment for retention is not found or segment was deleted due to retention policy
 bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* partition) {
+	if (partition->get_current_segment_id() == partition->get_smallest_segment_id()) return false;
+
 	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
 
 	std::string segment_path = this->pm->get_file_path(
@@ -65,13 +73,50 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 		true
 	);
 
-	// TODO: Fill logic here
 	bool data_exists = this->fh->check_if_exists(segment_path);
 	bool index_exists = this->fh->check_if_exists(index_path);
 
 	if (!data_exists && !index_exists) return true;
 
-	return false;
+	std::unique_ptr<char> segment_bytes = std::unique_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
+
+	std::string segment_key = this->pm->get_file_path(
+		partition->get_queue_name(),
+		partition->get_smallest_segment_id(),
+		is_internal_queue ? -1 : partition->get_partition_id()
+	);
+
+	std::string index_key = this->pm->get_file_key(
+		partition->get_queue_name(),
+		partition->get_smallest_segment_id(),
+		true
+	);
+
+	this->fh->read_from_file(segment_key, segment_path, SEGMENT_METADATA_TOTAL_BYTES, 0, segment_bytes.get());
+
+	PartitionSegment segment = PartitionSegment(segment_bytes.get(), segment_key, segment_path);
+
+	if (!segment.get_is_read_only() || !this->util->has_timeframe_expired(segment.get_last_message_timestamp(), 0)) 
+		return false;
+
+	bool success = true;
+
+	try
+	{
+		this->lock_manager->lock_segment(partition, &segment);
+
+		this->fh->delete_dir_or_file(index_path, index_key);
+		this->fh->delete_dir_or_file(segment_path, segment_key);
+	}
+	catch (const std::exception& ex)
+	{
+		success = false;
+		this->logger->log_error("Something went wrong");
+	}
+
+	this->lock_manager->release_segment_lock(partition, &segment);
+
+	return success;
 }
 
 bool RetentionHandler::continue_retention(Queue* queue) {
