@@ -1,11 +1,12 @@
 #include "../../../header_files/queue_management/messages_management/MessagesHandler.h"
 
-MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, BPlusTreeIndexHandler* index_handler, Settings* settings) {
+MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Settings* settings) {
 	this->disk_flusher = disk_flusher;
 	this->disk_reader = disk_reader;
 	this->pm = pm;
 	this->sa = sa;
 	this->smm = smm;
+	this->lock_manager = lock_manager;
 	this->index_handler = index_handler;
 	this->settings = settings;
 
@@ -13,6 +14,7 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 	this->cluster_metadata_file_path = this->pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
 }
 
+// No segment locking is required here since retention will only happen in read only segments
 void MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes) {
 	if(partition->get_active_segment()->get_is_read_only())
 		this->sa->allocate_new_segment(partition);
@@ -22,9 +24,9 @@ void MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 	this->set_last_message_id_and_timestamp(active_segment, messages, total_bytes);
 
 	long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
-		active_segment->get_segment_key(), 
-		active_segment->get_segment_path(), 
-		messages, 
+		active_segment->get_segment_key(),
+		active_segment->get_segment_path(),
+		messages,
 		Helper::is_internal_queue(partition->get_queue_name())
 	);
 
@@ -114,75 +116,92 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 		? partition->get_active_segment()
 		: old_segment.get();
 
-	long long message_pos = this->index_handler->find_message_location(segment_to_read, read_from_message_id);
+	this->lock_manager->lock_segment(partition, segment_to_read);
 
-	if(message_pos <= 0) 
-		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+	try
+	{
+		long long message_pos = this->index_handler->find_message_location(segment_to_read, read_from_message_id);
 
-	std::shared_ptr<char> read_batch = std::shared_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
-	unsigned int batch_size = READ_MESSAGES_BATCH_SIZE;
-
-	unsigned int message_id_offset = 0;
-	unsigned int message_bytes = 0;
-	unsigned int last_message_offset = 0;
-	unsigned int last_message_bytes = 0;
-	unsigned long long last_message_id = 0;
-
-	while (true) {
-		this->disk_reader->read_data_from_disk(
-			segment_to_read->get_segment_key(),
-			segment_to_read->get_segment_path(),
-			read_batch.get(),
-			batch_size,
-			message_pos
-		);
-
-		message_id_offset = this->get_message_offset(read_batch.get(), batch_size, read_from_message_id);
-		last_message_offset = this->get_last_message_offset_from_batch(read_batch.get(), batch_size);
-
-		if (message_id_offset > 0 && message_id_offset < batch_size)
-			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + message_id_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
-
-		memcpy_s(&last_message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + last_message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
-		memcpy_s(&last_message_id, MESSAGE_ID_SIZE, read_batch.get() + last_message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-
-		if (message_id_offset == 0 && last_message_id > read_from_message_id)
+		if (message_pos <= 0) {
+			this->lock_manager->release_segment_lock(partition, segment_to_read);
 			return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
-
-		if (message_id_offset == batch_size) {
-			message_pos += last_message_offset + last_message_bytes;
-			continue;
 		}
 
-		if (message_id_offset + message_bytes <= batch_size) break;
+		std::shared_ptr<char> read_batch = std::shared_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
+		unsigned int batch_size = READ_MESSAGES_BATCH_SIZE;
 
-		message_pos += message_id_offset;
-		batch_size = message_bytes > READ_MESSAGES_BATCH_SIZE ? message_bytes : READ_MESSAGES_BATCH_SIZE;
-		read_batch = std::shared_ptr<char>(new char[batch_size]);
+		unsigned int message_id_offset = 0;
+		unsigned int message_bytes = 0;
+		unsigned int last_message_offset = 0;
+		unsigned int last_message_bytes = 0;
+		unsigned long long last_message_id = 0;
+
+		while (true) {
+			this->disk_reader->read_data_from_disk(
+				segment_to_read->get_segment_key(),
+				segment_to_read->get_segment_path(),
+				read_batch.get(),
+				batch_size,
+				message_pos
+			);
+
+			message_id_offset = this->get_message_offset(read_batch.get(), batch_size, read_from_message_id);
+			last_message_offset = this->get_last_message_offset_from_batch(read_batch.get(), batch_size);
+
+			if (message_id_offset > 0 && message_id_offset < batch_size)
+				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + message_id_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+			memcpy_s(&last_message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + last_message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+			memcpy_s(&last_message_id, MESSAGE_ID_SIZE, read_batch.get() + last_message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+			if (message_id_offset == 0 && last_message_id > read_from_message_id) {
+				this->lock_manager->release_segment_lock(partition, segment_to_read);
+				return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+			}
+
+			if (message_id_offset == batch_size) {
+				message_pos += last_message_offset + last_message_bytes;
+				continue;
+			}
+
+			if (message_id_offset + message_bytes <= batch_size) break;
+
+			message_pos += message_id_offset;
+			batch_size = message_bytes > READ_MESSAGES_BATCH_SIZE ? message_bytes : READ_MESSAGES_BATCH_SIZE;
+			read_batch = std::shared_ptr<char>(new char[batch_size]);
+		}
+
+		unsigned int second_last_message_offset = this->get_second_last_message_offset_from_batch(
+			read_batch.get(),
+			batch_size,
+			message_id_offset,
+			last_message_offset
+		);
+
+		unsigned int second_last_message_bytes = 0;
+		memcpy_s(&second_last_message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + second_last_message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+		unsigned int read_start = message_id_offset;
+		unsigned int read_end = last_message_offset + last_message_bytes > batch_size
+			? second_last_message_offset + second_last_message_bytes
+			: last_message_offset + last_message_bytes;
+
+		this->lock_manager->release_segment_lock(partition, segment_to_read);
+
+		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(
+			read_batch,
+			batch_size,
+			read_start,
+			read_end,
+			this->get_total_messages_read(read_batch.get(), batch_size, read_start, read_end)
+		);
 	}
-
-	unsigned int second_last_message_offset = this->get_second_last_message_offset_from_batch(
-		read_batch.get(),
-		batch_size,
-		message_id_offset,
-		last_message_offset
-	);
-
-	unsigned int second_last_message_bytes = 0;
-	memcpy_s(&second_last_message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + second_last_message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
-
-	unsigned int read_start = message_id_offset;
-	unsigned int read_end = last_message_offset + last_message_bytes > batch_size
-		? second_last_message_offset + second_last_message_bytes
-		: last_message_offset + last_message_bytes;
-
-	return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(
-		read_batch, 
-		batch_size, 
-		read_start, 
-		read_end,
-		this->get_total_messages_read(read_batch.get(), batch_size, read_start, read_end)
-	);
+	catch (const std::exception& ex)
+	{
+		// TODO: Add logging here
+		this->lock_manager->release_segment_lock(partition, segment_to_read);
+		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+	}
 }
 
 unsigned int MessagesHandler::get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id) {

@@ -6,6 +6,7 @@
 #include "../../file_management/QueueSegmentFilePathMapper.h"
 #include "../../util/Helper.h"
 #include "../Partition.h"
+#include "../SegmentLockManager.h"
 #include "./SegmentAllocator.h"
 #include "../../Settings.h"
 #include "./index_management/BPlusTreeIndexHandler.h"
@@ -18,6 +19,7 @@ private:
 	QueueSegmentFilePathMapper* pm;
 	SegmentAllocator* sa;
 	SegmentMessageMap* smm;
+	SegmentLockManager* lock_manager;
 	BPlusTreeIndexHandler* index_handler;
 	Settings* settings;
 
@@ -42,7 +44,7 @@ private:
 
 	unsigned int get_second_last_message_offset_from_batch(void* read_batch, unsigned int batch_size, unsigned int starting_offset, unsigned int ending_offset);
 public:
-	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, BPlusTreeIndexHandler* index_handler, Settings* settings);
+	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Settings* settings);
 
 	void save_messages(Partition* partition, void* messages, unsigned int total_bytes);
 

@@ -40,17 +40,8 @@ void RetentionHandler::handle_queue_partitions_segment_retention(const std::stri
 		Partition* partition = queue->get_partition(i);
 		unsigned int segments_checked_count = 20;
 
-		while (this->handle_partition_oldest_segment_retention(partition) && segments_checked_count > 0) {
-			std::lock_guard<std::shared_mutex> lock(partition->mut);
-
-			unsigned long long current_smallest_segment_id = partition->smallest_segment_id;
-			partition->smallest_segment_id = current_smallest_segment_id + 1;
-
-			if (current_smallest_segment_id == partition->smallest_uncompacted_segment_id)
-				partition->smallest_uncompacted_segment_id = current_smallest_segment_id + 1;
-
+		while (this->handle_partition_oldest_segment_retention(partition) && segments_checked_count > 0)
 			segments_checked_count--;
-		}
 	}
 }
 
@@ -103,10 +94,18 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 
 	try
 	{
-		this->lock_manager->lock_segment(partition, &segment);
+		this->lock_manager->lock_segment(partition, &segment, true);
 
 		this->fh->delete_dir_or_file(index_path, index_key);
 		this->fh->delete_dir_or_file(segment_path, segment_key);
+
+		std::lock_guard<std::shared_mutex> lock(partition->mut);
+
+		unsigned long long current_smallest_segment_id = partition->smallest_segment_id;
+		partition->smallest_segment_id = current_smallest_segment_id + 1;
+
+		if (current_smallest_segment_id == partition->smallest_uncompacted_segment_id)
+			partition->smallest_uncompacted_segment_id = current_smallest_segment_id + 1;
 	}
 	catch (const std::exception& ex)
 	{
@@ -114,7 +113,7 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 		this->logger->log_error("Something went wrong");
 	}
 
-	this->lock_manager->release_segment_lock(partition, &segment);
+	this->lock_manager->release_segment_lock(partition, &segment, true);
 
 	return success;
 }

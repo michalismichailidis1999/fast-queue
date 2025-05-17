@@ -171,7 +171,7 @@ void BPlusTreeIndexHandler::flush_node_to_disk(PartitionSegment* segment, BTreeN
 }
 
 void BPlusTreeIndexHandler::read_index_page_from_disk(PartitionSegment* segment, void* node_data, unsigned int page_offset) {
-	this->disk_reader->read_data_from_disk(
+	bool success = this->disk_reader->read_data_from_disk(
 		segment->get_index_key(),
 		segment->get_index_path(),
 		node_data,
