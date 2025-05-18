@@ -23,7 +23,7 @@ void terminationSignalHandler(int signum) {
 std::unique_ptr<Settings> setup_settings(FileHandler* fh, const std::string& config_path) {
     if (!fh->check_if_exists(config_path)) {
         printf("Invalid configuration file path %s\n", config_path.c_str());
-        throw std::exception();
+        throw std::exception("Could not find configuration file path");
     }
 
     printf("Setting up server using configuration file %s...\n", config_path.c_str());
@@ -137,6 +137,13 @@ int main(int argc, char* argv[])
         )
     );
 
+    std::unique_ptr<SettingsUpdateHandler> suh = std::unique_ptr<SettingsUpdateHandler>(new SettingsUpdateHandler(
+        config_path,
+        fh.get(),
+        settings.get(),
+        server_logger.get()
+    ));
+
     server_logger->log_info("Server starting...");
 
     try
@@ -191,6 +198,10 @@ int main(int argc, char* argv[])
             rh.get()->remove_expired_segments(&should_terminate);
         };
 
+        auto check_for_settings_update = [&]() {
+            suh.get()->check_if_settings_updated(&should_terminate);
+        };
+
         std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, true);
         std::thread external_listener_thread = std::thread(create_and_run_socket_listener, false);
 
@@ -207,6 +218,7 @@ int main(int argc, char* argv[])
         std::thread send_heartbeats_to_leader_thread = std::thread(send_heartbeats_to_leader);
         std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
         std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
+        std::thread check_for_settings_update_thread = std::thread(check_for_settings_update);
 
         internal_listener_thread.join();
         external_listener_thread.join();
@@ -221,6 +233,7 @@ int main(int argc, char* argv[])
         send_heartbeats_to_leader_thread.join();
         compact_closed_segments_thread.join();
         remove_expired_segments_thread.join();
+        check_for_settings_update_thread.join();
     }
     catch (const std::exception&) {
         should_terminate = true;

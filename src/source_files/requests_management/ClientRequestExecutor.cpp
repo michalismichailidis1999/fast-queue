@@ -15,7 +15,7 @@ ClientRequestExecutor::ClientRequestExecutor(ConnectionsManager* cm, QueueManage
 void ClientRequestExecutor::handle_get_controllers_connection_info_request(SOCKET_ID socket, SSL* ssl) {
 	std::unique_ptr<GetControllerConnectionInfoResponse> res = std::make_unique<GetControllerConnectionInfoResponse>();
 
-	for (auto& controller_info : *this->settings->get_external_controller_nodes())
+	for (auto& controller_info : *this->settings->get_controller_nodes())
 		res->connection_infos.emplace_back(std::get<0>(controller_info), std::get<1>(controller_info).get());
 
 	res->leader_id = this->cluster_metadata->get_leader_id();

@@ -3,6 +3,13 @@
 #include <vector>
 #include <tuple>
 #include <memory>
+#include <atomic>
+#include <shared_mutex>
+#include <functional>
+
+typedef struct {
+	bool controller_nodes;
+} SettingsUpdates;
 
 struct ConnectionInfo;
 
@@ -28,7 +35,6 @@ private:
 	// node type properties
 	bool is_controller_node;
 	std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>> controller_nodes;
-	std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>> external_controller_nodes;
 	// -------------------------------------------
 
 	// internal communication properties
@@ -50,6 +56,8 @@ private:
 	std::string external_ssl_cert_key_path;
 	std::string external_ssl_cert_ca_path;
 	// -------------------------------------------
+
+	std::shared_mutex mut;
 
 	void set_settings_variable(char* conf, int var_start_pos, int var_end_pos, int equal_pos);
 public:
@@ -75,7 +83,6 @@ public:
 	// node type properties getters
 	bool get_is_controller_node();
 	std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* get_controller_nodes();
-	std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* get_external_controller_nodes();
 	// -------------------------------------------
 
 	// internal communication properties getters
@@ -97,4 +104,8 @@ public:
 	const std::string& get_external_ssl_cert_key_path();
 	const std::string& get_external_ssl_cert_ca_path();
 	// -------------------------------------------
+
+	void update_values_with_new_settings(Settings* new_settings);
+
+	bool should_stop_server(Settings* new_settings);
 };

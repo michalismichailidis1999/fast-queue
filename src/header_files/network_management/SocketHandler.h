@@ -38,9 +38,9 @@
 #endif
 
 #include <atomic>
+#include "./Connection.h"
 #include "../Settings.h"
 #include "../logging/Logger.h"
-#include "./Connection.h"
 
 class SocketHandler {
 private:

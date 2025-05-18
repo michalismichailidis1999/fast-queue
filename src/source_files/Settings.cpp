@@ -101,13 +101,11 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 
 			*val = rhs;
 		}
-		else if ((lhs == "controller_nodes" || lhs == "external_controller_nodes") && rhs_size > 0) {
+		else if ((lhs == "controller_nodes") && rhs_size > 0) {
 			int id_server_seperator_pos = -1;
 			int starting_pos = 0;
 
-			std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* nodes = lhs == "controller_nodes"
-				? &this->controller_nodes
-				: &this->external_controller_nodes;
+			std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* nodes = &this->controller_nodes;
 
 			for (int i = 0; i < rhs_size; i++) {
 				if (rhs[i] == ',' || i == rhs_size - 1) {
@@ -161,46 +159,57 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 // general properties getters
 
 unsigned int Settings::get_node_id() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->node_id;
 }
 
 unsigned long Settings::get_max_message_size() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->max_message_size;
 }
 
 unsigned long Settings::get_segment_size() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->segment_size;
 }
 
 unsigned long Settings::get_max_cached_memory() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->max_cached_memory;
 }
 
 unsigned long Settings::get_flush_to_disk_after_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->flush_to_disk_after_ms;
 }
 
 unsigned int Settings::get_request_parallelism() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->request_parallelism;
 }
 
 unsigned int Settings::get_request_polling_interval_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->request_polling_interval_ms;
 }
 
 unsigned int Settings::get_maximum_connections() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->maximum_connections;
 }
 
 unsigned long Settings::get_request_timeout_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->request_timeout_ms;
 }
 
 const std::string& Settings::get_log_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->log_path;
 }
 
 const std::string& Settings::get_trace_log_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->trace_log_path;
 }
 
@@ -209,15 +218,13 @@ const std::string& Settings::get_trace_log_path() {
 // node type properties getters
 
 bool Settings::get_is_controller_node() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->is_controller_node;
 }
 
 std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* Settings::get_controller_nodes() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return &this->controller_nodes;
-}
-
-std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* Settings::get_external_controller_nodes() {
-	return &this->external_controller_nodes;
 }
 
 // ------------------------------------------------------------
@@ -225,26 +232,32 @@ std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* Settings::get_ext
 // internal communication properties getters
 
 const std::string& Settings::get_internal_ip() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ip;
 }
 
 unsigned int Settings::get_internal_port() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_port;
 }
 
 bool Settings::get_internal_ssl_enabled() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ssl_enabled;
 }
 
 const std::string& Settings::get_internal_ssl_cert_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ssl_cert_path;
 }
 
 const std::string& Settings::get_internal_ssl_cert_key_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ssl_cert_key_path;
 }
 
 const std::string& Settings::get_internal_ssl_cert_ca_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ssl_cert_ca_path;
 }
 
@@ -253,27 +266,71 @@ const std::string& Settings::get_internal_ssl_cert_ca_path() {
 // external communication properties getters
 
 const std::string& Settings::get_external_ip() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ip;
 }
 
 unsigned int Settings::get_external_port() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_port;
 }
 
 bool Settings::get_external_ssl_enabled() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ssl_enabled;
 }
 
 const std::string& Settings::get_external_ssl_cert_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ssl_cert_path;
 }
 
 const std::string& Settings::get_external_ssl_cert_key_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ssl_cert_key_path;
 }
 
 const std::string& Settings::get_external_ssl_cert_ca_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ssl_cert_ca_path;
 }
 
 // ------------------------------------------------------------
+
+void Settings::update_values_with_new_settings(Settings* new_settings) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+
+	// general properties
+	this->max_message_size = new_settings->max_message_size;
+	this->segment_size = new_settings->segment_size;
+	this->max_cached_memory = new_settings->max_cached_memory;
+	this->flush_to_disk_after_ms = new_settings->flush_to_disk_after_ms;
+	this->request_parallelism = new_settings->request_parallelism;
+	this->request_polling_interval_ms = new_settings->request_polling_interval_ms;
+	this->maximum_connections = new_settings->maximum_connections;
+	this->request_timeout_ms = new_settings->request_timeout_ms;
+	// -------------------------------------------
+
+	// node_type properties
+	this->is_controller_node = new_settings->is_controller_node;
+	this->controller_nodes = new_settings->controller_nodes;
+	// -------------------------------------------
+}
+
+bool Settings::should_stop_server(Settings* new_settings) {
+	return this->node_id != new_settings->node_id
+		|| this->trace_log_path != new_settings->trace_log_path
+		|| this->log_path != new_settings->log_path
+		|| this->request_parallelism != new_settings->request_parallelism
+		|| this->internal_ip != new_settings->internal_ip
+		|| this->internal_port != new_settings->internal_port
+		|| this->internal_ssl_enabled != new_settings->internal_ssl_enabled
+		|| this->internal_ssl_cert_path != new_settings->internal_ssl_cert_path
+		|| this->internal_ssl_cert_key_path != new_settings->internal_ssl_cert_key_path
+		|| this->internal_ssl_cert_ca_path != new_settings->internal_ssl_cert_ca_path
+		|| this->external_port != new_settings->external_port
+		|| this->external_ssl_enabled != new_settings->external_ssl_enabled
+		|| this->external_ssl_cert_path != new_settings->external_ssl_cert_path
+		|| this->external_ssl_cert_key_path != new_settings->external_ssl_cert_key_path
+		|| this->external_ssl_cert_ca_path != new_settings->external_ssl_cert_ca_path;
+}
