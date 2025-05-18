@@ -11,6 +11,8 @@
 #include "../../Settings.h"
 #include "./index_management/BPlusTreeIndexHandler.h"
 #include "./index_management/SegmentMessageMap.h"
+#include "../../logging/Logger.h"
+#include "../../exceptions/CurruptionException.h"
 
 class MessagesHandler {
 private:
@@ -22,6 +24,7 @@ private:
 	SegmentLockManager* lock_manager;
 	BPlusTreeIndexHandler* index_handler;
 	Settings* settings;
+	Logger* logger;
 
 	std::string cluster_metadata_file_key;
 	std::string cluster_metadata_file_path;
@@ -44,9 +47,9 @@ private:
 
 	unsigned int get_second_last_message_offset_from_batch(void* read_batch, unsigned int batch_size, unsigned int starting_offset, unsigned int ending_offset);
 public:
-	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Settings* settings);
+	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Settings* settings, Logger* logger);
 
-	void save_messages(Partition* partition, void* messages, unsigned int total_bytes);
+	bool save_messages(Partition* partition, void* messages, unsigned int total_bytes);
 
 	void update_cluster_metadata_commit_index(unsigned long long commit_index);
 

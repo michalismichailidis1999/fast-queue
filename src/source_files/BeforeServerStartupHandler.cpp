@@ -1,8 +1,9 @@
 #include "../header_files/BeforeServerStartupHandler.h"
 
-BeforeServerStartupHandler::BeforeServerStartupHandler(QueueManager* qm, SegmentAllocator* sa, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
+BeforeServerStartupHandler::BeforeServerStartupHandler(QueueManager* qm, SegmentAllocator* sa, SegmentMessageMap* smm, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
 	this->qm = qm;
     this->sa = sa;
+    this->smm = smm;
     this->cluster_metadata = cluster_metadata;
     this->future_cluster_metadata = future_cluster_metadata;
 	this->fh = fh;
@@ -278,10 +279,7 @@ void BeforeServerStartupHandler::set_partition_segment_message_map(Partition* pa
     if (!this->fh->check_if_exists(file_path)) {
         std::unique_ptr<char> data = std::unique_ptr<char>(new char[MAPPED_SEGMENTS_PER_PAGE]);
 
-        unsigned long long zero_value = 0;
-
-        for (unsigned int i = 1; i < MAPPED_SEGMENTS_PER_PAGE; i++)
-            memcpy_s(data.get() + i * sizeof(unsigned long long), sizeof(unsigned long long), &zero_value, sizeof(unsigned long long));
+        this->smm->fill_new_page_with_values(data.get(), 1);
 
         this->fh->create_new_file(
             file_path,

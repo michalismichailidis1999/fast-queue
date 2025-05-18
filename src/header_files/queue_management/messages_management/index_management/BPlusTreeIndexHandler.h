@@ -7,6 +7,7 @@
 #include "./BTreeNode.h"
 #include "../../../util/Helper.h"
 #include "../../../Constants.h"
+#include "../../../exceptions/CurruptionException.h"
 
 class BPlusTreeIndexHandler {
 private:

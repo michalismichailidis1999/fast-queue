@@ -1,10 +1,11 @@
 #include "../../../header_files/queue_management/messages_management/SegmentAllocator.h"
 
-SegmentAllocator::SegmentAllocator(SegmentMessageMap* smm, SegmentLockManager* lock_manager, QueueSegmentFilePathMapper* pm, DiskFlusher* df) {
+SegmentAllocator::SegmentAllocator(SegmentMessageMap* smm, SegmentLockManager* lock_manager, QueueSegmentFilePathMapper* pm, DiskFlusher* df, Logger* logger) {
 	this->smm = smm;
 	this->lock_manager = lock_manager;
 	this->pm = pm;
 	this->df = df;
+	this->logger = logger;
 }
 
 void SegmentAllocator::allocate_new_segment(Partition* partition) {
@@ -41,7 +42,9 @@ void SegmentAllocator::allocate_new_segment(Partition* partition) {
 	}
 	catch (const std::exception& ex)
 	{
-		// TODO: Add logging here
+		this->lock_manager->release_segment_lock(partition, segment);
+
+		throw ex;
 	}
 
 	this->lock_manager->release_segment_lock(partition, segment);

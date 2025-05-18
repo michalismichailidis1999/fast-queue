@@ -171,7 +171,7 @@ void BPlusTreeIndexHandler::flush_node_to_disk(PartitionSegment* segment, BTreeN
 }
 
 void BPlusTreeIndexHandler::read_index_page_from_disk(PartitionSegment* segment, void* node_data, unsigned int page_offset) {
-	bool success = this->disk_reader->read_data_from_disk(
+	unsigned long bytes_read = this->disk_reader->read_data_from_disk(
 		segment->get_index_key(),
 		segment->get_index_path(),
 		node_data,
@@ -179,8 +179,8 @@ void BPlusTreeIndexHandler::read_index_page_from_disk(PartitionSegment* segment,
 		page_offset
 	);
 
-	if (!Helper::has_valid_checksum(node_data))
-		throw std::exception("Index page was corrupted");
+	if (bytes_read != INDEX_PAGE_SIZE || !Helper::has_valid_checksum(node_data))
+		throw CorruptionException("Index page was corrupted");
 }
 
 unsigned int BPlusTreeIndexHandler::find_message_location(BTreeNode* node, unsigned long long message_id) {

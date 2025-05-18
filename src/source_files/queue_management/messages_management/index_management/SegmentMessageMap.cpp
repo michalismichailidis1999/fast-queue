@@ -15,13 +15,18 @@ void SegmentMessageMap::add_last_message_info_to_segment_map(Partition* partitio
 
 	std::unique_ptr<char> map_page = std::unique_ptr<char>(new char[MESSAGES_LOC_MAP_PAGE_SIZE]);
 
-	this->dr->read_data_from_disk(
+	unsigned bytes_read = this->dr->read_data_from_disk(
 		partition->get_message_map_key(),
 		partition->get_message_map_path(),
 		map_page.get(),
 		MESSAGES_LOC_MAP_PAGE_SIZE,
 		page_offset
 	);
+
+	if (bytes_read == 0 && message_offset > 1) // This condition should never be true
+		throw CorruptionException("Segment map allocator corrupted at partition " + std::to_string(partition->get_partition_id()));
+
+	if (bytes_read == 0) this->fill_new_page_with_values(map_page.get(), segment->get_id());
 
 	unsigned long long last_message_offset = segment->get_last_message_offset();
 
@@ -36,6 +41,15 @@ void SegmentMessageMap::add_last_message_info_to_segment_map(Partition* partitio
 	);
 }
 
+void SegmentMessageMap::fill_new_page_with_values(void* page, unsigned long long smallest_segment_id) {
+	unsigned long long zero_value = 0;
+
+	memcpy_s(page, sizeof(unsigned long long), &smallest_segment_id, sizeof(unsigned long long));
+
+	for (unsigned int i = 1; i < MAPPED_SEGMENTS_PER_PAGE; i++)
+		memcpy_s((char*)page + i * sizeof(unsigned long long), sizeof(unsigned long long), &zero_value, sizeof(unsigned long long));
+}
+
 std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partition* partition, unsigned long long message_id, bool* success) {
 	*success = true;
 
@@ -47,7 +61,7 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 	std::unique_ptr<char> map_page = std::unique_ptr<char>(new char[MESSAGES_LOC_MAP_PAGE_SIZE]);
 
 	while (true) {
-		bool read_success = this->dr->read_data_from_disk(
+		unsigned bytes_read = this->dr->read_data_from_disk(
 			partition->get_message_map_key(),
 			partition->get_message_map_path(),
 			map_page.get(),
@@ -55,10 +69,8 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 			page_id * MESSAGES_LOC_MAP_PAGE_SIZE
 		);
 
-		if (!read_success) {
-			*success = false;
-			return nullptr;
-		}
+		if (bytes_read != MESSAGES_LOC_MAP_PAGE_SIZE)
+			throw CorruptionException("Segment map allocator corrupted at partition " + std::to_string(partition->get_partition_id()));
 
 		memcpy_s(&starting_page_segment, sizeof(unsigned long long), map_page.get(), sizeof(unsigned long long));
 

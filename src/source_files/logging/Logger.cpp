@@ -32,7 +32,7 @@ void Logger::log(const std::string& trace_type, const std::string& message) {
 			this->source_path, 
 			formatted_message.size(), 
 			-1, 
-			(void*)formatted_message.c_str(), 
+			(void*)formatted_message.c_str(),
 			true
 		);
 		*/

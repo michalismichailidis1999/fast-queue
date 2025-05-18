@@ -8,7 +8,7 @@ DiskReader::DiskReader(FileHandler* fh, Logger* logger, Settings* settings) {
 	this->settings = settings;
 }
 
-bool DiskReader::read_data_from_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos) {
+unsigned long DiskReader::read_data_from_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos) {
 	return this->fh->read_from_file(
 		key,
 		path,

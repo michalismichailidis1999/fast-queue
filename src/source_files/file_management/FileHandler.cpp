@@ -93,7 +93,7 @@ long long FileHandler::write_to_file(std::string key, const std::string& path, u
 	return this->write_to_file(fs.get(), buffer_size, pos, data, flush_data);
 }
 
-bool FileHandler::read_from_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* dest) {
+unsigned long FileHandler::read_from_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* dest) {
 	if (!this->check_if_exists(path)) {
 		const std::string err_msg = "Invalid path " + path;
 		printf("Tried to read from invalid path %s\n", path.c_str());
@@ -148,10 +148,10 @@ long long  FileHandler::write_to_file(FileStream* fs, unsigned long buffer_size,
 	return pos == -1 ? prev_end_pos : pos;
 }
 
-bool FileHandler::read_from_file(FileStream* fs, unsigned long buffer_size, long long pos, void* dest) {
+unsigned long FileHandler::read_from_file(FileStream* fs, unsigned long buffer_size, long long pos, void* dest) {
 	std::lock_guard<std::mutex> lock(fs->mut);
 
-	if (buffer_size == 0 || dest == NULL) return false;
+	if (buffer_size == 0 || dest == NULL) return 0;
 
 	fseek(fs->file, pos, SEEK_SET);
 	fread(dest, sizeof(char), buffer_size, fs->file);
@@ -160,7 +160,7 @@ bool FileHandler::read_from_file(FileStream* fs, unsigned long buffer_size, long
 
 	this->handle_file_failure(fs);
 
-	return feof_occured;
+	return feof_occured ? buffer_size - (fs->end_pos - pos) : buffer_size;
 }
 
 void FileHandler::open_file(FileStream* fs, const std::string& path, bool is_new_file) {

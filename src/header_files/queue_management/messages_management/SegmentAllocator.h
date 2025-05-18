@@ -4,6 +4,7 @@
 #include "../../file_management/DiskFlusher.h"
 #include "../../file_management/QueueSegmentFilePathMapper.h"
 #include "../../queue_management/messages_management/index_management/SegmentMessageMap.h"
+#include "../../logging/Logger.h"
 
 class SegmentAllocator {
 private:
@@ -11,8 +12,9 @@ private:
 	SegmentLockManager* lock_manager;
 	QueueSegmentFilePathMapper* pm;
 	DiskFlusher* df;
+	Logger* logger;
 public:
-	SegmentAllocator(SegmentMessageMap* smm, SegmentLockManager* lock_manager, QueueSegmentFilePathMapper* pm, DiskFlusher* df);
+	SegmentAllocator(SegmentMessageMap* smm, SegmentLockManager* lock_manager, QueueSegmentFilePathMapper* pm, DiskFlusher* df, Logger* logger);
 
 	void allocate_new_segment(Partition* partition);
 };

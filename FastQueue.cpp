@@ -85,8 +85,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<RetentionHandler> rh = std::unique_ptr<RetentionHandler>(new RetentionHandler(qm.get(), lm.get(), fh.get(), pm.get(), util.get(), server_logger.get(), settings.get()));
     std::unique_ptr<CompactionHandler> ch = std::unique_ptr<CompactionHandler>(new CompactionHandler(qm.get(), server_logger.get(), settings.get()));
 
-    std::unique_ptr<SegmentAllocator> sa = std::unique_ptr<SegmentAllocator>(new SegmentAllocator(smm.get(), lm.get(), pm.get(), df.get()));
-    std::unique_ptr<MessagesHandler> mh = std::unique_ptr<MessagesHandler>(new MessagesHandler(df.get(), dr.get(), pm.get(), sa.get(), smm.get(), lm.get(), ih.get(), settings.get()));
+    std::unique_ptr<SegmentAllocator> sa = std::unique_ptr<SegmentAllocator>(new SegmentAllocator(smm.get(), lm.get(), pm.get(), df.get(), server_logger.get()));
+    std::unique_ptr<MessagesHandler> mh = std::unique_ptr<MessagesHandler>(new MessagesHandler(df.get(), dr.get(), pm.get(), sa.get(), smm.get(), lm.get(), ih.get(), settings.get(), server_logger.get()));
 
     std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), ssl_context_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
 
@@ -97,6 +97,7 @@ int main(int argc, char* argv[])
         new BeforeServerStartupHandler(
             qm.get(),
             sa.get(),
+            smm.get(),
             cluster_metadata.get(),
             future_cluster_metadata.get(),
             fh.get(),

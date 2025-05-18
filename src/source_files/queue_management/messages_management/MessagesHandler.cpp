@@ -1,6 +1,6 @@
 #include "../../../header_files/queue_management/messages_management/MessagesHandler.h"
 
-MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Settings* settings) {
+MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Settings* settings, Logger* logger) {
 	this->disk_flusher = disk_flusher;
 	this->disk_reader = disk_reader;
 	this->pm = pm;
@@ -9,43 +9,55 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 	this->lock_manager = lock_manager;
 	this->index_handler = index_handler;
 	this->settings = settings;
+	this->logger = logger;
 
 	this->cluster_metadata_file_key = this->pm->get_metadata_file_key(CLUSTER_METADATA_QUEUE_NAME);
 	this->cluster_metadata_file_path = this->pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
 }
 
 // No segment locking is required here since retention will only happen in read only segments
-void MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes) {
-	if(partition->get_active_segment()->get_is_read_only())
-		this->sa->allocate_new_segment(partition);
+bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes) {
+	try
+	{
+		if (partition->get_active_segment()->get_is_read_only())
+			this->sa->allocate_new_segment(partition);
 
-	PartitionSegment* active_segment = partition->get_active_segment();
+		PartitionSegment* active_segment = partition->get_active_segment();
 
-	this->set_last_message_id_and_timestamp(active_segment, messages, total_bytes);
+		this->set_last_message_id_and_timestamp(active_segment, messages, total_bytes);
 
-	long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
-		active_segment->get_segment_key(),
-		active_segment->get_segment_path(),
-		messages,
-		Helper::is_internal_queue(partition->get_queue_name())
-	);
+		long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
+			active_segment->get_segment_key(),
+			active_segment->get_segment_path(),
+			messages,
+			Helper::is_internal_queue(partition->get_queue_name())
+		);
 
-	unsigned long total_segment_bytes = partition->get_active_segment()->add_written_bytes(total_bytes);
+		unsigned long total_segment_bytes = partition->get_active_segment()->add_written_bytes(total_bytes);
 
-	//if (this->settings->get_segment_size() < total_segment_bytes) {
-	//	this->sa->allocate_new_segment(partition);
-	//	return;
-	//}
+		//if (this->settings->get_segment_size() < total_segment_bytes) {
+		//	this->sa->allocate_new_segment(partition);
+		//	return;
+		//}
 
-	if (100 < total_segment_bytes) {
-		this->sa->allocate_new_segment(partition);
-		return;
+		if (100 < total_segment_bytes) {
+			this->sa->allocate_new_segment(partition);
+			return true;
+		}
+
+		if (this->remove_from_partition_remaining_bytes(this->get_queue_partition_key(partition), total_bytes) == 0) {
+			unsigned long long first_message_id = 0;
+			memcpy_s(&first_message_id, MESSAGE_ID_SIZE, (char*)messages + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+			this->index_handler->add_message_to_index(partition, first_message_id, first_message_pos);
+		}
+
+		return true;
 	}
-
-	if (this->remove_from_partition_remaining_bytes(this->get_queue_partition_key(partition), total_bytes) == 0) {
-		unsigned long long first_message_id = 0;
-		memcpy_s(&first_message_id, MESSAGE_ID_SIZE, (char*)messages + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-		this->index_handler->add_message_to_index(partition, first_message_id, first_message_pos);
+	catch (const CorruptionException& ex)
+	{
+		// TODO: Mark corruption for fix
+		this->logger->log_error(ex.what());
+		return false;
 	}
 }
 
@@ -110,26 +122,28 @@ void MessagesHandler::set_last_message_id_and_timestamp(PartitionSegment* segmen
 }
 
 std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> MessagesHandler::read_partition_messages(Partition* partition, unsigned long long read_from_message_id) {
-	bool success = true;
-
-	std::shared_ptr<PartitionSegment> old_segment = this->smm->find_message_segment(partition, read_from_message_id, &success);
-
-	if(old_segment == nullptr && !success)
-		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
-
-	PartitionSegment* segment_to_read = old_segment == nullptr
-		? partition->get_active_segment()
-		: old_segment.get();
-
-	this->lock_manager->lock_segment(partition, segment_to_read);
-
-	if (segment_to_read->get_id() < partition->get_smallest_segment_id()) {
-		this->lock_manager->release_segment_lock(partition, segment_to_read);
-		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
-	}
+	PartitionSegment* segment_to_read = NULL;
 
 	try
 	{
+		bool success = true;
+
+		std::shared_ptr<PartitionSegment> old_segment = this->smm->find_message_segment(partition, read_from_message_id, &success);
+
+		if (old_segment == nullptr && !success)
+			return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+
+		PartitionSegment* segment_to_read = old_segment == nullptr
+			? partition->get_active_segment()
+			: old_segment.get();
+
+		this->lock_manager->lock_segment(partition, segment_to_read);
+
+		if (segment_to_read->get_id() < partition->get_smallest_segment_id()) {
+			this->lock_manager->release_segment_lock(partition, segment_to_read);
+			return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+		}
+
 		long long message_pos = this->index_handler->find_message_location(segment_to_read, read_from_message_id);
 
 		if (message_pos <= 0) {
@@ -181,6 +195,8 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 			read_batch = std::shared_ptr<char>(new char[batch_size]);
 		}
 
+		this->lock_manager->release_segment_lock(partition, segment_to_read);
+
 		unsigned int second_last_message_offset = this->get_second_last_message_offset_from_batch(
 			read_batch.get(),
 			batch_size,
@@ -196,8 +212,6 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 			? second_last_message_offset + second_last_message_bytes
 			: last_message_offset + last_message_bytes;
 
-		this->lock_manager->release_segment_lock(partition, segment_to_read);
-
 		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(
 			read_batch,
 			batch_size,
@@ -206,9 +220,16 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 			this->get_total_messages_read(read_batch.get(), batch_size, read_start, read_end)
 		);
 	}
+	catch (const CorruptionException& ex)
+	{
+		// TODO: Mark corruption for fix
+		this->logger->log_error(ex.what());
+		this->lock_manager->release_segment_lock(partition, segment_to_read);
+		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+	}
 	catch (const std::exception& ex)
 	{
-		// TODO: Add logging here
+		this->logger->log_error(ex.what());
 		this->lock_manager->release_segment_lock(partition, segment_to_read);
 		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
 	}

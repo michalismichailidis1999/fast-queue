@@ -23,7 +23,7 @@ private:
 	void handle_file_failure(FileStream* fs);
 
 	long long write_to_file(FileStream* fs, unsigned long buffer_size, long long pos, void* data, bool flush_data = false);
-	bool read_from_file(FileStream* fs, unsigned long buffer_size, long long pos, void* dest);
+	unsigned long read_from_file(FileStream* fs, unsigned long buffer_size, long long pos, void* dest);
 
 	void add_unflushed_stream(FileStream* fs);
 	void remove_unflushed_stream(FileStream* fs);
@@ -31,7 +31,7 @@ public:
 	FileHandler();
 
 	long long write_to_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* data, bool flush_data = false);
-	bool read_from_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* dest);
+	unsigned long read_from_file(std::string key, const std::string& path, unsigned long buffer_size, long long pos, void* dest);
 
 	void create_new_file(const std::string& path, unsigned long bytes_to_write, void* data = NULL, const std::string& key = "", bool flush_data = false);
 
