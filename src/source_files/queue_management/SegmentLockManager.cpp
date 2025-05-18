@@ -3,31 +3,40 @@
 SegmentLockManager::SegmentLockManager() {}
 
 void SegmentLockManager::lock_segment(Partition* partition, PartitionSegment* segment, bool exclusive) {
-	std::lock_guard<std::mutex> map_lock(this->mut);
+	std::unique_lock<std::mutex> map_lock(this->mut);
 
 	std::string key = this->get_segment_key(partition, segment);
 
 	if (this->locks.find(key) == this->locks.end()) this->locks[key] = std::make_shared<segment_lock>();
-	else
-		this->locks[key].get()->references++;
+	else this->locks[key].get()->references++;
+
+	auto& s_lock = this->locks[key];
+	map_lock.unlock();
 	
-	if (exclusive) this->locks[key].get()->mut.lock();
-	else this->locks[key].get()->mut.lock_shared();
+	if (exclusive) s_lock.get()->mut.lock();
+	else s_lock.get()->mut.lock_shared();
 }
 
 void SegmentLockManager::release_segment_lock(Partition* partition, PartitionSegment* segment, bool exclusive) {
 	std::async(std::launch::async, [&] {
-		std::lock_guard<std::mutex> map_lock(this->mut);
+		std::unique_lock<std::mutex> map_lock(this->mut);
 
 		std::string key = this->get_segment_key(partition, segment);
 
 		if (this->locks.find(key) == this->locks.end()) return;
 
-		if (exclusive) this->locks[key].get()->mut.unlock();
-		else this->locks[key].get()->mut.unlock_shared();
+		auto& s_lock = this->locks[key];
+		map_lock.unlock();
 
-		if ((--this->locks[key].get()->references) <= 0)
+		if (exclusive) s_lock.get()->mut.unlock();
+		else s_lock.get()->mut.unlock_shared();
+
+		map_lock.lock();
+
+		if ((--s_lock.get()->references) <= 0) {
 			this->locks.erase(key);
+			return;
+		}
 	});
 }
 
