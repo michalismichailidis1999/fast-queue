@@ -17,5 +17,5 @@ public:
 
 	void add_last_message_info_to_segment_map(Partition* partition, PartitionSegment* segment);
 
-	std::shared_ptr<PartitionSegment> find_message_segment(Partition* partition, unsigned long long message_id);
+	std::shared_ptr<PartitionSegment> find_message_segment(Partition* partition, unsigned long long message_id, bool* success);
 };

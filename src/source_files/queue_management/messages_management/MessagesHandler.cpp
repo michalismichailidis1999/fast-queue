@@ -110,13 +110,23 @@ void MessagesHandler::set_last_message_id_and_timestamp(PartitionSegment* segmen
 }
 
 std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> MessagesHandler::read_partition_messages(Partition* partition, unsigned long long read_from_message_id) {
-	std::shared_ptr<PartitionSegment> old_segment = this->smm->find_message_segment(partition, read_from_message_id);
+	bool success = true;
+
+	std::shared_ptr<PartitionSegment> old_segment = this->smm->find_message_segment(partition, read_from_message_id, &success);
+
+	if(old_segment == nullptr && !success)
+		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
 
 	PartitionSegment* segment_to_read = old_segment == nullptr
 		? partition->get_active_segment()
 		: old_segment.get();
 
 	this->lock_manager->lock_segment(partition, segment_to_read);
+
+	if (segment_to_read->get_id() < partition->get_smallest_segment_id()) {
+		this->lock_manager->release_segment_lock(partition, segment_to_read);
+		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+	}
 
 	try
 	{

@@ -36,8 +36,8 @@ void SegmentMessageMap::add_last_message_info_to_segment_map(Partition* partitio
 	);
 }
 
-std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partition* partition, unsigned long long message_id) {
-	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
+std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partition* partition, unsigned long long message_id, bool* success) {
+	*success = true;
 
 	unsigned long long starting_page_segment = 0;
 	unsigned long long segment_id = 0;
@@ -47,7 +47,7 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 	std::unique_ptr<char> map_page = std::unique_ptr<char>(new char[MESSAGES_LOC_MAP_PAGE_SIZE]);
 
 	while (true) {
-		bool success = this->dr->read_data_from_disk(
+		bool read_success = this->dr->read_data_from_disk(
 			partition->get_message_map_key(),
 			partition->get_message_map_path(),
 			map_page.get(),
@@ -55,7 +55,10 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 			page_id * MESSAGES_LOC_MAP_PAGE_SIZE
 		);
 
-		if (!success) return nullptr;
+		if (!read_success) {
+			*success = false;
+			return nullptr;
+		}
 
 		memcpy_s(&starting_page_segment, sizeof(unsigned long long), map_page.get(), sizeof(unsigned long long));
 
@@ -72,6 +75,13 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 	}
 
 	if (segment_id == 0) return nullptr;
+
+	if (segment_id < partition->get_smallest_segment_id()) {
+		*success = false;
+		return nullptr;
+	}
+
+	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
 
 	std::string segment_key = this->pm->get_file_key(
 		partition->get_queue_name(),
