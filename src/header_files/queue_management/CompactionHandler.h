@@ -10,6 +10,8 @@
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../util/BloomFilter.h"
+#include "../exceptions/CurruptionException.h"
+#include "../queue_management/messages_management/index_management/BTreeNode.h"
 
 class CompactionHandler {
 private:
@@ -28,7 +30,11 @@ private:
 
 	void compact_segment(PartitionSegment* segment);
 
+	void compact_internal_segment(PartitionSegment* segment);
+
 	bool continue_compaction(Queue* queue);
+
+	bool ignore_message(void* message);
 public:
 	CompactionHandler(QueueManager* qm, SegmentLockManager* lock_manager, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings);
 

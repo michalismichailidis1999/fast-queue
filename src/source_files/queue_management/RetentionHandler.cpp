@@ -31,6 +31,8 @@ void RetentionHandler::remove_expired_segments(std::atomic_bool* should_terminat
 }
 
 void RetentionHandler::handle_queue_partitions_segment_retention(const std::string& queue_name, std::atomic_bool* should_terminate) {
+	if (Helper::is_internal_queue(queue_name)) return;
+
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (queue == nullptr) return;
@@ -56,18 +58,16 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 
 	if (partition->get_current_segment_id() == segment_id) return false;
 
-	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
-
 	std::string segment_path = this->pm->get_file_path(
 		partition->get_queue_name(),
 		segment_id,
-		is_internal_queue ? -1 : partition->get_partition_id()
+		partition->get_partition_id()
 	);
 
 	std::string index_path = this->pm->get_file_path(
 		partition->get_queue_name(),
 		segment_id,
-		is_internal_queue ? -1 : partition->get_partition_id(),
+		partition->get_partition_id(),
 		true
 	);
 
@@ -81,7 +81,7 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 	std::string segment_key = this->pm->get_file_path(
 		partition->get_queue_name(),
 		segment_id,
-		is_internal_queue ? -1 : partition->get_partition_id()
+		partition->get_partition_id()
 	);
 
 	std::string index_key = this->pm->get_file_key(

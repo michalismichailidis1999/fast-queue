@@ -70,3 +70,27 @@ bool BTreeNode::insert(BTreeNodeRow& row) {
 bool BTreeNode::is_full() {
 	return this->rows_num == INDEX_PAGE_TOTAL_ROWS;
 }
+
+PageType BTreeNode::get_page_type() {
+	return this->type;
+}
+
+unsigned int BTreeNode::get_page_offset() {
+	return this->page_offset;
+}
+
+unsigned int BTreeNode::get_parent_offset() {
+	return this->parent_offset;
+}
+
+unsigned int BTreeNode::get_prev_page_offset() {
+	return this->prev_page_offset;
+}
+
+unsigned int BTreeNode::get_next_page_offset() {
+	return this->next_page_offset;
+}
+
+BTreeNodeRow* BTreeNode::get_last_child() {
+	return &this->rows[this->rows_num - 1];
+}

@@ -109,7 +109,14 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 		// Shared lock can be used since data will only be read and written to different file
 		this->lock_manager->lock_segment(partition, &segment);
 
-		this->compact_segment(&segment);
+		if (is_internal_queue) this->compact_internal_segment(&segment);
+		else this->compact_segment(&segment);
+	}
+	catch (const CorruptionException& ex) {
+		success = false;
+		std::string err_msg = "Error occured during segment compaction. Reason: " + std::string(ex.what());
+		this->logger->log_error(err_msg);
+		// TODO: Mark corruption for fix
 	}
 	catch (const std::exception& ex)
 	{
@@ -119,6 +126,8 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 	}
 
 	this->lock_manager->release_segment_lock(partition, &segment);
+
+	if (!success) return false;
 
 	try
 	{
@@ -142,13 +151,56 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 }
 
 void CompactionHandler::compact_segment(PartitionSegment* segment) {
-	// TODO: Add logic here
+	this->bf->reset();
+
+	std::unique_ptr<char> current_last_index_page = std::unique_ptr<char>(new char [INDEX_PAGE_SIZE]);
+	std::unique_ptr<BTreeNode> current_last_node = nullptr;
+
+	unsigned int page_offset = 0;
+
+	while (true) {
+		unsigned long bytes_read = this->fh->read_from_file(
+			segment->get_index_key(),
+			segment->get_index_path(),
+			INDEX_PAGE_SIZE,
+			page_offset,
+			current_last_index_page.get()
+		);
+
+		if (bytes_read != INDEX_PAGE_SIZE)
+			throw CorruptionException("Corrupted index file");
+
+		current_last_node = std::unique_ptr<BTreeNode>(new BTreeNode(current_last_index_page.get()));
+
+		if (current_last_node.get()->get_page_type() == PageType::LEAF) break;
+
+		if (current_last_node.get()->get_next_page_offset() != 0)
+			page_offset = current_last_node.get()->get_next_page_offset();
+		else
+			page_offset = current_last_node.get()->get_last_child()->val_pos;
+	}
+
+	unsigned int last_read_pointer = 0;
+
+	while (current_last_node != nullptr) {
+		// TODO: Complete logic here
+	}
+}
+
+void CompactionHandler::compact_internal_segment(PartitionSegment* segment) {
+	// TODO: Complete logic here
 }
 
 bool CompactionHandler::continue_compaction(Queue* queue) {
 	if (queue->get_metadata()->get_status() == Status::ACTIVE) return true;
 
 	this->logger->log_info("Queue " + queue->get_metadata()->get_name() + " is not active. Skipping compaction check");
+
+	return false;
+}
+
+bool CompactionHandler::ignore_message(void* message) {
+	if (!this->bf->has(NULL, 0)) return false;
 
 	return false;
 }

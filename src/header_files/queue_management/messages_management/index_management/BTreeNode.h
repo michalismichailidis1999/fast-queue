@@ -38,5 +38,14 @@ public:
 
 	bool is_full();
 
+	PageType get_page_type();
+
+	unsigned int get_page_offset();
+	unsigned int get_parent_offset();
+	unsigned int get_prev_page_offset();
+	unsigned int get_next_page_offset();
+
+	BTreeNodeRow* get_last_child();
+
 	friend class BPlusTreeIndexHandler;
 };
