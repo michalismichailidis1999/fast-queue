@@ -18,15 +18,18 @@ private:
 	// general properties
 	unsigned int node_id;
 
-	unsigned long max_message_size;
-	unsigned long segment_size;
-	unsigned long max_cached_memory;
-	unsigned long flush_to_disk_after_ms;
+	unsigned int max_message_size;
+	unsigned int segment_size;
+	unsigned int max_cached_memory;
+	unsigned int flush_to_disk_after_ms;
 
 	unsigned int request_parallelism;
 	unsigned int request_polling_interval_ms;
 	unsigned int maximum_connections;
-	unsigned long request_timeout_ms;
+	unsigned int request_timeout_ms;
+
+	unsigned int retention_ms;
+	unsigned int retention_worker_wait_ms;
 
 	std::string log_path;
 	std::string trace_log_path;
@@ -66,15 +69,18 @@ public:
 	// general properties getters
 	unsigned int get_node_id();
 
-	unsigned long get_max_message_size();
-	unsigned long get_segment_size();
-	unsigned long get_max_cached_memory();
-	unsigned long get_flush_to_disk_after_ms();
+	unsigned int get_max_message_size();
+	unsigned int get_segment_size();
+	unsigned int get_max_cached_memory();
+	unsigned int get_flush_to_disk_after_ms();
 
 	unsigned int get_request_parallelism();
 	unsigned int get_request_polling_interval_ms();
 	unsigned int get_maximum_connections();
-	unsigned long get_request_timeout_ms();
+	unsigned int get_request_timeout_ms();
+
+	unsigned int get_retention_ms();
+	unsigned int get_retention_worker_wait_ms();
 
 	const std::string& get_log_path();
 	const std::string& get_trace_log_path();

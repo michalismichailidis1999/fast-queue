@@ -18,6 +18,7 @@ static const unsigned int APPEND_ENTRIES_MAX_BATCH_SIZE = 20;
 static const unsigned int CHECK_FOR_UNAPPLIED_COMMANDS = 1500;
 static const unsigned int CHECK_FOR_LAGGING_FOLLOWERS = 1500;
 static const unsigned int CHECK_FOR_SETTINGS_UPDATE = 5000;
+static const unsigned int CHECK_FOR_COMPACTION = 5000;
 
 static const unsigned int MAX_QUEUE_NAME_CHARS = 100;
 
@@ -26,6 +27,8 @@ static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 static const unsigned int INDEX_PAGE_SIZE = 4096; // 4KB
 
 static const unsigned int READ_MESSAGES_BATCH_SIZE = INDEX_PAGE_SIZE * 4; // 16KB
+
+static const unsigned int COMPACTION_BLOOM_FILTER_SIZE = 10000000;
 
 static const unsigned int MESSAGES_LOC_MAP_PAGE_SIZE = 4096; // 4KB
 // first position will hold starting segment id of the next N segments contained in the page 

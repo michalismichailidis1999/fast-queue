@@ -6,7 +6,7 @@
 #include <functional>
 #include <filesystem>
 #include <mutex>
-#include "../generic/Cache.h"
+#include "../util/Cache.h"
 #include "./FileStream.h"
 #include "../Settings.h"
 #include "../Constants.h"

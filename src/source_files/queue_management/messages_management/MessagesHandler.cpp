@@ -261,6 +261,9 @@ unsigned int MessagesHandler::get_last_message_offset_from_batch(void* read_batc
 
 		if (offset + message_bytes >= batch_size) return offset;
 
+		if (!Helper::has_valid_checksum((char*)read_batch + offset))
+			throw CorruptionException("Messages batch had corrupted message");
+
 		offset += message_bytes;
 	}
 

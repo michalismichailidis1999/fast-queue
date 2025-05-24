@@ -3,7 +3,7 @@
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>
-#include "../generic/IndexedHeap.h"
+#include "../util/IndexedHeap.h"
 #include "./Commands.h"
 #include "../queue_management/QueueMetadata.h"
 

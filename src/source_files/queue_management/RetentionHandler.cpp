@@ -14,6 +14,11 @@ void RetentionHandler::remove_expired_segments(std::atomic_bool* should_terminat
 	std::vector<std::string> queue_names;
 
 	while (!(*should_terminate)) {
+		if (this->settings->get_retention_ms() == 0) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_retention_worker_wait_ms()));
+			continue;
+		}
+
 		queue_names.clear();
 
 		this->qm->get_all_queue_names(&queue_names);
@@ -21,14 +26,14 @@ void RetentionHandler::remove_expired_segments(std::atomic_bool* should_terminat
 		for (const std::string& queue_name : queue_names)
 			this->handle_queue_partitions_segment_retention(queue_name, should_terminate);
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_retention_worker_wait_ms()));
 	}
 }
 
 void RetentionHandler::handle_queue_partitions_segment_retention(const std::string& queue_name, std::atomic_bool* should_terminate) {
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
-	if (queue == nullptr || !queue->get_metadata()->has_segment_compaction()) return;
+	if (queue == nullptr) return;
 
 	if (!(*should_terminate) && this->continue_retention(queue.get())) return;
 
@@ -47,19 +52,21 @@ void RetentionHandler::handle_queue_partitions_segment_retention(const std::stri
 
 // Returns true if segment for retention is not found or segment was deleted due to retention policy
 bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* partition) {
-	if (partition->get_current_segment_id() == partition->get_smallest_segment_id()) return false;
+	unsigned long long segment_id = partition->get_smallest_segment_id();
+
+	if (partition->get_current_segment_id() == segment_id) return false;
 
 	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
 
 	std::string segment_path = this->pm->get_file_path(
 		partition->get_queue_name(),
-		partition->get_smallest_segment_id(),
+		segment_id,
 		is_internal_queue ? -1 : partition->get_partition_id()
 	);
 
 	std::string index_path = this->pm->get_file_path(
 		partition->get_queue_name(),
-		partition->get_smallest_segment_id(),
+		segment_id,
 		is_internal_queue ? -1 : partition->get_partition_id(),
 		true
 	);
@@ -73,13 +80,13 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 
 	std::string segment_key = this->pm->get_file_path(
 		partition->get_queue_name(),
-		partition->get_smallest_segment_id(),
+		segment_id,
 		is_internal_queue ? -1 : partition->get_partition_id()
 	);
 
 	std::string index_key = this->pm->get_file_key(
 		partition->get_queue_name(),
-		partition->get_smallest_segment_id(),
+		segment_id,
 		true
 	);
 
@@ -87,7 +94,7 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 
 	PartitionSegment segment = PartitionSegment(segment_bytes.get(), segment_key, segment_path);
 
-	if (!segment.get_is_read_only() || !this->util->has_timeframe_expired(segment.get_last_message_timestamp(), 0)) 
+	if (!segment.get_is_read_only() || !this->util->has_timeframe_expired(segment.get_last_message_timestamp(), this->settings->get_retention_ms())) 
 		return false;
 
 	bool success = true;
@@ -101,8 +108,8 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 
 		std::lock_guard<std::shared_mutex> lock(partition->mut);
 
-		unsigned long long current_smallest_segment_id = partition->smallest_segment_id;
-		partition->smallest_segment_id = current_smallest_segment_id + 1;
+		unsigned long long current_smallest_segment_id = segment_id;
+		partition->smallest_segment_id = segment_id + 1;
 
 		if (current_smallest_segment_id == partition->smallest_uncompacted_segment_id)
 			partition->smallest_uncompacted_segment_id = current_smallest_segment_id + 1;
@@ -110,7 +117,8 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 	catch (const std::exception& ex)
 	{
 		success = false;
-		this->logger->log_error("Something went wrong");
+		std::string err_msg = "Error occured during segment retention. Reason: " + std::string(ex.what());
+		this->logger->log_error(err_msg);
 	}
 
 	this->lock_manager->release_segment_lock(partition, &segment, true);

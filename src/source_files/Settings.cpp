@@ -48,29 +48,29 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "request_parallelism"
 			|| lhs == "request_polling_interval_ms"
 			|| lhs == "maximum_connections"
+			|| lhs == "max_message_size"
+			|| lhs == "segment_size"
+			|| lhs == "max_cached_memory"
+			|| lhs == "request_timeout_ms"
+			|| lhs == "flush_to_disk_after_ms"
+			|| lhs == "retention_ms"
+			|| lhs == "retention_worker_wait_ms"
 		) {
 			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
 				: lhs == "external_port" ? &this->external_port
 				: lhs == "request_parallelism" ? &this->request_parallelism
 				: lhs == "request_polling_interval_ms" ? &this->request_polling_interval_ms
-				: &this->maximum_connections;
-
-			*(val) = rhs_size > 0 ? std::atoi(rhs.c_str()) : 0;
-		}
-		else if (
-			lhs == "max_message_size"
-			|| lhs == "segment_size"
-			|| lhs == "max_cached_memory"
-			|| lhs == "flush_to_disk_after_ms"
-			|| lhs == "request_timeout_ms"
-		) {
-			unsigned long* val = lhs == "max_message_size" ? &this->max_message_size
+				: lhs == "maximum_connections" ? &this->maximum_connections
+				: lhs == "max_message_size" ? &this->max_message_size
 				: lhs == "segment_size" ? &this->segment_size
 				: lhs == "max_cached_memory" ? &this->max_cached_memory
 				: lhs == "request_timeout_ms" ? &this->request_timeout_ms
-				: &this->flush_to_disk_after_ms;
-			*(val) = rhs_size > 0 ? std::atol(rhs.c_str()) : 0;
+				: lhs == "flush_to_disk_after_ms" ? &this->flush_to_disk_after_ms
+				: lhs == "retention_ms" ? &this->retention_ms
+				: &this->retention_worker_wait_ms;
+
+			*(val) = rhs_size > 0 ? std::atoi(rhs.c_str()) : 0;
 		}
 		else if (
 			lhs == "log_path"
@@ -163,22 +163,22 @@ unsigned int Settings::get_node_id() {
 	return this->node_id;
 }
 
-unsigned long Settings::get_max_message_size() {
+unsigned int Settings::get_max_message_size() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->max_message_size;
 }
 
-unsigned long Settings::get_segment_size() {
+unsigned int Settings::get_segment_size() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->segment_size;
 }
 
-unsigned long Settings::get_max_cached_memory() {
+unsigned int Settings::get_max_cached_memory() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->max_cached_memory;
 }
 
-unsigned long Settings::get_flush_to_disk_after_ms() {
+unsigned int Settings::get_flush_to_disk_after_ms() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->flush_to_disk_after_ms;
 }
@@ -198,9 +198,19 @@ unsigned int Settings::get_maximum_connections() {
 	return this->maximum_connections;
 }
 
-unsigned long Settings::get_request_timeout_ms() {
+unsigned int Settings::get_request_timeout_ms() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->request_timeout_ms;
+}
+
+unsigned int Settings::get_retention_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->retention_ms;
+}
+
+unsigned int Settings::get_retention_worker_wait_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->retention_worker_wait_ms;
 }
 
 const std::string& Settings::get_log_path() {
