@@ -28,7 +28,10 @@ static const unsigned int INDEX_PAGE_SIZE = 4096; // 4KB
 
 static const unsigned int READ_MESSAGES_BATCH_SIZE = INDEX_PAGE_SIZE * 4; // 16KB
 
-static const unsigned int COMPACTION_BLOOM_FILTER_SIZE = 10000000;
+static const unsigned int BLOOM_FILTER_BIT_ARRAY_ELEMENTS_COUNT = 2500000;
+static const unsigned int BLOOM_FILTER_BIT_ARRAY_COMPRESSED_BITS = BLOOM_FILTER_BIT_ARRAY_ELEMENTS_COUNT / 8; // every uint8_t will contain 8 bits of info
+static const unsigned int BLOOM_FILTER_HASH_FUNCTIONS_COUNT = 4;
+static const unsigned int BLOOM_FILTER_BIT_ARRAY_SIZE = BLOOM_FILTER_HASH_FUNCTIONS_COUNT * BLOOM_FILTER_BIT_ARRAY_COMPRESSED_BITS * 8;
 
 static const unsigned int MESSAGES_LOC_MAP_PAGE_SIZE = 4096; // 4KB
 // first position will hold starting segment id of the next N segments contained in the page 

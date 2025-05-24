@@ -8,7 +8,7 @@ CompactionHandler::CompactionHandler(QueueManager* qm, SegmentLockManager* lock_
 	this->logger = logger;
 	this->settings = settings;
 
-	this->bf = std::unique_ptr<BloomFilter>(new BloomFilter(COMPACTION_BLOOM_FILTER_SIZE));
+	this->bf = std::unique_ptr<BloomFilter>(new BloomFilter(BLOOM_FILTER_BIT_ARRAY_SIZE, BLOOM_FILTER_HASH_FUNCTIONS_COUNT));
 }
 
 void CompactionHandler::compact_closed_segments(std::atomic_bool* should_terminate) {

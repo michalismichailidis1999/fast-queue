@@ -1,35 +1,40 @@
 #include "../../header_files/util/BloomFilter.h"
 
-BloomFilter::BloomFilter(unsigned int size) {
-	this->size = size / sizeof(uint8_t);
-	this->bit_arr = std::vector<uint8_t>(this->size, 0);
-    this->seed = 0;
+BitArray::BitArray() {
+    this->size = BLOOM_FILTER_BIT_ARRAY_COMPRESSED_BITS;
+    this->bits = std::vector<uint8_t>(this->size, 0);
+
+    std::random_device rd;
+    this->seed = rd();
 }
 
-void BloomFilter::add(void* key, unsigned int key_bytes) {
-    unsigned int pos = this->murmur3_32(key, key_bytes, this->seed);
+BitArray::BitArray(unsigned int size) {
+    this->size = size / sizeof(uint8_t);
+    this->bits = std::vector<uint8_t>(this->size, 0);
+
+    std::random_device rd;
+    this->seed = rd();
+}
+
+void BitArray::add(void* key, unsigned int key_bytes) {
+    unsigned int pos = this->murmur3_32(key, key_bytes);
 
     unsigned int index = pos / this->size;
     uint8_t byte_pos = pos % sizeof(uint8_t);
 
-    this->bit_arr[index] |= byte_pos;
+    this->bits[index] |= byte_pos;
 }
 
-bool BloomFilter::has(void* key, unsigned int key_bytes) {
-    unsigned int pos = this->murmur3_32(key, key_bytes, this->seed);
+bool BitArray::has(void* key, unsigned int key_bytes) {
+    unsigned int pos = this->murmur3_32(key, key_bytes);
 
     unsigned int index = pos / this->size;
     uint8_t byte_pos = pos % sizeof(uint8_t);
 
-	return this->bit_arr[index] & byte_pos;
+    return this->bits[index] & byte_pos;
 }
 
-void BloomFilter::reset() {
-	for (unsigned int i = 0; i < this->size; i++)
-		this->bit_arr[i] = 0;
-}
-
-unsigned int BloomFilter::murmur3_32(void* key, unsigned int key_bytes, unsigned int seed) {
+unsigned int BitArray::murmur3_32(void* key, unsigned int key_bytes) {
     unsigned int h = seed;
     const unsigned int c1 = 0xcc9e2d51;
     const unsigned int c2 = 0x1b873593;
@@ -68,4 +73,40 @@ unsigned int BloomFilter::murmur3_32(void* key, unsigned int key_bytes, unsigned
     h ^= h >> 16;
 
     return h;
+}
+
+void BitArray::reset() {
+    for (unsigned int i = 0; i < this->size; i++)
+        this->bits[i] = 0;
+}
+
+BloomFilter::BloomFilter(unsigned int size, unsigned int hash_functions) {
+    this->hash_functions = hash_functions;
+
+	this->arrays = std::vector<BitArray>(hash_functions);
+
+    unsigned int total_bits = size / sizeof(uint8_t) / hash_functions;
+
+    for (unsigned int i = 0; i < hash_functions; i++)
+        this->arrays[i] = BitArray(total_bits);
+}
+
+void BloomFilter::add(void* key, unsigned int key_bytes) {
+    for (unsigned int i = 0; i < hash_functions; i++)
+        this->arrays[i].add(key, key_bytes);
+}
+
+bool BloomFilter::has(void* key, unsigned int key_bytes) {
+    unsigned int exists = 0;
+
+    for (unsigned int i = 0; i < hash_functions; i++)
+        if (this->arrays[i].has(key, key_bytes))
+            exists++;
+
+    return exists == this->hash_functions;
+}
+
+void BloomFilter::reset() {
+    for (auto& arr : this->arrays)
+        arr.reset();
 }
