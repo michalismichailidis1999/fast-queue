@@ -28,13 +28,15 @@ private:
 
 	bool handle_partition_oldest_segment_compaction(Partition* partition);
 
-	void compact_segment(PartitionSegment* segment);
+	void compact_segment(Partition* partition, PartitionSegment* segment);
 
 	void compact_internal_segment(PartitionSegment* segment);
 
 	bool continue_compaction(Queue* queue);
 
 	bool ignore_message(void* message);
+
+	std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>> initialize_compacted_segment_write_locations(Partition* partition, PartitionSegment* segment);
 public:
 	CompactionHandler(QueueManager* qm, SegmentLockManager* lock_manager, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings);
 

@@ -110,7 +110,7 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 		this->lock_manager->lock_segment(partition, &segment);
 
 		if (is_internal_queue) this->compact_internal_segment(&segment);
-		else this->compact_segment(&segment);
+		else this->compact_segment(partition, &segment);
 	}
 	catch (const CorruptionException& ex) {
 		success = false;
@@ -150,8 +150,10 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 	return success;
 }
 
-void CompactionHandler::compact_segment(PartitionSegment* segment) {
+void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment) {
 	this->bf->reset();
+
+	auto write_tup_res = this->initialize_compacted_segment_write_locations(partition, segment);
 
 	std::unique_ptr<char> current_last_index_page = std::unique_ptr<char>(new char [INDEX_PAGE_SIZE]);
 	std::unique_ptr<BTreeNode> current_last_node = nullptr;
@@ -203,4 +205,65 @@ bool CompactionHandler::ignore_message(void* message) {
 	if (!this->bf->has(NULL, 0)) return false;
 
 	return false;
+}
+
+std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>> CompactionHandler::initialize_compacted_segment_write_locations(Partition* partition, PartitionSegment* segment) {
+	std::string compacted_segment_path = this->pm->get_compacted_file_path(
+		partition->get_queue_name(),
+		segment->get_id(),
+		partition->get_partition_id()
+	);
+
+	std::string compacted_segment_key = this->pm->get_compacted_file_path(
+		partition->get_queue_name(),
+		segment->get_id(),
+		partition->get_partition_id()
+	);
+
+	std::string compacted_index_path = this->pm->get_compacted_file_path(
+		partition->get_queue_name(),
+		segment->get_id(),
+		partition->get_partition_id(),
+		true
+	);
+
+	std::string compacted_index_key = this->pm->get_compacted_file_path(
+		partition->get_queue_name(),
+		segment->get_id(),
+		partition->get_partition_id(),
+		true
+	);
+
+	this->fh->delete_dir_or_file(compacted_index_path);
+	this->fh->delete_dir_or_file(compacted_segment_path);
+
+	segment->set_to_compacted();
+
+	this->fh->create_new_file(
+		compacted_segment_path,
+		SEGMENT_METADATA_TOTAL_BYTES,
+		std::get<1>(segment->get_metadata_bytes()).get(),
+		compacted_segment_key,
+		true
+	);
+
+	std::shared_ptr<BTreeNode> write_node = std::shared_ptr<BTreeNode>(new BTreeNode(PageType::LEAF));
+
+	this->fh->create_new_file(
+		compacted_index_path,
+		INDEX_PAGE_SIZE,
+		std::get<0>(write_node.get()->get_page_bytes()).get(),
+		compacted_index_key,
+		true
+	);
+
+	std::shared_ptr<PartitionSegment> write_segment = std::shared_ptr<PartitionSegment>(
+		new PartitionSegment(segment->get_id(), compacted_segment_key, compacted_segment_path)
+	);
+
+	write_segment.get()->set_index(compacted_index_key, compacted_index_path);
+
+	return std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>>(
+		write_segment, write_node
+	);
 }
