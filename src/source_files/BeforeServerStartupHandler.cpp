@@ -231,7 +231,7 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 std::shared_ptr<QueueMetadata> BeforeServerStartupHandler::get_queue_metadata(const std::string& queue_metadata_file_path, const std::string& queue_name, bool must_exist) {
     if (!this->fh->check_if_exists(queue_metadata_file_path) && !must_exist) {
         std::shared_ptr<QueueMetadata> metadata = std::shared_ptr<QueueMetadata>(
-            new QueueMetadata(queue_name)
+            new QueueMetadata(queue_name, 1, 1, CleanupPolicyType::COMPACT_SEGMENTS)
         );
 
         if (queue_name == CLUSTER_METADATA_QUEUE_NAME)

@@ -1,6 +1,6 @@
 #pragma once
-#include <exception>
 #include <string>
+#include <exception>
 
 // TODO: Keep corruption information in this class to know which part of data to fix
 class CorruptionException : public std::exception {

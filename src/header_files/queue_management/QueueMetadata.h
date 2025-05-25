@@ -1,8 +1,8 @@
 #pragma once
 #include <string>
 #include <shared_mutex>
-#include "../Enums.h"
 #include "../Constants.h"
+#include "../Enums.h"
 #include "../util/Helper.h"
 
 class QueueMetadata {
@@ -12,7 +12,7 @@ private:
 	unsigned int partitions;
 	unsigned int replication_factor;
 
-	bool compact_segments;
+	CleanupPolicyType cleanup_policy;
 
 	// for __cluster_metadata queue only
 	unsigned long long last_commit_index;
@@ -22,7 +22,7 @@ private:
 
 	std::shared_mutex mut;
 public:
-	QueueMetadata(const std::string& name, unsigned int partitions = 1, unsigned int replication_factor = 1, bool compact_segments = false);
+	QueueMetadata(const std::string& name, unsigned int partitions = 1, unsigned int replication_factor = 1, CleanupPolicyType cleanup_policy = CleanupPolicyType::DELETE_SEGMENTS);
 
 	QueueMetadata(void* metadata);
 
@@ -36,7 +36,7 @@ public:
 	void set_status(Status status);
 	Status get_status();
 
-	bool has_segment_compaction();
+	CleanupPolicyType get_cleanup_policy();
 
 	std::tuple<int, std::shared_ptr<char>> get_metadata_bytes();
 };

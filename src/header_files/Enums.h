@@ -141,3 +141,8 @@ enum class PageType {
 	NON_LEAF,
 	LEAF
 };
+
+enum class CleanupPolicyType {
+	DELETE_SEGMENTS = 0,
+	COMPACT_SEGMENTS = 1
+};

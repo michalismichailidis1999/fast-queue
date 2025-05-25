@@ -35,7 +35,7 @@ void RetentionHandler::handle_queue_partitions_segment_retention(const std::stri
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
-	if (queue == nullptr) return;
+	if (queue == nullptr || queue.get()->get_metadata()->get_cleanup_policy() != CleanupPolicyType::DELETE_SEGMENTS) return;
 
 	if (!(*should_terminate) && this->continue_retention(queue.get())) return;
 

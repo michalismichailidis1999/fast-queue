@@ -1,6 +1,7 @@
 #pragma once
 #include <chrono>
 #include <unordered_map>
+#include "../Enums.h"
 #include "./QueueManager.h"
 #include "./Partition.h"
 #include "./PartitionSegment.h"
@@ -28,7 +29,7 @@ private:
 
 	bool handle_partition_oldest_segment_compaction(Partition* partition);
 
-	void compact_segment(Partition* partition, PartitionSegment* segment);
+	void compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment = nullptr, std::shared_ptr<BTreeNode> write_node = nullptr);
 
 	void compact_internal_segment(PartitionSegment* segment);
 

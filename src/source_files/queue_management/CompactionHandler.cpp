@@ -29,7 +29,7 @@ void CompactionHandler::compact_closed_segments(std::atomic_bool* should_termina
 void CompactionHandler::handle_queue_partitions_segment_compaction(const std::string& queue_name, std::atomic_bool* should_terminate) {
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
-	if (queue == nullptr || !queue->get_metadata()->has_segment_compaction()) return;
+	if (queue == nullptr || queue->get_metadata()->get_cleanup_policy() != CleanupPolicyType::COMPACT_SEGMENTS) return;
 
 	if (!(*should_terminate) && this->continue_compaction(queue.get())) return;
 
@@ -150,10 +150,15 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 	return success;
 }
 
-void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment) {
-	this->bf->reset();
+void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment, std::shared_ptr<BTreeNode> write_node) {
+	if (write_segment == nullptr) {
+		this->bf->reset();
 
-	auto write_tup_res = this->initialize_compacted_segment_write_locations(partition, segment);
+		auto write_tup_res = this->initialize_compacted_segment_write_locations(partition, segment);
+
+		write_segment = std::get<0>(write_tup_res);
+		write_node = std::get<1>(write_tup_res);
+	}
 
 	std::unique_ptr<char> current_last_index_page = std::unique_ptr<char>(new char [INDEX_PAGE_SIZE]);
 	std::unique_ptr<BTreeNode> current_last_node = nullptr;
