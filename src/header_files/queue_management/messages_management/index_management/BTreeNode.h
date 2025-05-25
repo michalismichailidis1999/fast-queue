@@ -45,7 +45,11 @@ public:
 	unsigned int get_prev_page_offset();
 	unsigned int get_next_page_offset();
 
+	BTreeNodeRow* get_first_child();
 	BTreeNodeRow* get_last_child();
+	BTreeNodeRow* get_nth_child(unsigned int index);
+
+	unsigned int get_total_rows_count();
 
 	friend class BPlusTreeIndexHandler;
 };

@@ -160,37 +160,29 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 		write_node = std::get<1>(write_tup_res);
 	}
 
-	std::unique_ptr<char> current_last_index_page = std::unique_ptr<char>(new char [INDEX_PAGE_SIZE]);
-	std::unique_ptr<BTreeNode> current_last_node = nullptr;
+	std::unique_ptr<char> page_data = std::unique_ptr<char>(new char [INDEX_PAGE_SIZE]);
 
-	unsigned int page_offset = 0;
+	std::shared_ptr<BTreeNode> current_last_node = this->find_index_node_with_last_message(segment, page_data.get());
 
-	while (true) {
-		unsigned long bytes_read = this->fh->read_from_file(
-			segment->get_index_key(),
-			segment->get_index_path(),
-			INDEX_PAGE_SIZE,
-			page_offset,
-			current_last_index_page.get()
-		);
+	if (current_last_node == nullptr)
+		throw std::exception("Something went wrong during index page with last maessage retrieval");
 
-		if (bytes_read != INDEX_PAGE_SIZE)
-			throw CorruptionException("Corrupted index file");
+	int current_row_index = !segment->is_segment_compacted()
+		? current_last_node.get()->get_total_rows_count() - 1
+		: 0;
 
-		current_last_node = std::unique_ptr<BTreeNode>(new BTreeNode(current_last_index_page.get()));
-
-		if (current_last_node.get()->get_page_type() == PageType::LEAF) break;
-
-		if (current_last_node.get()->get_next_page_offset() != 0)
-			page_offset = current_last_node.get()->get_next_page_offset();
-		else
-			page_offset = current_last_node.get()->get_last_child()->val_pos;
-	}
-
-	unsigned int last_read_pointer = 0;
+	int step = !segment->is_segment_compacted() ? -1 : 1;
 
 	while (current_last_node != nullptr) {
-		// TODO: Complete logic here
+		while (
+			(!segment->is_segment_compacted() && current_row_index > 0)
+			|| (segment->is_segment_compacted() && current_row_index < current_last_node.get()->get_total_rows_count())
+		) {
+			// TODO: Parse index page messages
+			current_row_index += step;
+		}
+
+		current_last_node = this->find_index_node_with_last_message(segment, page_data.get(), current_last_node.get());
 	}
 }
 
@@ -242,8 +234,6 @@ std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>> Compac
 	this->fh->delete_dir_or_file(compacted_index_path);
 	this->fh->delete_dir_or_file(compacted_segment_path);
 
-	segment->set_to_compacted();
-
 	this->fh->create_new_file(
 		compacted_segment_path,
 		SEGMENT_METADATA_TOTAL_BYTES,
@@ -271,4 +261,92 @@ std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>> Compac
 	return std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>>(
 		write_segment, write_node
 	);
+}
+
+std::shared_ptr<BTreeNode> CompactionHandler::find_index_node_with_last_message(PartitionSegment* segment, void* page_data) {
+	std::shared_ptr<BTreeNode> current_last_node = nullptr;
+
+	unsigned int page_offset = 0;
+
+	while (true) {
+		unsigned long bytes_read = this->fh->read_from_file(
+			segment->get_index_key(),
+			segment->get_index_path(),
+			INDEX_PAGE_SIZE,
+			page_offset,
+			page_data
+		);
+
+		if (bytes_read != INDEX_PAGE_SIZE)
+			throw CorruptionException("Corrupted index file");
+
+		current_last_node = std::shared_ptr<BTreeNode>(new BTreeNode(page_data));
+
+		if (current_last_node.get()->get_page_type() == PageType::LEAF) break;
+
+		if (!segment->is_segment_compacted() && current_last_node.get()->get_next_page_offset() != 0)
+			page_offset = current_last_node.get()->get_next_page_offset();
+		else
+			page_offset = segment->is_segment_compacted() 
+				? current_last_node.get()->get_first_child()->val_pos 
+				: current_last_node.get()->get_last_child()->val_pos;
+	}
+
+	return current_last_node;
+}
+
+std::shared_ptr<BTreeNode> CompactionHandler::find_index_node_with_last_message(PartitionSegment* segment, void* page_data, BTreeNode* current_last_node) {
+	std::shared_ptr<BTreeNode> next_last_node = nullptr;
+	
+	if (
+		segment->is_segment_compacted() 
+		&& current_last_node->get_next_page_offset() == 0 
+		&& current_last_node->get_parent_offset() == 0
+	) return nullptr;
+
+	if (
+		!segment->is_segment_compacted()
+		&& current_last_node->get_prev_page_offset() == 0
+		&& current_last_node->get_parent_offset() == 0
+	) return nullptr;
+
+	if (
+		(segment->is_segment_compacted()
+		&& current_last_node->get_next_page_offset() == 0
+		) || (!segment->is_segment_compacted()
+			&& current_last_node->get_prev_page_offset() == 0
+		)
+	) {
+		unsigned long bytes_read = this->fh->read_from_file(
+			segment->get_index_key(),
+			segment->get_index_path(),
+			INDEX_PAGE_SIZE,
+			current_last_node->get_parent_offset(),
+			page_data
+		);
+
+		if (bytes_read != INDEX_PAGE_SIZE)
+			throw CorruptionException("Corrupted index file");
+
+		next_last_node = std::shared_ptr<BTreeNode>(new BTreeNode(page_data));
+	}
+
+	if (next_last_node.get()->get_page_type() == PageType::LEAF) return next_last_node;
+
+	unsigned long bytes_read = this->fh->read_from_file(
+		segment->get_index_key(),
+		segment->get_index_path(),
+		INDEX_PAGE_SIZE,
+		segment->is_segment_compacted() 
+			? current_last_node->get_first_child()->val_pos 
+			: current_last_node->get_last_child()->val_pos,
+		page_data
+	);
+
+	if (bytes_read != INDEX_PAGE_SIZE)
+		throw CorruptionException("Corrupted index file");
+
+	next_last_node = std::shared_ptr<BTreeNode>(new BTreeNode(page_data));
+
+	return next_last_node;
 }

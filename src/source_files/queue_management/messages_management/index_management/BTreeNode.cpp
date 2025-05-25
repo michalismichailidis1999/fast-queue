@@ -91,6 +91,20 @@ unsigned int BTreeNode::get_next_page_offset() {
 	return this->next_page_offset;
 }
 
+BTreeNodeRow* BTreeNode::get_first_child() {
+	return &this->rows[0];
+}
+
 BTreeNodeRow* BTreeNode::get_last_child() {
 	return &this->rows[this->rows_num - 1];
+}
+
+BTreeNodeRow* BTreeNode::get_nth_child(unsigned int index) {
+	if (index >= this->rows_num) return NULL;
+
+	return &this->rows[index];
+}
+
+unsigned int BTreeNode::get_total_rows_count() {
+	return this->rows_num;
 }
