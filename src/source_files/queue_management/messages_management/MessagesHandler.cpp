@@ -19,7 +19,7 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes) {
 	try
 	{
-		if (partition->get_active_segment()->get_is_read_only())
+		if (partition->get_active_segment()->get_is_read_only() && !partition->get_active_segment()->is_segment_compacted())
 			this->sa->allocate_new_segment(partition);
 
 		PartitionSegment* active_segment = partition->get_active_segment();

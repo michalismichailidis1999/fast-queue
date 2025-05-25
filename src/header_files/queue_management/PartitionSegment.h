@@ -5,6 +5,7 @@
 #include "../Constants.h"
 #include "../util/Helper.h"
 
+// TODO: add starting position of last message and segment last file position index (last message starting offset & last message ending)
 class PartitionSegment {
 private:
 	unsigned long long id;

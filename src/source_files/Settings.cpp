@@ -27,6 +27,11 @@ Settings::Settings(char* conf, long total_conf_chars) {
 		if(i == total_conf_chars - 1 && equals_pos > 0)
 			this->set_settings_variable(conf, var_start_pos, i, equals_pos);
 	}
+
+	if (this->segment_size > MAX_SEGMENT_SIZE) {
+		std::string err_msg = "Segment cannot be larger than " + std::to_string(MAX_SEGMENT_SIZE) + " bytes";
+		throw std::exception(err_msg.c_str());
+	}
 }
 
 void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_pos, int equal_pos) {

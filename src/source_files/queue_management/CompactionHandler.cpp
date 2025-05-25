@@ -1,7 +1,8 @@
 #include "../../header_files/queue_management/CompactionHandler.h"
 
-CompactionHandler::CompactionHandler(QueueManager* qm, SegmentLockManager* lock_manager, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings) {
+CompactionHandler::CompactionHandler(QueueManager* qm, MessagesHandler* mh, SegmentLockManager* lock_manager, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings) {
 	this->qm = qm;
+	this->mh = mh;
 	this->lock_manager = lock_manager;
 	this->fh = fh;
 	this->pm = pm;
@@ -174,16 +175,12 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 	int step = !segment->is_segment_compacted() ? -1 : 1;
 
 	while (current_last_node != nullptr) {
-		while (
-			(!segment->is_segment_compacted() && current_row_index > 0)
-			|| (segment->is_segment_compacted() && current_row_index < current_last_node.get()->get_total_rows_count())
-		) {
-			// TODO: Parse index page messages
-			current_row_index += step;
-		}
-
+		this->parse_index_node_rows(partition, segment, write_segment, current_last_node.get(), !segment->is_segment_compacted());
 		current_last_node = this->find_index_node_with_last_message(segment, page_data.get(), current_last_node.get());
 	}
+
+	// TODO: Compact now prev compacted segment to this segment if prev segment exists
+	// if prev compacted segment size + current compacted segment size is bigger than threshold then skip this compaction
 }
 
 void CompactionHandler::compact_internal_segment(PartitionSegment* segment) {
@@ -257,6 +254,7 @@ std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>> Compac
 	);
 
 	write_segment.get()->set_index(compacted_index_key, compacted_index_path);
+	write_segment.get()->set_to_compacted();
 
 	return std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>>(
 		write_segment, write_node
@@ -349,4 +347,90 @@ std::shared_ptr<BTreeNode> CompactionHandler::find_index_node_with_last_message(
 	next_last_node = std::shared_ptr<BTreeNode>(new BTreeNode(page_data));
 
 	return next_last_node;
+}
+
+void CompactionHandler::parse_index_node_rows(Partition* partition, PartitionSegment* read_segment, std::shared_ptr<PartitionSegment> write_segment, BTreeNode* node, bool reverse_order) {
+	int current_row_index = reverse_order
+		? node->get_total_rows_count() - 1
+		: 0;
+
+	int step = reverse_order ? -1 : 1;
+
+	unsigned int last_read_pos = 0;
+
+	std::unique_ptr<char> read_batch = std::unique_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
+
+	unsigned int last_message_offset = 0;
+	unsigned int last_message_bytes = 0;
+	unsigned int message_bytes = 0;
+	unsigned int offset = 0;
+
+	unsigned long long message_id = 0;
+
+	std::unordered_map<unsigned int, unsigned int> messages_to_keep;
+	unsigned int ignore_count = 0;
+
+	unsigned int prev_kept_key = 0;
+	unsigned int non_ignored_streak = 0;
+
+	Partition dummy_partition = Partition(partition->get_partition_id(), partition->get_queue_name());
+	dummy_partition.set_active_segment(write_segment);
+
+	while (
+		(reverse_order && current_row_index > 0)
+		|| (!reverse_order && current_row_index < node->get_total_rows_count())
+	) {
+		unsigned long bytes_read = this->fh->read_from_file(
+			read_segment->get_segment_key(),
+			read_segment->get_segment_path(),
+			READ_MESSAGES_BATCH_SIZE,
+			last_read_pos == 0 ? node->get_nth_child(current_row_index)->val_pos : last_read_pos,
+			read_batch.get()
+		);
+
+		while (offset + message_bytes < READ_MESSAGES_BATCH_SIZE) {
+			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)read_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+			if (offset + message_bytes > READ_MESSAGES_BATCH_SIZE) break;
+
+			if (!Helper::has_valid_checksum((char*)read_batch.get() + offset)) {
+				memcpy_s(&message_id, MESSAGE_ID_SIZE, (char*)read_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+				std::string err_msg = "Message with offset " + std::to_string(message_id) + " was corrupted";
+				throw CorruptionException(err_msg);
+			}
+
+			if (!this->ignore_message((char*)read_batch.get() + offset)) {
+				non_ignored_streak++;
+
+				if (non_ignored_streak > 1 && prev_kept_key > 0) messages_to_keep[prev_kept_key] += message_bytes;
+				else {
+					messages_to_keep[offset] = message_bytes;
+					prev_kept_key = offset;
+				}
+			}
+			else {
+				ignore_count++;
+				non_ignored_streak = 0;
+				prev_kept_key = 0;
+			}
+
+			last_message_offset = offset;
+			last_message_bytes = message_bytes;
+			offset += message_bytes;
+		}
+
+		if (ignore_count == 0)
+			this->mh->save_messages(&dummy_partition, read_batch.get(), READ_MESSAGES_BATCH_SIZE - (READ_MESSAGES_BATCH_SIZE - last_message_offset + last_message_bytes));
+		else
+			for(auto& iter : messages_to_keep)
+				this->mh->save_messages(&dummy_partition, read_batch.get() + iter.first, iter.second);
+
+		if (bytes_read >= READ_MESSAGES_BATCH_SIZE) {
+			last_read_pos = last_message_offset + last_message_bytes;
+			continue;
+		}
+
+		current_row_index += step;
+		last_read_pos = 0;
+	}
 }
