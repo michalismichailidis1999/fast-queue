@@ -48,4 +48,6 @@ public:
 	std::string get_dir_entry_path(std::filesystem::directory_entry dir_entry);
 
 	void close_file(const std::string& key);
+
+	void rename_file(const std::string& current_key, const std::string& current_name, const std::string& new_name);
 };

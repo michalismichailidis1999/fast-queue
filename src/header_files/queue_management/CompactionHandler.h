@@ -14,12 +14,17 @@
 #include "./messages_management/index_management/BTreeNode.h"
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
+#include "../cluster_management/ClusterMetadata.h"
+#include "../cluster_management/ClusterMetadataApplyHandler.h"
+#include "../cluster_management/Controller.h"
 
 class CompactionHandler {
 private:
+	Controller* controller;
 	QueueManager* qm;
 	MessagesHandler* mh;
 	SegmentLockManager* lock_manager;
+	ClusterMetadataApplyHandler* cmah;
 	FileHandler* fh;
 	QueueSegmentFilePathMapper* pm;
 	Logger* logger;
@@ -31,7 +36,7 @@ private:
 
 	bool handle_partition_oldest_segment_compaction(Partition* partition);
 
-	void compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment = nullptr, std::shared_ptr<BTreeNode> write_node = nullptr);
+	std::shared_ptr<PartitionSegment> compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment = nullptr, std::shared_ptr<BTreeNode> write_node = nullptr);
 
 	void compact_internal_segment(PartitionSegment* segment);
 
@@ -47,7 +52,7 @@ private:
 
 	void parse_index_node_rows(Partition* partition, PartitionSegment* read_segment, std::shared_ptr<PartitionSegment> write_segment, BTreeNode* node, bool reverse_order);
 public:
-	CompactionHandler(QueueManager* qm, MessagesHandler* mh, SegmentLockManager* lock_manager, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings);
+	CompactionHandler(Controller* controller, QueueManager* qm, MessagesHandler* mh, SegmentLockManager* lock_manager, ClusterMetadataApplyHandler* cmah, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings);
 
 	void compact_closed_segments(std::atomic_bool* should_terminate);
 };

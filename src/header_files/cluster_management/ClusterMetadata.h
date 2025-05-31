@@ -3,6 +3,8 @@
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>
+#include <tuple>
+#include <memory>
 #include "../util/IndexedHeap.h"
 #include "./Commands.h"
 #include "../queue_management/QueueMetadata.h"
@@ -49,6 +51,10 @@ public:
 	void apply_command(Command* command);
 
 	void copy_from(ClusterMetadata* obj);
+
+	void fill_from_metadata(void* metadata);
+
+	std::tuple<unsigned int, std::shared_ptr<char>> get_metadata_bytes();
 
 	friend class Controller;
 };

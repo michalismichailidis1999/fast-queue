@@ -1,11 +1,11 @@
 #include "../header_files/BeforeServerStartupHandler.h"
 
-BeforeServerStartupHandler::BeforeServerStartupHandler(QueueManager* qm, SegmentAllocator* sa, SegmentMessageMap* smm, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
-	this->qm = qm;
+BeforeServerStartupHandler::BeforeServerStartupHandler(Controller* controller, ClusterMetadataApplyHandler* cmah, QueueManager* qm, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
+    this->controller = controller;
+    this->cmah = cmah;
+    this->qm = qm;
     this->sa = sa;
     this->smm = smm;
-    this->cluster_metadata = cluster_metadata;
-    this->future_cluster_metadata = future_cluster_metadata;
 	this->fh = fh;
 	this->pm = pm;
 	this->util = util;
@@ -34,11 +34,27 @@ void BeforeServerStartupHandler::initialize_required_folders_and_queues() {
 void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     this->logger->log_info("Rebuilding cluster metadata...");
 
-    // TODO: Read from __cluster_metadata queue to rebuild cluster metadata
+    std::tuple<long, std::shared_ptr<char>> config_res = this->fh->get_complete_file_content(this->pm->get_cluster_metadata_compaction_path());
 
-    this->future_cluster_metadata->copy_from(cluster_metadata);
+    this->controller->get_compacted_cluster_metadata()->fill_from_metadata(std::get<1>(config_res).get());
 
-    this->logger->log_info("Clustere metadata rebuilt successfully");
+    std::get<1>(config_res).reset();
+
+    this->controller->get_cluster_metadata()->copy_from(this->controller->get_compacted_cluster_metadata());
+
+    std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
+
+    Partition* partition = queue.get()->get_partition(0);
+
+    unsigned long long smallest_segment_id = partition->get_smallest_segment_id();
+    unsigned long long current_segment_id = partition->get_current_segment_id();
+
+    while (smallest_segment_id < current_segment_id) {
+        this->cmah->apply_commands_from_segment(this->controller->get_cluster_metadata(), smallest_segment_id);
+        smallest_segment_id++;
+    }
+
+    this->logger->log_info("Cluster metadata rebuilt successfully");
 }
 
 // ========================================================
@@ -47,18 +63,13 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
 
 void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues() {
     std::regex get_queue_name_rgx(settings->get_log_path() + "/((__|)[a-zA-Z][a-zA-Z0-9_-]*)$", std::regex_constants::icase);
-    std::regex get_segment_num_rgx("_cluster_snap_0*([1-9][0-9]*).*$|0*([1-9][0-9]*).*$", std::regex_constants::icase);
+    std::regex get_segment_num_rgx("0*([1-9][0-9]*).*$", std::regex_constants::icase);
     std::regex partition_match_rgx("partition-([0-9]|[1-9][0-9]+)$", std::regex_constants::icase);
-    std::regex ignore_file_deletion_rgx("_cluster_snap_0*[1-9][0-9]*\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
-    std::regex is_skippable_file_rgx("metadata\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
-    std::regex is_compacted_file_rgx("compacted\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_metadat_file_rgx("metadata" + FILE_EXTENSION + "$", std::regex_constants::icase);
 
     int partition_id = 0;
     bool is_cluster_metadata_queue = false;
     std::string queue_name = "";
-
-    std::string ignored_snapshot = "";
-    unsigned long long last_ignored_snapshot_segment_id = 0;
 
     std::shared_ptr<Queue> queue = nullptr;
     std::shared_ptr<QueueMetadata> metadata = nullptr;
@@ -70,7 +81,7 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 
         std::smatch match;
 
-        if (std::regex_search(path, match, is_skippable_file_rgx)) return;
+        if (std::regex_search(path, match, is_metadat_file_rgx)) return;
 
         if (!std::regex_search(path, match, get_segment_num_rgx)) {
             this->logger->log_warning("Incorrect file name detected at path " + path + ". Deleting it since it won't be used by server");
@@ -78,31 +89,9 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
             return;
         }
 
-        if (match.size() < 2) return;
+        if (match.size() < 1) return;
 
-        unsigned long long segment_id = std::stoull(match[1].matched ? match[1] : match[2]);
-
-        bool is_compacted = std::regex_search(path, match, is_compacted_file_rgx);
-
-        // keep only last cluster metadata snapshot created
-        if (is_cluster_metadata_queue && std::regex_search(path, match, ignore_file_deletion_rgx)) {
-            if (ignored_snapshot == "") {
-                ignored_snapshot = path;
-                last_ignored_snapshot_segment_id = segment_id;
-            }
-            else if (segment_id > last_ignored_snapshot_segment_id) {
-                this->fh->delete_dir_or_file(ignored_snapshot);
-                ignored_snapshot = path;
-                last_ignored_snapshot_segment_id = segment_id;
-                this->logger->log_info("Deleted old cluster metadata snapshot with path " + ignored_snapshot);
-            }
-            else {
-                this->fh->delete_dir_or_file(path);
-                this->logger->log_info("Deleted old cluster metadata snapshot with path " + ignored_snapshot);
-            }
-
-            return;
-        }
+        unsigned long long segment_id = std::stoull(match[1]);
 
         Partition* partition = partitions[partition_id].get();
 
@@ -112,7 +101,7 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
         if (partition->get_smallest_segment_id() == 0 || partition->get_smallest_segment_id() > segment_id) {
             partition->set_smallest_segment_id(segment_id);
 
-            if(!is_compacted && (partition->get_smallest_uncompacted_segment_id() == 0 || partition->get_smallest_uncompacted_segment_id() > segment_id))
+            if(partition->get_smallest_uncompacted_segment_id() == 0 || partition->get_smallest_uncompacted_segment_id() > segment_id)
                 partition->set_smallest_uncompacted_segment_id(segment_id);
         }
     };

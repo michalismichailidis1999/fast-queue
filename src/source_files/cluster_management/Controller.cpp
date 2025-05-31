@@ -1,6 +1,6 @@
 #include "../../header_files/cluster_management/Controller.h"
 
-Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, std::atomic_bool* should_terminate)
+Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate)
 	: generator(std::random_device{}()), distribution(HEARTBEAT_SIGNAL_MIN_BOUND, HEARTBEAT_SIGNAL_MAX_BOUND)
 {
 	this->cm = cm;
@@ -10,10 +10,12 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->transformer = transformer;
 	this->util = util;
 	this->logger = logger;
-	this->cluster_metadata = cluster_metadata;
-	this->future_cluster_metadata = future_cluster_metadata;
 	this->settings = settings;
 	this->should_terminate = should_terminate;
+
+	this->cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata(this->settings->get_node_id()));
+	this->future_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
+	this->compacetd_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 
 	this->is_the_only_controller_node = this->settings->get_controller_nodes()->size() == 1;
 
@@ -137,7 +139,7 @@ void Controller::start_election() {
 		return;
 	}
 
-	this->future_cluster_metadata->copy_from(this->cluster_metadata);
+	this->future_cluster_metadata->copy_from(this->cluster_metadata.get());
 	this->set_state(NodeState::LEADER);
 	this->cluster_metadata->set_leader_id(this->settings->get_node_id());
 	this->logger->log_info("Elected as leader");
@@ -779,4 +781,16 @@ void Controller::make_lagging_followers_catchup() {
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_LAGGING_FOLLOWERS));
 	}
+}
+
+ClusterMetadata* Controller::get_compacted_cluster_metadata() {
+	return this->compacetd_cluster_metadata.get();
+}
+
+ClusterMetadata* Controller::get_cluster_metadata() {
+	return this->cluster_metadata.get();
+}
+
+ClusterMetadata* Controller::get_future_cluster_metadata() {
+	return this->future_cluster_metadata.get();
 }

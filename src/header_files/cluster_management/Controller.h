@@ -36,8 +36,9 @@ private:
 	Settings* settings;
 	ClassToByteTransformer* transformer;
 
-	ClusterMetadata* cluster_metadata;
-	ClusterMetadata* future_cluster_metadata;
+	std::unique_ptr<ClusterMetadata> cluster_metadata;
+	std::unique_ptr<ClusterMetadata> future_cluster_metadata;
+	std::unique_ptr<ClusterMetadata> compacetd_cluster_metadata;
 
 	bool is_the_only_controller_node;
 	int half_quorum_nodes_count;
@@ -94,7 +95,7 @@ private:
 
 	void execute_create_queue_command(CreateQueueCommand* command);
 public:
-	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, std::atomic_bool* should_terminate);
+	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
 	std::shared_ptr<AppendEntriesResponse> handle_leader_append_entries(AppendEntriesRequest* request);
 	std::shared_ptr<RequestVoteResponse> handle_candidate_request_vote(RequestVoteRequest* request);
@@ -114,4 +115,10 @@ public:
 	void check_for_commit_and_last_applied_diff();
 
 	void make_lagging_followers_catchup();
+
+	ClusterMetadata* get_compacted_cluster_metadata();
+
+	ClusterMetadata* get_cluster_metadata();
+
+	ClusterMetadata* get_future_cluster_metadata();
 };

@@ -211,3 +211,11 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 		this->nodes_partition_counts->insert(iter.first, partitions_count);
 	}
 }
+
+void ClusterMetadata::fill_from_metadata(void* metadata) {
+
+}
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClusterMetadata::get_metadata_bytes() {
+	return std::tuple<unsigned int, std::shared_ptr<char>>(0, nullptr);
+}

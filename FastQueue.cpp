@@ -85,21 +85,22 @@ int main(int argc, char* argv[])
     std::unique_ptr<SegmentAllocator> sa = std::unique_ptr<SegmentAllocator>(new SegmentAllocator(smm.get(), lm.get(), pm.get(), df.get(), server_logger.get()));
     std::unique_ptr<MessagesHandler> mh = std::unique_ptr<MessagesHandler>(new MessagesHandler(df.get(), dr.get(), pm.get(), sa.get(), smm.get(), lm.get(), ih.get(), settings.get(), server_logger.get()));
 
-    std::unique_ptr<RetentionHandler> rh = std::unique_ptr<RetentionHandler>(new RetentionHandler(qm.get(), lm.get(), fh.get(), pm.get(), util.get(), server_logger.get(), settings.get()));
-    std::unique_ptr<CompactionHandler> ch = std::unique_ptr<CompactionHandler>(new CompactionHandler(qm.get(), mh.get(), lm.get(), fh.get(), pm.get(), server_logger.get(), settings.get()));
-
     std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), ssl_context_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
 
-    std::unique_ptr<ClusterMetadata> cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata(settings.get()->get_node_id()));
-    std::unique_ptr<ClusterMetadata> future_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
+    std::unique_ptr<Controller> controller = std::unique_ptr<Controller>(new Controller(cm.get(), qm.get(), mh.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), &should_terminate));
+
+    std::unique_ptr<ClusterMetadataApplyHandler> cmah = std::unique_ptr<ClusterMetadataApplyHandler>(new ClusterMetadataApplyHandler(fh.get()));
+
+    std::unique_ptr<RetentionHandler> rh = std::unique_ptr<RetentionHandler>(new RetentionHandler(qm.get(), lm.get(), fh.get(), pm.get(), util.get(), server_logger.get(), settings.get()));
+    std::unique_ptr<CompactionHandler> ch = std::unique_ptr<CompactionHandler>(new CompactionHandler(controller.get(), qm.get(), mh.get(), lm.get(), cmah.get(), fh.get(), pm.get(), server_logger.get(), settings.get()));
 
     std::unique_ptr<BeforeServerStartupHandler> startup_handler = std::unique_ptr<BeforeServerStartupHandler>(
         new BeforeServerStartupHandler(
+            controller.get(),
+            cmah.get(),
             qm.get(),
             sa.get(),
             smm.get(),
-            cluster_metadata.get(),
-            future_cluster_metadata.get(),
             fh.get(),
             pm.get(),
             util.get(),
@@ -112,13 +113,9 @@ int main(int argc, char* argv[])
     startup_handler.get()->initialize_required_folders_and_queues();
     startup_handler.get()->rebuild_cluster_metadata();
 
-    std::unique_ptr<Controller> controller = settings.get()->get_is_controller_node()
-        ? std::unique_ptr<Controller>(new Controller(cm.get(), qm.get(), mh.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), cluster_metadata.get(), future_cluster_metadata.get(), &should_terminate))
-        : nullptr;
+    std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
 
-    std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), cluster_metadata.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
-
-    std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(cm.get(), qm.get(), controller.get(), cluster_metadata.get(), transformer.get(), fh.get(), util.get(), settings.get(), server_logger.get()));
+    std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(cm.get(), qm.get(), controller.get(), transformer.get(), fh.get(), util.get(), settings.get(), server_logger.get()));
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), transformer.get()));
     std::unique_ptr<RequestManager> rm = std::unique_ptr<RequestManager>(new RequestManager(cm.get(), settings.get(), client_request_executor.get(), internal_request_executor.get(), request_mapper.get(), server_logger.get()));
 

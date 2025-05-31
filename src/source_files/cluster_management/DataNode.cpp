@@ -1,9 +1,8 @@
 #include "../../header_files/cluster_management/DataNode.h"
 
-DataNode::DataNode(Controller* controller, ConnectionsManager* cm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
+DataNode::DataNode(Controller* controller, ConnectionsManager* cm, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
 	this->controller = controller;
 	this->cm = cm;
-	this->cluster_metadata = cluster_metadata;
 	this->response_mapper = response_mapper;
 	this->transformer = transformer;
 	this->settings = settings;
@@ -88,7 +87,7 @@ void DataNode::notify_controller_about_node_existance(int node_id, char* req_buf
 		this->logger->log_info("Controller node " + std::to_string(node_id) + " could not connect to this data node");
 	}
 	else {
-		this->cluster_metadata->set_leader_id(node_id);
+		this->controller->get_cluster_metadata()->set_leader_id(node_id);
 		this->logger->log_info("Controller node " + std::to_string(node_id) + " has connected to this data node");
 	}
 }
@@ -107,7 +106,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 	long req_buf_size = std::get<0>(buf_tup);
 	std::shared_ptr<char> req_buf = std::get<1>(buf_tup);
 
-	int leader_id = this->cluster_metadata->get_leader_id();
+	int leader_id = this->controller->get_cluster_metadata()->get_leader_id();
 
 	if (leader_id == 0)
 		leader_id = std::get<0>((*(this->settings->get_controller_nodes()))[0]);
@@ -154,7 +153,7 @@ bool DataNode::send_heartbeat_to_leader(int* leader_id, char* req_buf, long req_
 	bool update_leader = *leader_id != res.get()->leader_id;
 
 	if (update_leader) {
-		this->cluster_metadata->set_leader_id(res.get()->leader_id);
+		this->controller->get_cluster_metadata()->set_leader_id(res.get()->leader_id);
 		this->logger->log_info("Sent heartbeat to incorrect leader node " + std::to_string(*leader_id) + " instead of actual leader node " + std::to_string(res.get()->leader_id));
 	}
 

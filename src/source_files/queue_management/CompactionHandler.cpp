@@ -1,9 +1,11 @@
 #include "../../header_files/queue_management/CompactionHandler.h"
 
-CompactionHandler::CompactionHandler(QueueManager* qm, MessagesHandler* mh, SegmentLockManager* lock_manager, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings) {
+CompactionHandler::CompactionHandler(Controller* controller, QueueManager* qm, MessagesHandler* mh, SegmentLockManager* lock_manager, ClusterMetadataApplyHandler* cmah, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings) {
+	this->controller = controller;
 	this->qm = qm;
 	this->mh = mh;
 	this->lock_manager = lock_manager;
+	this->cmah = cmah;
 	this->fh = fh;
 	this->pm = pm;
 	this->logger = logger;
@@ -105,13 +107,15 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 
 	bool success = true;
 
+	std::shared_ptr<PartitionSegment> compacted_segment = nullptr;
+
 	try
 	{
 		// Shared lock can be used since data will only be read and written to different file
 		this->lock_manager->lock_segment(partition, &segment);
 
 		if (is_internal_queue) this->compact_internal_segment(&segment);
-		else this->compact_segment(partition, &segment);
+		else compacted_segment = this->compact_segment(partition, &segment);
 	}
 	catch (const CorruptionException& ex) {
 		success = false;
@@ -134,7 +138,35 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 	{
 		this->lock_manager->lock_segment(partition, &segment, true);
 
-		// TODO: Delete original segment and rename compacted segment to original's segment name
+		if (is_internal_queue) {
+			auto tup_res = this->controller->get_compacted_cluster_metadata()->get_metadata_bytes();
+
+			this->fh->write_to_file(
+				this->pm->get_cluster_metadata_compaction_key(),
+				this->pm->get_cluster_metadata_compaction_path(),
+				std::get<0>(tup_res),
+				0,
+				std::get<1>(tup_res).get(),
+				true
+			);
+		}
+
+		this->fh->delete_dir_or_file(segment.get_index_path(), segment.get_index_key());
+		this->fh->delete_dir_or_file(segment.get_segment_path(), segment.get_segment_key());
+
+		if (!is_internal_queue) {
+			this->fh->rename_file(
+				compacted_segment.get()->get_index_key(),
+				compacted_segment.get()->get_index_path(),
+				segment.get_index_path()
+			);
+
+			this->fh->rename_file(
+				compacted_segment.get()->get_segment_key(), 
+				compacted_segment.get()->get_segment_path(), 
+				segment.get_segment_path()
+			);
+		}
 
 		std::lock_guard<std::shared_mutex> lock(partition->mut);
 		partition->smallest_uncompacted_segment_id++;
@@ -151,7 +183,7 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 	return success;
 }
 
-void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment, std::shared_ptr<BTreeNode> write_node) {
+std::shared_ptr<PartitionSegment> CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment, std::shared_ptr<BTreeNode> write_node) {
 	if (write_segment == nullptr) {
 		this->bf->reset();
 
@@ -180,11 +212,15 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 	}
 
 	// TODO: Compact now prev compacted segment to this segment if prev segment exists
-	// if prev compacted segment size + current compacted segment size is bigger than threshold then skip this compaction
+
+	return write_segment;
 }
 
 void CompactionHandler::compact_internal_segment(PartitionSegment* segment) {
-	// TODO: Complete logic here
+	this->cmah->apply_commands_from_segment(
+		this->controller->get_compacted_cluster_metadata(),
+		segment->get_id()
+	);
 }
 
 bool CompactionHandler::continue_compaction(Queue* queue) {

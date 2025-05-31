@@ -235,3 +235,12 @@ void FileHandler::close_file(const std::string& key) {
 
 	this->close_file(fs.get());
 }
+
+void FileHandler::rename_file(const std::string& current_key, const std::string& current_name, const std::string& new_name) {
+	if (!this->check_if_exists(current_name)) return;
+
+	this->close_file(current_key);
+
+	if (rename(current_name.c_str(), new_name.c_str()) != 0)
+		throw std::exception("Error renaming file");
+}

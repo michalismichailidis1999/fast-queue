@@ -10,6 +10,8 @@
 #include "./queue_management/messages_management/index_management/BTreeNode.h"
 #include "./queue_management/messages_management/index_management/SegmentMessageMap.h"
 #include "./cluster_management/ClusterMetadata.h"
+#include "./cluster_management/Controller.h"
+#include "./cluster_management/ClusterMetadataApplyHandler.h"
 #include "./file_management/FileHandler.h"
 #include "./file_management/QueueSegmentFilePathMapper.h"
 #include "./util/Util.h"
@@ -20,11 +22,11 @@
 
 class BeforeServerStartupHandler {
 private:
+	Controller* controller;
+	ClusterMetadataApplyHandler* cmah;
 	QueueManager* qm;
 	SegmentAllocator* sa;
 	SegmentMessageMap* smm;
-	ClusterMetadata* cluster_metadata;
-	ClusterMetadata* future_cluster_metadata;
 	FileHandler* fh;
 	QueueSegmentFilePathMapper* pm;
 	Util* util;
@@ -42,7 +44,7 @@ private:
 	void set_segment_index(const std::string& queue_name, PartitionSegment* segment, int partition = -1);
 
 public:
-	BeforeServerStartupHandler(QueueManager* qm, SegmentAllocator* sa, SegmentMessageMap* smm, ClusterMetadata* cluster_metadata, ClusterMetadata* future_cluster_metadata, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings);
+	BeforeServerStartupHandler(Controller* controller, ClusterMetadataApplyHandler* cmah, QueueManager* qm, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings);
 
 	void initialize_required_folders_and_queues();
 

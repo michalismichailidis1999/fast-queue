@@ -1,13 +1,12 @@
 #include "../../header_files/requests_management/ClientRequestExecutor.h"
 
-ClientRequestExecutor::ClientRequestExecutor(ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClusterMetadata* cluster_metadata, ClassToByteTransformer* transformer, FileHandler* fh, Util* util, Settings* settings, Logger* logger) {
+ClientRequestExecutor::ClientRequestExecutor(ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, FileHandler* fh, Util* util, Settings* settings, Logger* logger) {
 	this->cm = cm;
 	this->qm = qm;
 	this->controller = controller;
 	this->fh = fh;
 	this->util = util;
 	this->settings = settings;
-	this->cluster_metadata = cluster_metadata;
 	this->transformer = transformer;
 	this->logger = logger;
 }
@@ -18,7 +17,7 @@ void ClientRequestExecutor::handle_get_controllers_connection_info_request(SOCKE
 	for (auto& controller_info : *this->settings->get_controller_nodes())
 		res->connection_infos.emplace_back(std::get<0>(controller_info), std::get<1>(controller_info).get());
 
-	res->leader_id = this->cluster_metadata->get_leader_id();
+	res->leader_id = this->controller->get_cluster_metadata()->get_leader_id();
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
@@ -28,7 +27,7 @@ void ClientRequestExecutor::handle_get_controllers_connection_info_request(SOCKE
 void ClientRequestExecutor::handle_get_controller_leader_id_request(SOCKET_ID socket, SSL* ssl) {
 	std::unique_ptr<GetLeaderIdResponse> res = std::make_unique<GetLeaderIdResponse>();
 
-	res->leader_id = this->cluster_metadata->get_leader_id();
+	res->leader_id = this->controller->get_cluster_metadata()->get_leader_id();
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
@@ -41,7 +40,7 @@ void ClientRequestExecutor::handle_create_queue_request(SOCKET_ID socket, SSL* s
 		return;
 	}
 
-	if (this->cluster_metadata->get_leader_id() != this->settings->get_node_id()) {
+	if (this->controller->get_cluster_metadata()->get_leader_id() != this->settings->get_node_id()) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Non leader node. Cannot create queue.");
 		return;
 	}

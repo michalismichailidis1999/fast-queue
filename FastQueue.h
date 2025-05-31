@@ -45,5 +45,6 @@
 #include "./src/header_files/network_management/SslContextHandler.h"
 #include "./src/header_files/network_management/SocketListenerHandler.h"
 #include "./src/header_files/cluster_management/ClusterMetadata.h"
+#include "./src/header_files/cluster_management/ClusterMetadataApplyHandler.h"
 #include "./src/header_files/cluster_management/Controller.h"
 #include "./src/header_files/cluster_management/DataNode.h"

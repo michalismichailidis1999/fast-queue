@@ -16,7 +16,6 @@ class DataNode {
 private:
 	Controller* controller;
 	ConnectionsManager* cm;
-	ClusterMetadata* cluster_metadata;
 	ResponseMapper* response_mapper;
 	ClassToByteTransformer* transformer;
 	Settings* settings;
@@ -30,7 +29,7 @@ private:
 
 	int get_next_leader_id(int leader_id);
 public:
-	DataNode(Controller* controller, ConnectionsManager* cm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Settings* settings, Logger* logger);
+	DataNode(Controller* controller, ConnectionsManager* cm, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Settings* settings, Logger* logger);
 
 	void notify_controllers_about_node_existance(std::atomic_bool* should_terminate);
 

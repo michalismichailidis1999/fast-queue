@@ -16,14 +16,13 @@ private:
 	ConnectionsManager* cm;
 	QueueManager* qm;
 	Controller* controller;
-	ClusterMetadata* cluster_metadata;
 	ClassToByteTransformer* transformer;
 	FileHandler* fh;
 	Util* util;
 	Settings* settings;
 	Logger* logger;
 public:
-	ClientRequestExecutor(ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClusterMetadata* cluster_metadata, ClassToByteTransformer* transformer, FileHandler* fh, Util* util, Settings* settings, Logger* logger);
+	ClientRequestExecutor(ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, FileHandler* fh, Util* util, Settings* settings, Logger* logger);
 
 	void handle_get_controllers_connection_info_request(SOCKET_ID socket, SSL* ssl);
 
