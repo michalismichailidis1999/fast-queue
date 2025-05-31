@@ -7,7 +7,7 @@
 class Helper {
 public:
 	static void add_common_metadata_values(void* metadata, long total_bytes, ObjectType type);
-	static void add_message_metadata_values(void* metadata, unsigned long long message_id, unsigned long long timestamp);
+	static void add_message_metadata_values(void* metadata, unsigned long long message_id, unsigned long long timestamp, unsigned int key_size = 0, const char* key = NULL);
 	static void retrieve_message_metadata_values(void* metadata, unsigned long long* message_id, unsigned long long* timestamp);
 	static bool has_valid_checksum(void* metadata);
 	static bool is_internal_queue(const std::string& queue_name);

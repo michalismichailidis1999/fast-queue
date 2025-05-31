@@ -196,7 +196,15 @@ bool CompactionHandler::continue_compaction(Queue* queue) {
 }
 
 bool CompactionHandler::ignore_message(void* message) {
-	if (!this->bf->has(NULL, 0)) return false;
+	unsigned int key_size = 0;
+
+	memcpy_s(&key_size, MESSAGE_KEY_LENGTH_SIZE, (char*)message + MESSAGE_KEY_LENGTH_OFFSET, MESSAGE_KEY_LENGTH_SIZE);
+
+	std::string key = std::string((char*)message + MESSAGE_KEY_OFFSET, key_size);
+
+	if (!this->bf->has((void*)key.c_str(), key_size)) return false;
+
+	// TODO: Create a key index for each queue with compaction and check there if key exists
 
 	return false;
 }

@@ -21,6 +21,7 @@ static const unsigned int CHECK_FOR_SETTINGS_UPDATE = 5000;
 static const unsigned int CHECK_FOR_COMPACTION = 5000;
 
 static const unsigned int MAX_QUEUE_NAME_CHARS = 100;
+static const unsigned int MAX_MESSAGE_KEY_CHARS = 150;
 
 static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
@@ -84,7 +85,11 @@ static const unsigned int MESSAGE_ID_SIZE = sizeof(unsigned long long); // will 
 static const unsigned int MESSAGE_ID_OFFSET = COMMON_METADATA_TOTAL_BYTES;
 static const unsigned int MESSAGE_TIMESTAMP_SIZE = sizeof(unsigned long long);
 static const unsigned int MESSAGE_TIMESTAMP_OFFSET = MESSAGE_ID_SIZE + MESSAGE_ID_OFFSET;
-static const unsigned int MESSAGE_TOTAL_BYTES = COMMON_METADATA_TOTAL_BYTES + MESSAGE_ID_SIZE + MESSAGE_TIMESTAMP_SIZE;
+static const unsigned int MESSAGE_KEY_LENGTH_SIZE = sizeof(unsigned int);
+static const unsigned int MESSAGE_KEY_LENGTH_OFFSET = sizeof(unsigned int);
+static const unsigned int MESSAGE_KEY_SIZE = sizeof(char) * MAX_MESSAGE_KEY_CHARS;
+static const unsigned int MESSAGE_KEY_OFFSET = MESSAGE_KEY_LENGTH_SIZE + MESSAGE_KEY_LENGTH_OFFSET;
+static const unsigned int MESSAGE_TOTAL_BYTES = COMMON_METADATA_TOTAL_BYTES + MESSAGE_ID_SIZE + MESSAGE_TIMESTAMP_SIZE + MESSAGE_KEY_LENGTH_SIZE + MESSAGE_KEY_SIZE;
 
 static const unsigned int QUEUE_NAME_SIZE = MAX_QUEUE_NAME_CHARS * sizeof(char);
 static const unsigned int QUEUE_NAME_OFFSET = COMMON_METADATA_TOTAL_BYTES;

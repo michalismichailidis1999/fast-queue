@@ -2,7 +2,6 @@
 #include <string>
 #include <memory>
 #include <vector>
-#include <mutex>
 #include "../util/Helper.h"
 #include "../Enums.h"
 #include "../Constants.h"
@@ -16,7 +15,8 @@ private:
 
 	std::shared_ptr<void> command_info;
 
-	//std::mutex mut;
+	std::string get_command_key();
+
 public:
 	Command(CommandType type, unsigned long long term, unsigned long long timestamp, std::shared_ptr<void> command_info);
 
@@ -39,6 +39,7 @@ private:
 	int partitions;
 	int replication_factor;
 
+	std::string get_command_key();
 public:
 	CreateQueueCommand(const std::string& queue_name, int partitions, int replication_factor);
 
@@ -51,6 +52,8 @@ public:
 	int get_replication_factor();
 
 	std::shared_ptr<char> get_metadata_bytes();
+
+	friend class Command;
 };
 
 class PartitionAssignmentCommand {
@@ -60,6 +63,7 @@ private:
 	int to_node;
 	int from_node;
 
+	std::string get_command_key();
 public:
 	PartitionAssignmentCommand(const std::string& queue_name, int partition, int to_node, int from_node = -1);
 
@@ -74,6 +78,8 @@ public:
 	int get_from_node();
 
 	std::shared_ptr<char> get_metadata_bytes();
+
+	friend class Command;
 };
 
 class PartitionLeaderAssignmentCommand {
@@ -82,6 +88,8 @@ private:
 	int partition;
 	int new_leader;
 	int prev_leader;
+
+	std::string get_command_key();
 
 public:
 	PartitionLeaderAssignmentCommand(const std::string& queue_name, int partition, int new_leader, int prev_leader = -1);
@@ -97,4 +105,6 @@ public:
 	int get_prev_leader();
 
 	std::shared_ptr<char> get_metadata_bytes();
+
+	friend class Command;
 };
