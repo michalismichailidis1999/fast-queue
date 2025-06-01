@@ -32,7 +32,7 @@ private:
 
 	void read_index_page_from_disk(PartitionSegment* segment, void* node_data, unsigned long long page_offset);
 
-	unsigned long long find_message_location(BTreeNode* node, unsigned long long message_id);
+	unsigned long long find_message_location(BTreeNode* node, unsigned long long message_id, bool reverse_search = false);
 public:
 	BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader);
 
