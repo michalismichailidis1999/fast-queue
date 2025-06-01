@@ -37,6 +37,8 @@ void QueueManager::get_all_queue_names(std::vector<std::string>* queues_list) {
 }
 
 void QueueManager::create_queue(QueueMetadata* metadata) {
+	if (Helper::is_internal_queue(metadata->get_name())) return;
+
 	std::string queue_path = this->pm->get_queue_folder_path(metadata->get_name());
 
 	if (!this->fh->check_if_exists(queue_path))
@@ -64,40 +66,73 @@ void QueueManager::create_queue(QueueMetadata* metadata) {
 
 	std::shared_ptr<Queue> queue = std::shared_ptr<Queue>(new Queue(new_metadata));
 
-	for (int i = 0; i < metadata->get_partitions(); i++) {
-		std::string partition_path = this->pm->get_partition_folder_path(metadata->get_name(), i);
-
-		if (partition_path != "" && !this->fh->check_if_exists(partition_path))
-			this->fh->create_directory(partition_path);
-
-		std::shared_ptr<Partition> partition = std::shared_ptr<Partition>(new Partition(i, metadata->get_name()));
-
-		queue->add_partition(partition);
-
-		std::string segment_key = this->pm->get_file_key(metadata->get_name(), 1);
-		std::string segment_path = this->pm->get_file_path(metadata->get_name(), 1, i);
-
-		std::shared_ptr<PartitionSegment> segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(1, segment_key, segment_path));
-
-		partition->set_active_segment(segment);
-
-		if (!this->fh->check_if_exists(segment_path))
-		{
-			std::tuple<long, std::shared_ptr<char>> bytes_tup = segment.get()->get_metadata_bytes();
-
-			this->fh->create_new_file(
-				segment_path,
-				std::get<0>(bytes_tup),
-				std::get<1>(bytes_tup).get(),
-				segment_key,
-				true
-			);
-		}
-	}
-
 	this->add_queue(queue);
 }
 
-void QueueManager::delete_queue(const std::string& queue_name) {
+void delete_queue(const std::string& queue_name) {
+	if (Helper::is_internal_queue(queue_name)) return;
+}
 
+void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name, unsigned int partition_id) {
+	if (Helper::is_internal_queue(queue_name)) return;
+
+	std::shared_ptr<Queue> queue = this->get_queue(queue_name);
+
+	if (queue == nullptr) {
+		std::string err_msg = "Could not assign partition to queue " + queue_name + ". Queue not found";
+		throw std::exception(err_msg.c_str());
+	}
+
+	this->fh->create_directory(this->pm->get_partition_folder_path(queue_name, partition_id));
+
+	std::shared_ptr<Partition> partition = std::shared_ptr<Partition>(new Partition(partition_id, queue_name));
+
+	std::string segment_key = this->pm->get_file_key(queue_name, 1);
+	std::string segment_path = this->pm->get_file_path(queue_name, 1, partition_id);
+
+	std::string index_key = this->pm->get_file_key(queue_name, 1, true);
+	std::string index_path = this->pm->get_file_path(queue_name, 1, partition_id, true);
+
+	std::shared_ptr<PartitionSegment> segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(1, segment_key, segment_path));
+
+	segment.get()->set_index(index_key, index_path);
+
+	partition->set_active_segment(segment);
+
+	if (!this->fh->check_if_exists(segment_path))
+	{
+		std::tuple<long, std::shared_ptr<char>> bytes_tup = segment.get()->get_metadata_bytes();
+
+		this->fh->create_new_file(
+			segment_path,
+			std::get<0>(bytes_tup),
+			std::get<1>(bytes_tup).get(),
+			segment_key,
+			true
+		);
+	}
+
+	if (!this->fh->check_if_exists(index_path))
+		this->fh->create_new_file(
+			index_path,
+			INDEX_PAGE_SIZE,
+			std::get<0>(BTreeNode(PageType::LEAF).get_page_bytes()).get(),
+			index_key,
+			true
+		);
+
+	queue->add_partition(partition);
+}
+
+void QueueManager::remove_assigned_partition_from_queue(const std::string& queue_name, unsigned int partition_id) {
+	if (Helper::is_internal_queue(queue_name)) return;
+
+	std::shared_ptr<Queue> queue = this->get_queue(queue_name);
+
+	if (queue == nullptr) {
+		std::string err_msg = "Could not assign partition to queue " + queue_name + ". Queue not found";
+		throw std::exception(err_msg.c_str());
+	}
+
+	queue.get()->remove_partition(partition_id);
 }

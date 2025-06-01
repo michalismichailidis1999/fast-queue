@@ -709,6 +709,12 @@ void Controller::execute_command(void* command_metadata) {
 	case CommandType::CREATE_QUEUE:
 		this->execute_create_queue_command((CreateQueueCommand*)command.get_command_info());
 		break;
+	case CommandType::ALTER_PARTITION_ASSIGNMENT:
+		this->execute_partition_assignment_command((PartitionAssignmentCommand*)command.get_command_info());
+		break;
+	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
+		this->execute_partition_leader_assignment_command((PartitionLeaderAssignmentCommand*)command.get_command_info());
+		break;
 	default:
 		break;
 	}
@@ -732,6 +738,20 @@ void Controller::execute_create_queue_command(CreateQueueCommand* command) {
 	this->qm->create_queue(metadata);
 
 	metadata->set_status(Status::ACTIVE);
+}
+
+void Controller::execute_partition_assignment_command(PartitionAssignmentCommand* command) {
+	if (command->get_from_node() != this->settings->get_node_id() && command->get_to_node() != this->settings->get_node_id())
+		return;
+
+	if (command->get_from_node() == this->settings->get_node_id())
+		this->qm->remove_assigned_partition_from_queue(command->get_queue_name(), command->get_partition());
+	else
+		this->qm->add_assigned_partition_to_queue(command->get_queue_name(), command->get_partition());
+}
+
+void Controller::execute_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {
+	// TODO: Add logic here
 }
 
 void Controller::check_for_commit_and_last_applied_diff() {

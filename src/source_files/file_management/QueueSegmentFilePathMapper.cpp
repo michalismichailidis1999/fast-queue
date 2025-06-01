@@ -19,8 +19,6 @@ std::string QueueSegmentFilePathMapper::get_queue_folder_path(const std::string&
 }
 
 std::string QueueSegmentFilePathMapper::get_partition_folder_path(const std::string& queue_name, int partition_id) {
-	if (Helper::is_internal_queue(queue_name)) return "";
-
 	return this->settings->get_log_path()
 		+ "/"
 		+ queue_name

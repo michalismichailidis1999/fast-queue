@@ -94,6 +94,10 @@ private:
 	void execute_command(void* command_metadata);
 
 	void execute_create_queue_command(CreateQueueCommand* command);
+
+	void execute_partition_assignment_command(PartitionAssignmentCommand* command);
+
+	void execute_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command);
 public:
 	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 

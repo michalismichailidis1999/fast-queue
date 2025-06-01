@@ -9,12 +9,17 @@ QueueMetadata* Queue::get_metadata() {
 }
 
 void Queue::add_partition(std::shared_ptr<Partition> partition) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::lock_guard<std::shared_mutex> lock(this->mut);
 	this->partitions[partition.get()->get_partition_id()] = partition;
 }
 
+void Queue::remove_partition(unsigned int partition_id) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+	this->partitions.erase(partition_id);
+}
+
 Partition* Queue::get_partition(unsigned int partition_id) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 
 	if (this->partitions.find(partition_id) == this->partitions.end()) return nullptr;
 
