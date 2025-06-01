@@ -337,8 +337,10 @@ int Controller::get_leader_id() {
 	return this->cluster_metadata->get_leader_id();
 }
 
-void Controller::update_data_node_heartbeat(int node_id, bool is_first_connection) {
+void Controller::update_data_node_heartbeat(int node_id) {
 	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
+
+	bool is_first_connection = this->data_nodes_heartbeats.find(node_id) == this->data_nodes_heartbeats.end();
 
 	this->data_nodes_heartbeats[node_id] = this->util->get_current_time_milli();
 

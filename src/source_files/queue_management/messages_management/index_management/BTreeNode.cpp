@@ -75,19 +75,19 @@ PageType BTreeNode::get_page_type() {
 	return this->type;
 }
 
-unsigned int BTreeNode::get_page_offset() {
+unsigned long long BTreeNode::get_page_offset() {
 	return this->page_offset;
 }
 
-unsigned int BTreeNode::get_parent_offset() {
+unsigned long long BTreeNode::get_parent_offset() {
 	return this->parent_offset;
 }
 
-unsigned int BTreeNode::get_prev_page_offset() {
+unsigned long long BTreeNode::get_prev_page_offset() {
 	return this->prev_page_offset;
 }
 
-unsigned int BTreeNode::get_next_page_offset() {
+unsigned long long BTreeNode::get_next_page_offset() {
 	return this->next_page_offset;
 }
 

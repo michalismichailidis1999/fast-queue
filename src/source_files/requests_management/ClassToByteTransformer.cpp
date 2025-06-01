@@ -119,10 +119,10 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Reques
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNodeConnectionRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + 3 * sizeof(int) + obj->address_length + 3 * sizeof(RequestValueKey);
+std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNodeHeartbeatRequest* obj) {
+	long buf_size = sizeof(long) + sizeof(RequestType) + 3 * sizeof(int) + 3 * sizeof(RequestValueKey) + obj->address_length;
 
-	RequestType req_type = RequestType::DATA_NODE_CONNECTION;
+	RequestType req_type = RequestType::DATA_NODE_HEARTBEAT;
 
 	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
 	RequestValueKey address_type = RequestValueKey::NODE_ADDRESS;
@@ -157,32 +157,6 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 	offset += sizeof(RequestValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(int), &obj->port, sizeof(int));
-
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
-}
-
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNodeHeartbeatRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(int) + sizeof(RequestValueKey);
-
-	RequestType req_type = RequestType::DATA_NODE_HEARTBEAT;
-
-	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
-
-	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
-
-	long offset = 0;
-
-	memcpy_s(buf.get() + offset, sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
-
-	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
-	offset += sizeof(RequestType);
-
-	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &node_id_type, sizeof(RequestValueKey));
-	offset += sizeof(RequestValueKey);
-
-	memcpy_s(buf.get() + offset, sizeof(int), &obj->node_id, sizeof(int));
-	offset += sizeof(int);
 
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }
@@ -245,30 +219,6 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Reques
 	offset += sizeof(ResponseValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->vote_granted, sizeof(bool));
-
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
-}
-
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNodeConnectionResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
-
-	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
-
-	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
-
-	ResponseValueKey ok_type = ResponseValueKey::OK;
-
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
-
-	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
-	offset += sizeof(ErrorCode);
-
-	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &ok_type, sizeof(ResponseValueKey));
-	offset += sizeof(ResponseValueKey);
-
-	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
 
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }

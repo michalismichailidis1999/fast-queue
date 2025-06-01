@@ -30,13 +30,13 @@ private:
 
 	void flush_node_to_disk(PartitionSegment* segment, BTreeNode* node);
 
-	void read_index_page_from_disk(PartitionSegment* segment, void* node_data, unsigned int page_offset);
+	void read_index_page_from_disk(PartitionSegment* segment, void* node_data, unsigned long long page_offset);
 
-	unsigned int find_message_location(BTreeNode* node, unsigned long long message_id);
+	unsigned long long find_message_location(BTreeNode* node, unsigned long long message_id);
 public:
 	BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader);
 
-	unsigned int find_message_location(PartitionSegment* segment, unsigned long long read_from_message_id);
+	unsigned long long find_message_location(PartitionSegment* segment, unsigned long long read_from_message_id);
 	
-	void add_message_to_index(Partition* partition, unsigned long long message_id, unsigned int message_pos);
+	void add_message_to_index(Partition* partition, unsigned long long message_id, unsigned long long message_pos);
 };

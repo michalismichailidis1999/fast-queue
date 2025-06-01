@@ -11,7 +11,7 @@ InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* log
 }
 
 void InternalRequestExecutor::handle_append_entries_request(SOCKET_ID socket, SSL* ssl, AppendEntriesRequest* request) {
-	if (this->controller == NULL) {
+	if (!this->settings->get_is_controller_node()) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Append entries request must only be sent to controller nodes");
 		return;
 	}
@@ -24,7 +24,7 @@ void InternalRequestExecutor::handle_append_entries_request(SOCKET_ID socket, SS
 }
 
 void InternalRequestExecutor::handle_request_vote_request(SOCKET_ID socket, SSL* ssl, RequestVoteRequest* request) {
-	if (this->controller == NULL) {
+	if (!this->settings->get_is_controller_node()) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Vote request must only be sent to controller nodes");
 		return;
 	}
@@ -36,48 +36,33 @@ void InternalRequestExecutor::handle_request_vote_request(SOCKET_ID socket, SSL*
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
 
-void InternalRequestExecutor::handle_data_node_connection_request(SOCKET_ID socket, SSL* ssl, DataNodeConnectionRequest* request) {
-	std::shared_ptr<ConnectionInfo> connection_info = std::make_shared<ConnectionInfo>();
-
-	connection_info.get()->address = std::string(request->address, request->address_length);
-	connection_info.get()->port = request->port;
-
-	std::unique_ptr<DataNodeConnectionResponse> res = std::make_unique<DataNodeConnectionResponse>();
-
-	res.get()->ok = this->cm->connect_to_data_node(request->node_id, connection_info, 500);
-
-	if (res.get()->ok && this->controller != NULL) this->controller->update_data_node_heartbeat(request->node_id, true);
-
-	if (res.get()->ok)
-		this->logger->log_info("Connected successfully to data node " + std::to_string(request->node_id));
-	else
-		this->logger->log_error("Failed to connect to data node " + std::to_string(request->node_id));
-
-	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
-
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
-}
-
 void InternalRequestExecutor::handle_data_node_heartbeat_request(SOCKET_ID socket, SSL* ssl, DataNodeHeartbeatRequest* request) {
-	if (this->controller == NULL) {
+	if (!this->settings->get_is_controller_node()) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Heartbeat must only be sent to controller nodes");
 		return;
 	}
 
 	request->depth_count++;
 
-	bool is_data_node_alive = this->controller->is_data_node_alive(request->node_id);
+	this->controller->update_data_node_heartbeat(request->node_id);
 
 	std::unique_ptr<DataNodeHeartbeatResponse> res = std::make_unique<DataNodeHeartbeatResponse>();
 
 	res.get()->leader_id = this->controller->get_leader_id();
-	res.get()->ok = this->settings->get_node_id() == res.get()->leader_id && is_data_node_alive;
+	res.get()->ok = this->settings->get_node_id() == res.get()->leader_id;
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup;
 
 	if (res.get()->ok) this->controller->update_data_node_heartbeat(request->node_id);
-	else if (this->settings->get_node_id() != res.get()->leader_id && res.get()->leader_id > 0 && request->depth_count <= 3) {
+	else if (
+		this->settings->get_node_id() != res.get()->leader_id 
+		&& res.get()->leader_id > 0
+		&& this->settings->get_controller_nodes()->size() > 1
+		&& request->depth_count <= 3
+	) {
 		// In case heartbeat sent to wrong controller node, redirect request to the leader and immediatelly respond to data node
 		// that the leader was incorrect
-		std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(request);
+		buf_tup = this->transformer->transform(request);
 
 		std::mutex* mut = this->cm->get_controller_node_connections_mut();
 
@@ -87,22 +72,22 @@ void InternalRequestExecutor::handle_data_node_heartbeat_request(SOCKET_ID socke
 
 		std::shared_ptr<ConnectionPool> pool = (*connections)[res.get()->leader_id];
 
-		std::shared_ptr<Connection> connection = pool.get()->get_connection();
+		auto nested_res = this->cm->send_request_to_socket(
+			pool.get(),
+			3,
+			std::get<1>(buf_tup).get(),
+			std::get<0>(buf_tup),
+			"DataNodeHeartbeatRequest"
+		);
 
-		if (connection.get() != NULL) {
-			this->cm->send_request_to_socket(
-				connection.get()->socket,
-				connection.get()->ssl,
-				std::get<1>(buf_tup).get(),
-				std::get<0>(buf_tup),
-				"DataNodeHeartbeatRequest"
-			);
+		if (std::get<1>(nested_res) == -1)
+			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INTERNAL_SERVER_ERROR, "Error occured while trying to forward heartbeat to leader");
+		else this->cm->respond_to_socket(socket, ssl, std::get<0>(nested_res).get(), std::get<1>(nested_res));
 
-			pool.get()->add_connection(connection, true);
-		}
+		return;
 	}
 
-	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+	buf_tup = this->transformer->transform(res.get());
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }

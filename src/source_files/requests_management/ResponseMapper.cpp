@@ -73,27 +73,6 @@ std::unique_ptr<RequestVoteResponse> ResponseMapper::to_request_vote_response(ch
 	return res;
 }
 
-std::unique_ptr<DataNodeConnectionResponse> ResponseMapper::to_data_node_connection_response(char* res_buf, long res_buf_len) {
-	long offset = sizeof(ErrorCode); // skip error code
-
-	std::unique_ptr<DataNodeConnectionResponse> res = std::make_unique<DataNodeConnectionResponse>();
-
-	while (offset < res_buf_len) {
-		ResponseValueKey* key = (ResponseValueKey*)(res_buf + offset);
-
-		if (*key == ResponseValueKey::OK) {
-			res.get()->ok = *(bool*)(res_buf + offset + sizeof(ResponseValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(bool);
-		}
-		else {
-			printf("Invalid response value %d on response type DataNodeConnectionResponse\n", *key);
-			return nullptr;
-		}
-	}
-
-	return res;
-}
-
 std::unique_ptr<DataNodeHeartbeatResponse> ResponseMapper::to_data_node_heartbeat_response(char* res_buf, long res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 

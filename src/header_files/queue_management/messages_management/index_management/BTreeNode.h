@@ -7,7 +7,7 @@
 
 typedef struct {
 	unsigned long long key;
-	unsigned int val_pos;
+	unsigned long long val_pos;
 } BTreeNodeRow;
 
 class BTreeNode {
@@ -19,11 +19,11 @@ private:
 	unsigned int rows_num;
 
 	// will only be used by leaf nodes
-	unsigned int parent_offset;
+	unsigned long long parent_offset;
 
 	// will only be used in same page types
-	unsigned int prev_page_offset;
-	unsigned int next_page_offset;
+	unsigned long long prev_page_offset;
+	unsigned long long next_page_offset;
 
 	BTreeNodeRow rows[INDEX_PAGE_TOTAL_ROWS];
 public:
@@ -40,10 +40,10 @@ public:
 
 	PageType get_page_type();
 
-	unsigned int get_page_offset();
-	unsigned int get_parent_offset();
-	unsigned int get_prev_page_offset();
-	unsigned int get_next_page_offset();
+	unsigned long long get_page_offset();
+	unsigned long long get_parent_offset();
+	unsigned long long get_prev_page_offset();
+	unsigned long long get_next_page_offset();
 
 	BTreeNodeRow* get_first_child();
 	BTreeNodeRow* get_last_child();

@@ -19,7 +19,5 @@ public:
 
 	std::unique_ptr<RequestVoteRequest> to_request_vote_request(char* recvbuf, long recvbuflen);
 
-	std::unique_ptr<DataNodeConnectionRequest> to_data_node_connection_request(char* recvbuf, long recvbuflen);
-
 	std::unique_ptr<DataNodeHeartbeatRequest> to_data_node_heartbeat_request(char* recvbuf, long recvbuflen);
 };

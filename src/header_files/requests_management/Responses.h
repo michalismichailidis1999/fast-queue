@@ -12,10 +12,6 @@ struct CreateQueueResponse {
 	bool ok;
 };
 
-struct DataNodeConnectionResponse {
-	bool ok;
-};
-
 struct DataNodeHeartbeatResponse {
 	bool ok;
 	int leader_id;

@@ -206,31 +206,6 @@ std::unique_ptr<RequestVoteRequest> RequestMapper::to_request_vote_request(char*
 	return req;
 }
 
-std::unique_ptr<DataNodeConnectionRequest> RequestMapper::to_data_node_connection_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
-
-	std::unique_ptr<DataNodeConnectionRequest> req = std::make_unique<DataNodeConnectionRequest>();
-
-	while (offset < recvbuflen) {
-		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
-
-		if (*key == RequestValueKey::NODE_ID) {
-			req.get()->node_id = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(int);
-		} else if (*key == RequestValueKey::NODE_ADDRESS) {
-			req.get()->address_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
-			req.get()->address = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
-			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->address_length;
-		} else if (*key == RequestValueKey::NODE_PORT) {
-			req.get()->port = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(int);
-		}
-		else throw std::exception("Invalid request value");
-	}
-
-	return req;
-}
-
 std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_request(char* recvbuf, long recvbuflen) {
 	long offset = sizeof(RequestType); // skip request type 
 
@@ -247,6 +222,15 @@ std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_
 		}
 		else if (*key == RequestValueKey::DEPTH_COUNT) {
 			req.get()->depth_count = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else if (*key == RequestValueKey::NODE_ADDRESS) {
+			req.get()->address_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->address = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->address_length;
+		}
+		else if (*key == RequestValueKey::NODE_PORT) {
+			req.get()->port = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
 		}
 		else throw std::exception("Invalid request value");

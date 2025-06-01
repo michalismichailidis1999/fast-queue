@@ -14,8 +14,6 @@ public:
 
     std::tuple<long, std::shared_ptr<char>> transform(RequestVoteRequest* obj);
 
-    std::tuple<long, std::shared_ptr<char>> transform(DataNodeConnectionRequest* obj);
-
     std::tuple<long, std::shared_ptr<char>> transform(DataNodeHeartbeatRequest* obj);
     // ------------------
 
@@ -23,8 +21,6 @@ public:
     std::tuple<long, std::shared_ptr<char>> transform(AppendEntriesResponse* obj);
 
     std::tuple<long, std::shared_ptr<char>> transform(RequestVoteResponse* obj);
-
-    std::tuple<long, std::shared_ptr<char>> transform(DataNodeConnectionResponse* obj);
 
     std::tuple<long, std::shared_ptr<char>> transform(DataNodeHeartbeatResponse* obj);
 

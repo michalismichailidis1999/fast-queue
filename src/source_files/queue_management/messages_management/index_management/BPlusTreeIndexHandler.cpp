@@ -5,7 +5,7 @@ BPlusTreeIndexHandler::BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskRead
 	this->disk_reader = disk_reader;
 }
 
-unsigned int BPlusTreeIndexHandler::find_message_location(PartitionSegment* segment, unsigned long long read_from_message_id) {
+unsigned long long BPlusTreeIndexHandler::find_message_location(PartitionSegment* segment, unsigned long long read_from_message_id) {
 	std::unique_ptr<char> node_data = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
 	std::shared_ptr<BTreeNode> node = nullptr;
 	std::shared_ptr<BTreeNode> prev_node = nullptr;
@@ -37,7 +37,7 @@ unsigned int BPlusTreeIndexHandler::find_message_location(PartitionSegment* segm
 	return this->find_message_location(node.get(), read_from_message_id);
 }
 
-void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned long long message_id, unsigned int message_pos) {
+void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned long long message_id, unsigned long long message_pos) {
 	PartitionSegment* segment = partition->get_active_segment();
 
 	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
@@ -170,7 +170,7 @@ void BPlusTreeIndexHandler::flush_node_to_disk(PartitionSegment* segment, BTreeN
 	);
 }
 
-void BPlusTreeIndexHandler::read_index_page_from_disk(PartitionSegment* segment, void* node_data, unsigned int page_offset) {
+void BPlusTreeIndexHandler::read_index_page_from_disk(PartitionSegment* segment, void* node_data, unsigned long long page_offset) {
 	unsigned long bytes_read = this->disk_reader->read_data_from_disk(
 		segment->get_index_key(),
 		segment->get_index_path(),
@@ -183,7 +183,7 @@ void BPlusTreeIndexHandler::read_index_page_from_disk(PartitionSegment* segment,
 		throw CorruptionException("Index page was corrupted");
 }
 
-unsigned int BPlusTreeIndexHandler::find_message_location(BTreeNode* node, unsigned long long message_id) {
+unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node, unsigned long long message_id) {
 	if (message_id <= node->min_key) return node->rows[0].val_pos;
 	if (message_id >= node->max_key) return node->rows[node->rows_num].val_pos;
 

@@ -26,8 +26,6 @@ public:
 
 	void handle_request_vote_request(SOCKET_ID socket, SSL* ssl, RequestVoteRequest* request);
 
-	void handle_data_node_connection_request(SOCKET_ID socket, SSL* ssl, DataNodeConnectionRequest* request);
-
 	void handle_data_node_heartbeat_request(SOCKET_ID socket, SSL* ssl, DataNodeHeartbeatRequest* request);
 
 	void handle_delete_queue_request(SOCKET_ID socket, SSL* ssl, DeleteQueueRequest* request);

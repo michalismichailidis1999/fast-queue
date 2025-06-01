@@ -27,16 +27,12 @@ struct CreateQueueRequest {
 	int replication_factor;
 };
 
-struct DataNodeConnectionRequest {
-	int node_id;
-	int address_length;
-	const char* address;
-	int port;
-};
-
 struct DataNodeHeartbeatRequest {
 	int node_id;
 	int depth_count;
+	int address_length;
+	const char* address;
+	int port;
 };
 
 struct DeleteQueueRequest {

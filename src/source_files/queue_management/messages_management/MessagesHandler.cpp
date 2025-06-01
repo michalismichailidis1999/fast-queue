@@ -26,7 +26,7 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 
 		this->set_last_message_id_and_timestamp(active_segment, messages, total_bytes);
 
-		long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
+		unsigned long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
 			active_segment->get_segment_key(),
 			active_segment->get_segment_path(),
 			messages,

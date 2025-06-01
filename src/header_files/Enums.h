@@ -16,7 +16,6 @@ enum class RequestType {
 	GET_CONTROLLER_LEADER_ID,
 
 	// Internal
-	DATA_NODE_CONNECTION,
 	DATA_NODE_HEARTBEAT,
 
 	// Raft

@@ -106,7 +106,7 @@ public:
 	bool is_data_node_alive(int node_id);
 
 	int get_leader_id();
-	void update_data_node_heartbeat(int node_id, bool is_first_connection = false);
+	void update_data_node_heartbeat(int node_id);
 
 	void assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata);
 

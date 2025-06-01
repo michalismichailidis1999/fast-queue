@@ -138,16 +138,6 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
-		case RequestType::DATA_NODE_CONNECTION:
-		{
-			this->logger->log_info("Received and executing request type of DATA_NODE_CONNECTION");
-
-			std::unique_ptr<DataNodeConnectionRequest> request = this->mapper->to_data_node_connection_request(recvbuf.get(), res_buffer_length);
-
-			this->internal_request_executor->handle_data_node_connection_request(socket, ssl, request.get());
-
-			break;
-		}
 		case RequestType::DATA_NODE_HEARTBEAT:
 		{
 			this->logger->log_info("Received and executing request type of DATA_NODE_HEARTBEAT");

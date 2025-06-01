@@ -22,7 +22,7 @@ private:
 	Logger* logger;
 	Settings* settings;
 
-	unsigned long bytes_to_flush; // how many bytes have been allocated and need to be flushed to disk
+	unsigned long long bytes_to_flush; // how many bytes have been allocated and need to be flushed to disk
 
 	// Mutexes
 	std::mutex flush_mut;
@@ -30,13 +30,13 @@ private:
 
 	std::atomic_bool* should_terminate;
 
-	unsigned int write_data_to_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1, bool flush_immediatelly = false);
+	unsigned long long write_data_to_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1, bool flush_immediatelly = false);
 public:
 	DiskFlusher(FileHandler* fh, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
 	void flush_to_disk_periodically();
 
-	unsigned int append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly = false);
+	unsigned long long append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly = false);
 
 	void write_data_to_specific_file_location(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly = false);
 

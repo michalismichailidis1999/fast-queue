@@ -19,6 +19,7 @@ static const unsigned int CHECK_FOR_UNAPPLIED_COMMANDS = 1500;
 static const unsigned int CHECK_FOR_LAGGING_FOLLOWERS = 1500;
 static const unsigned int CHECK_FOR_SETTINGS_UPDATE = 5000;
 static const unsigned int CHECK_FOR_COMPACTION = 5000;
+static const unsigned int HEARTBEAT_TO_CONTROLLER_LEADER = 1000;
 
 static const unsigned int MAX_QUEUE_NAME_CHARS = 100;
 static const unsigned int MAX_MESSAGE_KEY_CHARS = 150;
@@ -38,8 +39,8 @@ static const unsigned int MESSAGES_LOC_MAP_PAGE_SIZE = 4096; // 4KB
 // first position will hold starting segment id of the next N segments contained in the page 
 static const unsigned int MAPPED_SEGMENTS_PER_PAGE = MESSAGES_LOC_MAP_PAGE_SIZE / sizeof(unsigned long long) - 1;
 
-static const unsigned int MAX_SEGMENT_SIZE = 1073741824 * 2; // 2GB
-static const unsigned int MAX_COMPACTED_SEGMENT_SIZE = UINT_MAX; // ~4GB
+static const unsigned long long MAX_SEGMENT_SIZE = 1073741824 * 2; // 2 GB
+static const unsigned long long MAX_COMPACTED_SEGMENT_SIZE = LLONG_MAX; // 8192 PB
 
 static const unsigned int TOTAL_METADATA_BYTES = sizeof(unsigned int);
 static const unsigned int TOTAL_METADATA_BYTES_OFFSET = 0;
@@ -51,7 +52,7 @@ static const unsigned int OBJECT_TYPE_SIZE = sizeof(unsigned int);
 static const unsigned int OBJECT_TYPE_OFFSET = CHECKSUM_SIZE + CHECKSUM_OFFSET;
 static const unsigned int COMMON_METADATA_TOTAL_BYTES = TOTAL_METADATA_BYTES + VERSION_SIZE + CHECKSUM_SIZE + OBJECT_TYPE_SIZE;
 
-static const unsigned int INDEX_PAGE_OFFSET_SIZE = sizeof(unsigned int);
+static const unsigned int INDEX_PAGE_OFFSET_SIZE = sizeof(unsigned long long);
 static const unsigned int INDEX_PAGE_OFFSET_OFFSET = COMMON_METADATA_TOTAL_BYTES;
 static const unsigned int INDEX_PAGE_TYPE_SIZE = sizeof(unsigned int);
 static const unsigned int INDEX_PAGE_TYPE_OFFSET = INDEX_PAGE_OFFSET_SIZE + INDEX_PAGE_OFFSET_OFFSET;
@@ -61,18 +62,18 @@ static const unsigned int INDEX_PAGE_MAX_KEY_SIZE = sizeof(unsigned long long);
 static const unsigned int INDEX_PAGE_MAX_KEY_OFFSET = INDEX_PAGE_MIN_KEY_SIZE + INDEX_PAGE_MIN_KEY_OFFSET;
 static const unsigned int INDEX_PAGE_NUM_OF_ROWS_SIZE = sizeof(unsigned int);
 static const unsigned int INDEX_PAGE_NUM_OF_ROWS_OFFSET = INDEX_PAGE_MAX_KEY_SIZE + INDEX_PAGE_MAX_KEY_OFFSET;
-static const unsigned int INDEX_PAGE_PARENT_PAGE_SIZE = sizeof(unsigned int);
+static const unsigned int INDEX_PAGE_PARENT_PAGE_SIZE = sizeof(unsigned long long);
 static const unsigned int INDEX_PAGE_PARENT_PAGE_OFFSET = INDEX_PAGE_NUM_OF_ROWS_SIZE + INDEX_PAGE_NUM_OF_ROWS_OFFSET;
-static const unsigned int INDEX_PAGE_PREV_PAGE_SIZE = sizeof(unsigned int);
+static const unsigned int INDEX_PAGE_PREV_PAGE_SIZE = sizeof(unsigned long long);
 static const unsigned int INDEX_PAGE_PREV_PAGE_OFFSET = INDEX_PAGE_PARENT_PAGE_SIZE + INDEX_PAGE_PARENT_PAGE_OFFSET;
-static const unsigned int INDEX_PAGE_NEXT_PAGE_SIZE = sizeof(unsigned int);
+static const unsigned int INDEX_PAGE_NEXT_PAGE_SIZE = sizeof(unsigned long long);
 static const unsigned int INDEX_PAGE_NEXT_PAGE_OFFSET = INDEX_PAGE_PREV_PAGE_SIZE + INDEX_PAGE_PREV_PAGE_OFFSET;
 static const unsigned int INDEX_PAGE_METADATA_SIZE = COMMON_METADATA_TOTAL_BYTES + INDEX_PAGE_TYPE_SIZE + INDEX_PAGE_MIN_KEY_SIZE 
 + INDEX_PAGE_MAX_KEY_SIZE + INDEX_PAGE_NUM_OF_ROWS_SIZE + INDEX_PAGE_PARENT_PAGE_SIZE + INDEX_PAGE_PREV_PAGE_SIZE + INDEX_PAGE_NEXT_PAGE_SIZE;
 
 static const unsigned int INDEX_KEY_SIZE = sizeof(unsigned long long);
 static const unsigned int INDEX_KEY_OFFSET = 0;
-static const unsigned int INDEX_VALUE_POSITION_SIZE = sizeof(unsigned int);
+static const unsigned int INDEX_VALUE_POSITION_SIZE = sizeof(unsigned long long);
 static const unsigned int INDEX_VALUE_POSITION_OFFSET = INDEX_KEY_SIZE + INDEX_KEY_OFFSET;
 static const unsigned int INDEX_KEY_VALUE_METADATA_SIZE = INDEX_KEY_SIZE + INDEX_VALUE_POSITION_SIZE;
 
