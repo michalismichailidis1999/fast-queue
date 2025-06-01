@@ -65,8 +65,6 @@ int main(int argc, char* argv[])
 
     std::unique_ptr<QueueSegmentFilePathMapper> pm = std::unique_ptr<QueueSegmentFilePathMapper>(new QueueSegmentFilePathMapper(util.get(), settings.get()));
 
-    std::unique_ptr<QueueManager> qm = std::unique_ptr<QueueManager>(new QueueManager(fh.get(), pm.get(), server_logger.get()));
-
     std::unique_ptr<SocketHandler> socket_handler = std::unique_ptr<SocketHandler>(new SocketHandler(settings.get(), server_logger.get()));
     std::unique_ptr<SslContextHandler> ssl_context_handler = std::unique_ptr<SslContextHandler>(new SslContextHandler(settings.get(), server_logger.get()));
 
@@ -80,6 +78,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<BPlusTreeIndexHandler> ih = std::unique_ptr<BPlusTreeIndexHandler>(new BPlusTreeIndexHandler(df.get(), dr.get()));
     std::unique_ptr<SegmentMessageMap> smm = std::unique_ptr<SegmentMessageMap>(new SegmentMessageMap(df.get(), dr.get(), pm.get()));
 
+    std::unique_ptr<QueueManager> qm = std::unique_ptr<QueueManager>(new QueueManager(smm.get(), fh.get(), pm.get(), server_logger.get()));
+
     std::unique_ptr<SegmentLockManager> lm = std::unique_ptr<SegmentLockManager>(new SegmentLockManager());
 
     std::unique_ptr<SegmentAllocator> sa = std::unique_ptr<SegmentAllocator>(new SegmentAllocator(smm.get(), lm.get(), pm.get(), df.get(), server_logger.get()));
@@ -87,9 +87,9 @@ int main(int argc, char* argv[])
 
     std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), ssl_context_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
 
-    std::unique_ptr<Controller> controller = std::unique_ptr<Controller>(new Controller(cm.get(), qm.get(), mh.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), &should_terminate));
-
-    std::unique_ptr<ClusterMetadataApplyHandler> cmah = std::unique_ptr<ClusterMetadataApplyHandler>(new ClusterMetadataApplyHandler(fh.get()));
+    std::unique_ptr<ClusterMetadataApplyHandler> cmah = std::unique_ptr<ClusterMetadataApplyHandler>(new ClusterMetadataApplyHandler(qm.get(), fh.get(), settings.get()));
+    
+    std::unique_ptr<Controller> controller = std::unique_ptr<Controller>(new Controller(cm.get(), qm.get(), mh.get(), cmah.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), &should_terminate));
 
     std::unique_ptr<RetentionHandler> rh = std::unique_ptr<RetentionHandler>(new RetentionHandler(qm.get(), lm.get(), fh.get(), pm.get(), util.get(), server_logger.get(), settings.get()));
     std::unique_ptr<CompactionHandler> ch = std::unique_ptr<CompactionHandler>(new CompactionHandler(controller.get(), qm.get(), mh.get(), lm.get(), cmah.get(), fh.get(), pm.get(), server_logger.get(), settings.get()));

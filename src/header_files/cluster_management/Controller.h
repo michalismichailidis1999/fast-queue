@@ -14,6 +14,7 @@
 #include "../queue_management/QueueMetadata.h"
 #include "../requests_management/ClassToByteTransformer.h"
 #include "./ClusterMetadata.h"
+#include "./ClusterMetadataApplyHandler.h"
 #include "./Commands.h"
 #include "../Enums.h"
 #include "../Constants.h"
@@ -31,6 +32,7 @@ private:
 	ResponseMapper* response_mapper;
 	QueueManager* qm;
 	MessagesHandler* mh;
+	ClusterMetadataApplyHandler* cmah;
 	Util* util;
 	Logger* logger;
 	Settings* settings;
@@ -92,14 +94,8 @@ private:
 	void insert_commands_to_log(std::vector<Command>* commands);
 
 	void execute_command(void* command_metadata);
-
-	void execute_create_queue_command(CreateQueueCommand* command);
-
-	void execute_partition_assignment_command(PartitionAssignmentCommand* command);
-
-	void execute_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command);
 public:
-	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
+	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ClusterMetadataApplyHandler* cmah, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
 	std::shared_ptr<AppendEntriesResponse> handle_leader_append_entries(AppendEntriesRequest* request);
 	std::shared_ptr<RequestVoteResponse> handle_candidate_request_vote(RequestVoteRequest* request);

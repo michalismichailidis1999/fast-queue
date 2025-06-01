@@ -8,12 +8,14 @@
 #include "./messages_management/Producer.h"
 #include "./messages_management/Consumer.h"
 #include "./messages_management/index_management/BTreeNode.h"
+#include "./messages_management/index_management/SegmentMessageMap.h"
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../logging/Logger.h"
 
 class QueueManager {
 private:
+	SegmentMessageMap* smm;
 	FileHandler* fh;
 	QueueSegmentFilePathMapper* pm;
 	Logger* logger;
@@ -22,7 +24,7 @@ private:
 
 	std::shared_mutex mut;
 public:
-	QueueManager(FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger);
+	QueueManager(SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger);
 
 	void add_queue(std::shared_ptr<Queue> queue);
 	bool has_queue(const std::string& queue_name);

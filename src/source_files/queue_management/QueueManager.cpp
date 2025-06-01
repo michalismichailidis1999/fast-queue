@@ -1,6 +1,7 @@
 #include "../../header_files/queue_management/QueueManager.h"
 
-QueueManager::QueueManager(FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger) {
+QueueManager::QueueManager(SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger) {
+	this->smm = smm;
 	this->fh = fh;
 	this->pm = pm;
 	this->logger = logger;
@@ -93,6 +94,9 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 	std::string index_key = this->pm->get_file_key(queue_name, 1, true);
 	std::string index_path = this->pm->get_file_path(queue_name, 1, partition_id, true);
 
+	std::string mm_key = this->pm->get_segment_message_map_key(queue_name,partition_id);
+	std::string mm_path = this->pm->get_segment_message_map_path(queue_name, partition_id);
+
 	std::shared_ptr<PartitionSegment> segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(1, segment_key, segment_path));
 
 	segment.get()->set_index(index_key, index_path);
@@ -120,6 +124,21 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 			index_key,
 			true
 		);
+
+	if (!this->fh->check_if_exists(mm_path))
+	{
+		std::unique_ptr<char> data = std::unique_ptr<char>(new char[MAPPED_SEGMENTS_PER_PAGE]);
+
+		this->smm->fill_new_page_with_values(data.get(), 1);
+
+		this->fh->create_new_file(
+			mm_path,
+			MAPPED_SEGMENTS_PER_PAGE,
+			data.get(),
+			mm_key,
+			true
+		);
+	}
 
 	queue->add_partition(partition);
 }

@@ -21,10 +21,8 @@ void BeforeServerStartupHandler::initialize_required_folders_and_queues() {
     // Creating parent folders
     this->fh->create_directory(this->settings->get_log_path());
 
-    std::string cluster_metadata_queue_dir = this->settings->get_log_path() + "\\" + CLUSTER_METADATA_QUEUE_NAME;
-
     // Creating required subfolders to run the broker
-    this->fh->create_directory(cluster_metadata_queue_dir);
+    this->fh->create_directory(this->settings->get_log_path() + "\\" + CLUSTER_METADATA_QUEUE_NAME);
 
     this->clear_unnecessary_files_and_initialize_queues();
 
@@ -62,7 +60,7 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
 // Private Methods
 
 void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues() {
-    std::regex get_queue_name_rgx(settings->get_log_path() + "/((__|)[a-zA-Z][a-zA-Z0-9_-]*)$", std::regex_constants::icase);
+    std::regex get_queue_name_rgx("((__|)[a-zA-Z][a-zA-Z0-9_-]*)$", std::regex_constants::icase);
     std::regex get_segment_num_rgx("0*([1-9][0-9]*).*$", std::regex_constants::icase);
     std::regex partition_match_rgx("partition-([0-9]|[1-9][0-9]+)$", std::regex_constants::icase);
     std::regex is_metadat_file_rgx("metadata" + FILE_EXTENSION + "$", std::regex_constants::icase);

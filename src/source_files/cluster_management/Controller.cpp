@@ -1,11 +1,12 @@
 #include "../../header_files/cluster_management/Controller.h"
 
-Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate)
+Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ClusterMetadataApplyHandler* cmah, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate)
 	: generator(std::random_device{}()), distribution(HEARTBEAT_SIGNAL_MIN_BOUND, HEARTBEAT_SIGNAL_MAX_BOUND)
 {
 	this->cm = cm;
 	this->qm = qm;
 	this->mh = mh;
+	this->cmah = cmah;
 	this->response_mapper = response_mapper;
 	this->transformer = transformer;
 	this->util = util;
@@ -703,55 +704,9 @@ void Controller::insert_commands_to_log(std::vector<Command>* commands) {
 void Controller::execute_command(void* command_metadata) {
 	Command command = Command(command_metadata);
 
-	this->cluster_metadata->apply_command(&command);
-
-	switch (command.get_command_type()) {
-	case CommandType::CREATE_QUEUE:
-		this->execute_create_queue_command((CreateQueueCommand*)command.get_command_info());
-		break;
-	case CommandType::ALTER_PARTITION_ASSIGNMENT:
-		this->execute_partition_assignment_command((PartitionAssignmentCommand*)command.get_command_info());
-		break;
-	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
-		this->execute_partition_leader_assignment_command((PartitionLeaderAssignmentCommand*)command.get_command_info());
-		break;
-	default:
-		break;
-	}
+	this->cmah->apply_command(this->cluster_metadata.get(), &command);
 
 	this->last_applied = command.get_metadata_version();
-}
-
-void Controller::execute_create_queue_command(CreateQueueCommand* command) {
-	QueueMetadata* metadata = this->cluster_metadata->get_queue_metadata(command->get_queue_name());
-
-	if (metadata == NULL) {
-		std::shared_ptr<QueueMetadata> new_metadata = std::shared_ptr<QueueMetadata>(
-			new QueueMetadata(command->get_queue_name(), command->get_partitions(), command->get_replication_factor())
-		);
-
-		new_metadata.get()->set_status(Status::PENDING_CREATION);
-
-		metadata = new_metadata.get();
-	}
-
-	this->qm->create_queue(metadata);
-
-	metadata->set_status(Status::ACTIVE);
-}
-
-void Controller::execute_partition_assignment_command(PartitionAssignmentCommand* command) {
-	if (command->get_from_node() != this->settings->get_node_id() && command->get_to_node() != this->settings->get_node_id())
-		return;
-
-	if (command->get_from_node() == this->settings->get_node_id())
-		this->qm->remove_assigned_partition_from_queue(command->get_queue_name(), command->get_partition());
-	else
-		this->qm->add_assigned_partition_to_queue(command->get_queue_name(), command->get_partition());
-}
-
-void Controller::execute_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {
-	// TODO: Add logic here
 }
 
 void Controller::check_for_commit_and_last_applied_diff() {
