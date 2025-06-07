@@ -284,7 +284,7 @@ void BeforeServerStartupHandler::set_partition_active_segment(Partition* partiti
     std::shared_ptr<PartitionSegment> segment = nullptr;
 
     std::string segment_key = partition->get_current_segment_id() > 0
-        ? this->pm->get_file_key(partition->get_queue_name(), partition->get_current_segment_id())
+        ? this->pm->get_file_key(partition->get_queue_name(), partition->get_current_segment_id(), is_cluster_metadata_queue ? -1 : partition->get_partition_id())
         : "";
 
     std::string segment_path = partition->get_current_segment_id() > 0
@@ -315,7 +315,7 @@ void BeforeServerStartupHandler::set_partition_active_segment(Partition* partiti
 }
 
 void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name, PartitionSegment* segment, int partition) {
-    std::string index_file_key = this->pm->get_file_key(queue_name, segment->get_id(), true);
+    std::string index_file_key = this->pm->get_file_key(queue_name, segment->get_id(), partition, true);
     std::string index_file_path = this->pm->get_file_path(queue_name, segment->get_id(), partition, true);
 
     segment->set_index(index_file_key, index_file_path);

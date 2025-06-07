@@ -91,7 +91,3 @@ void InternalRequestExecutor::handle_data_node_heartbeat_request(SOCKET_ID socke
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
-
-void InternalRequestExecutor::handle_delete_queue_request(SOCKET_ID socket, SSL* ssl, DeleteQueueRequest* request) {
-	this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INTERNAL_SERVER_ERROR, "Not implemented functionality yet");
-}

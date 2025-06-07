@@ -18,6 +18,8 @@ private:
 	std::string get_command_key();
 
 public:
+	Command();
+
 	Command(CommandType type, unsigned long long term, unsigned long long timestamp, std::shared_ptr<void> command_info);
 
 	Command(void* metadata);
@@ -103,6 +105,24 @@ public:
 	int get_new_leader();
 
 	int get_prev_leader();
+
+	std::shared_ptr<char> get_metadata_bytes();
+
+	friend class Command;
+};
+
+class DeleteQueueCommand {
+private:
+	std::string queue_name;
+
+	std::string get_command_key();
+
+public:
+	DeleteQueueCommand(const std::string& queue_name);
+
+	DeleteQueueCommand(void* metadata);
+
+	const std::string& get_queue_name();
 
 	std::shared_ptr<char> get_metadata_bytes();
 

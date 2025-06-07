@@ -87,6 +87,7 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 	std::string index_key = this->pm->get_file_key(
 		partition->get_queue_name(),
 		segment_id,
+		partition->get_partition_id(),
 		true
 	);
 

@@ -96,6 +96,7 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 	std::string index_key = this->pm->get_file_key(
 		partition->get_queue_name(),
 		segment_id,
+		is_internal_queue ? -1 : partition->get_partition_id(),
 		true
 	);
 

@@ -12,6 +12,10 @@ struct CreateQueueResponse {
 	bool ok;
 };
 
+struct DeleteQueueResponse {
+	bool ok;
+};
+
 struct DataNodeHeartbeatResponse {
 	bool ok;
 	int leader_id;

@@ -10,8 +10,11 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 
 }
 
-void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadata, Command* command) {
-	cluster_metadata->apply_command(command);
+void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadata, Command* command, bool is_from_initialization) {
+	if (command->get_metadata_version() >= cluster_metadata->get_current_version()) {
+		if(!is_from_initialization) cluster_metadata->apply_command(command);
+		return;
+	}
 
 	switch (command->get_command_type()) {
 	case CommandType::CREATE_QUEUE:
@@ -23,9 +26,14 @@ void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadat
 	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
 		this->apply_partition_leader_assignment_command((PartitionLeaderAssignmentCommand*)command->get_command_info());
 		break;
+	case CommandType::DELETE_QUEUE:
+		this->apply_delete_queue_command(cluster_metadata, (DeleteQueueCommand*)command->get_command_info());
+		break;
 	default:
 		break;
 	}
+
+	cluster_metadata->apply_command(command);
 }
 
 void ClusterMetadataApplyHandler::apply_create_queue_command(ClusterMetadata* cluster_metadata, CreateQueueCommand* command) {
@@ -42,6 +50,7 @@ void ClusterMetadataApplyHandler::apply_create_queue_command(ClusterMetadata* cl
 
 		cluster_metadata->add_queue_metadata(new_metadata);
 	}
+	else metadata->set_status(Status::PENDING_CREATION);
 
 	this->qm->create_queue(metadata);
 
@@ -60,4 +69,10 @@ void ClusterMetadataApplyHandler::apply_partition_assignment_command(PartitionAs
 
 void ClusterMetadataApplyHandler::apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {
 	// TODO: Add logic here
+}
+
+void ClusterMetadataApplyHandler::apply_delete_queue_command(ClusterMetadata* cluster_metadata, DeleteQueueCommand* command) {
+	cluster_metadata->remove_queue_metadata(command->get_queue_name());
+
+	this->qm->delete_queue(command->get_queue_name());
 }

@@ -44,6 +44,8 @@ public:
 	void set_leader_id(int leader_id);
 	int get_leader_id();
 
+	unsigned long long get_current_version();
+
 	void add_queue_metadata(std::shared_ptr<QueueMetadata> queue_metadata);
 	QueueMetadata* get_queue_metadata(const std::string& queue_name);
 	void remove_queue_metadata(const std::string& queue_name);

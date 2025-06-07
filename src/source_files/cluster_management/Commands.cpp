@@ -1,5 +1,7 @@
 #include "../../header_files/cluster_management/Commands.h"
 
+Command::Command() {}
+
 Command::Command(CommandType type, unsigned long long term, unsigned long long timestamp, std::shared_ptr<void> command_info) {
 	this->term = term;
 	this->type = type;
@@ -23,6 +25,9 @@ Command::Command(void* metadata) {
 		break;
 	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
 		this->command_info = std::shared_ptr<PartitionLeaderAssignmentCommand>(new PartitionLeaderAssignmentCommand(metadata));
+		break;
+	case CommandType::DELETE_QUEUE:
+		this->command_info = std::shared_ptr<DeleteQueueCommand>(new DeleteQueueCommand(metadata));
 		break;
 	default:
 		break;
@@ -57,6 +62,8 @@ std::string Command::get_command_key() {
 		return ((PartitionAssignmentCommand*)(this->command_info.get()))->get_command_key();
 	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
 		return ((PartitionLeaderAssignmentCommand*)(this->command_info.get()))->get_command_key();
+	case CommandType::DELETE_QUEUE:
+		return ((DeleteQueueCommand*)(this->command_info.get()))->get_command_key();
 	default:
 		return "";
 	}
@@ -79,6 +86,10 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		total_bytes = PLA_COMMAND_TOTAL_BYTES;
 		size_dif = PLA_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
 		break;
+	case CommandType::DELETE_QUEUE:
+		total_bytes = DQ_COMMAND_TOTAL_BYTES;
+		size_dif = DQ_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		break;
 	default:
 		return std::tuple<long, std::shared_ptr<char>>(0, nullptr);
 	}
@@ -95,7 +106,7 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 	switch (this->type) {
 	case CommandType::CREATE_QUEUE:
 		memcpy_s(
-			bytes.get() + CQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET, 
+			bytes.get() + COMMAND_TOTAL_BYTES,
 			size_dif, 
 			((CreateQueueCommand*)(this->command_info.get()))->get_metadata_bytes().get(), 
 			size_dif
@@ -103,7 +114,7 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		break;
 	case CommandType::ALTER_PARTITION_ASSIGNMENT:
 		memcpy_s(
-			bytes.get() + PA_COMMAND_QUEUE_NAME_LENGTH_OFFSET,
+			bytes.get() + COMMAND_TOTAL_BYTES,
 			size_dif,
 			((PartitionAssignmentCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
 			size_dif
@@ -111,9 +122,17 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		break;
 	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
 		memcpy_s(
-			bytes.get() + PLA_COMMAND_QUEUE_NAME_LENGTH_OFFSET,
+			bytes.get() + COMMAND_TOTAL_BYTES,
 			size_dif,
 			((PartitionLeaderAssignmentCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
+			size_dif
+		);
+		break;
+	case CommandType::DELETE_QUEUE:
+		memcpy_s(
+			bytes.get() + COMMAND_TOTAL_BYTES,
+			size_dif,
+			((DeleteQueueCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
 			size_dif
 		);
 		break;
@@ -284,6 +303,41 @@ std::shared_ptr<char> PartitionLeaderAssignmentCommand::get_metadata_bytes() {
 	memcpy_s(bytes.get() + PLA_COMMAND_PARTITION_OFFSET, PLA_COMMAND_PARTITION_SIZE, &this->partition, PLA_COMMAND_PARTITION_SIZE);
 	memcpy_s(bytes.get() + PLA_COMMAND_NEW_LEADER_OFFSET, PLA_COMMAND_NEW_LEADER_SIZE, &this->new_leader, PLA_COMMAND_NEW_LEADER_SIZE);
 	memcpy_s(bytes.get() + PLA_COMMAND_PREV_LEADER_OFFSET, PLA_COMMAND_PREV_LEADER_SIZE, &this->prev_leader, PLA_COMMAND_PREV_LEADER_SIZE);
+
+	return bytes;
+}
+
+// ================================================================
+
+// Delete Queue Command
+
+DeleteQueueCommand::DeleteQueueCommand(const std::string& queue_name) {
+	this->queue_name = queue_name;
+}
+
+DeleteQueueCommand::DeleteQueueCommand(void* metadata) {
+	int queue_name_size = 0;
+
+	memcpy_s(&queue_name_size, DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE, (char*)metadata + DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET, DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+
+	this->queue_name = std::string((char*)metadata + DQ_COMMAND_QUEUE_NAME_OFFSET, queue_name_size);
+}
+
+const std::string& DeleteQueueCommand::get_queue_name() {
+	return this->queue_name;
+}
+
+std::string DeleteQueueCommand::get_command_key() {
+	return "dc_" + this->queue_name;
+}
+
+std::shared_ptr<char> DeleteQueueCommand::get_metadata_bytes() {
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[DQ_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
+
+	int queue_name_size = this->queue_name.size();
+
+	memcpy_s(bytes.get() + DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET, DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(bytes.get() + DQ_COMMAND_QUEUE_NAME_OFFSET, queue_name_size, this->queue_name.c_str(), queue_name_size);
 
 	return bytes;
 }

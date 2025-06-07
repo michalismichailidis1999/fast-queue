@@ -12,7 +12,7 @@ private:
 	std::string cluster_metadata_compaction_key;
 	std::string cluster_metadata_compaction_path;
 
-	std::string get_file_key(const std::string& queue_name, unsigned long long segment_id, bool index_file, bool compacted);
+	std::string get_file_key(const std::string& queue_name, unsigned long long segment_id, int partition, bool index_file, bool compacted);
 
 	std::string get_file_path(const std::string& queue_name, unsigned long long segment_id, int partition, bool index_file, bool compacted);
 public:
@@ -20,13 +20,15 @@ public:
 
 	std::string get_queue_folder_path(const std::string& queue_name);
 
+	std::string get_partition_folder_key(const std::string& queue_name, int partition_id);
+
 	std::string get_partition_folder_path(const std::string& queue_name, int partition_id);
 
-	std::string get_file_key(const std::string& queue_name, unsigned long long segment_id, bool index_file = false);
+	std::string get_file_key(const std::string& queue_name, unsigned long long segment_id, int partition = -1, bool index_file = false);
 
 	std::string get_file_path(const std::string& queue_name, unsigned long long segment_id, int partition = -1, bool index_file = false);
 
-	std::string get_compacted_file_key(const std::string& queue_name, unsigned long long segment_id, bool index_file = false);
+	std::string get_compacted_file_key(const std::string& queue_name, unsigned long long segment_id, int partition = -1, bool index_file = false);
 
 	std::string get_compacted_file_path(const std::string& queue_name, unsigned long long segment_id, int partition = -1, bool index_file = false);
 

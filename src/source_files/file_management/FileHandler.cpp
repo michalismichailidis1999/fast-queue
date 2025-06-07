@@ -31,10 +31,33 @@ bool FileHandler::create_directory(const std::string& path) {
 	return true;
 }
 
-void FileHandler::delete_dir_or_file(const std::string& path, const std::string& key) {
+void FileHandler::delete_dir_or_file(const std::string& path, const std::string& key, const std::string& key_prefix) {
 	if (!this->check_if_exists(path)) return;
 
 	if (key != "") this->close_file(key);
+
+	if (key_prefix != "") {
+		std::unordered_set<std::string> matched_keys;
+
+		auto comp = [&](const std::string& key_prefix, const std::string& file_key) {
+			int i = 0;
+			int match = 0;
+
+			while (i < key_prefix.size() && i < file_key.size()) {
+				if (key_prefix[i] != file_key[i]) break;
+				match++;
+				i++;
+			}
+
+			return match == key_prefix.size();
+		};
+
+		this->cache->find_matching_keys(key_prefix, comp, &matched_keys);
+
+		if (matched_keys.size() > 0)
+			for (auto& fkey : matched_keys)
+				this->close_file(fkey);
+	}
 
 	std::filesystem::remove_all(path);
 }

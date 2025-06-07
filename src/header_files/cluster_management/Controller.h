@@ -110,6 +110,8 @@ public:
 
 	void assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata);
 
+	void assign_queue_for_deletion(std::string& queue_name);
+
 	int get_active_nodes_count();
 
 	void check_for_commit_and_last_applied_diff();

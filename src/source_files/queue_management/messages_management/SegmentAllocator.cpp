@@ -9,6 +9,8 @@ SegmentAllocator::SegmentAllocator(SegmentMessageMap* smm, SegmentLockManager* l
 }
 
 void SegmentAllocator::allocate_new_segment(Partition* partition) {
+	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
+
 	PartitionSegment* segment = partition->get_active_segment();
 
 	this->lock_manager->lock_segment(partition, segment);
@@ -21,11 +23,30 @@ void SegmentAllocator::allocate_new_segment(Partition* partition) {
 
 		unsigned long long new_segment_id = partition->get_current_segment_id() + 1;
 
-		std::string new_segment_key = this->pm->get_file_key(partition->get_queue_name(), new_segment_id);
-		std::string new_segment_path = this->pm->get_file_path(partition->get_queue_name(), new_segment_id);
+		std::string new_segment_key = this->pm->get_file_key(
+			partition->get_queue_name(),
+			new_segment_id,
+			is_internal_queue ? -1 : partition->get_partition_id()
+		);
 
-		std::string new_segment_index_key = this->pm->get_file_key(partition->get_queue_name(), new_segment_id, true);
-		std::string new_segment_index_path = this->pm->get_file_path(partition->get_queue_name(), new_segment_id, true);
+		std::string new_segment_path = this->pm->get_file_path(
+			partition->get_queue_name(), 
+			new_segment_id,
+			is_internal_queue ? -1 : partition->get_partition_id()
+		);
+
+		std::string new_segment_index_key = this->pm->get_file_key(
+			partition->get_queue_name(), 
+			new_segment_id,
+			is_internal_queue ? -1 : partition->get_partition_id(),
+			true
+		);
+		std::string new_segment_index_path = this->pm->get_file_path(
+			partition->get_queue_name(), 
+			new_segment_id,
+			is_internal_queue ? -1 : partition->get_partition_id(),
+			true
+		);
 
 		std::shared_ptr<PartitionSegment> new_segment = std::shared_ptr<PartitionSegment>(
 			new PartitionSegment(new_segment_id, new_segment_key, new_segment_path)

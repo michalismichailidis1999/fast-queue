@@ -608,6 +608,24 @@ void Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetad
 	this->insert_commands_to_log(&commands);
 }
 
+void Controller::assign_queue_for_deletion(std::string& queue_name) {
+	this->future_cluster_metadata->remove_queue_metadata(queue_name);
+
+	QueueMetadata* metadata = this->cluster_metadata->get_queue_metadata(queue_name);
+
+	metadata->set_status(Status::PENDING_DELETION);
+
+	std::vector<Command> commands = std::vector<Command>(1);
+	commands[0] = Command(
+		CommandType::DELETE_QUEUE,
+		this->term,
+		this->util->get_current_time_milli().count(),
+		std::shared_ptr<DeleteQueueCommand>(new DeleteQueueCommand(queue_name))
+	);
+
+	this->insert_commands_to_log(&commands);
+}
+
 void Controller::check_for_dead_data_nodes() {
 	std::vector<int> nodes_data_to_repartition;
 	NodeState state = NodeState::LEADER;

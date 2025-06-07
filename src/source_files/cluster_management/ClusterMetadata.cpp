@@ -23,6 +23,10 @@ int ClusterMetadata::get_leader_id() {
 	return this->leader_id;
 }
 
+unsigned long long ClusterMetadata::get_current_version() {
+	return this->metadata_version;
+}
+
 void ClusterMetadata::add_queue_metadata(std::shared_ptr<QueueMetadata> queue_metadata) {
 	std::lock_guard<std::mutex> lock(this->queues_mut);
 	this->queues[queue_metadata->get_name()] = queue_metadata;

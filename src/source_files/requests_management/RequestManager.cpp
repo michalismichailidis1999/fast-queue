@@ -70,7 +70,7 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			std::unique_ptr<DeleteQueueRequest> request = this->mapper->to_delete_queue_request(recvbuf.get(), res_buffer_length);
 
-			this->internal_request_executor->handle_delete_queue_request(socket, ssl, request.get());
+			this->client_request_executor->handle_delete_queue_request(socket, ssl, request.get());
 
 			break;
 		}

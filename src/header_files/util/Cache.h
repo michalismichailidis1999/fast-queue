@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
-#include <unordered_map>
+#include <map>
+#include <unordered_set>
 #include <mutex>
 
 template <typename K, typename V>
@@ -29,7 +30,7 @@ class Cache {
 private:
 	uint32_t capacity;
 	V empty_value;
-	std::unordered_map<K, CacheNode<K, V>*> cache;
+	std::map<K, CacheNode<K, V>*> cache;
 	CacheNode<K, V>* left;
 	CacheNode<K, V>* right;
 
@@ -133,5 +134,13 @@ public:
 			this->cache.erase(key);
 			this->remove(node, true);
 		}
+	}
+
+	void find_matching_keys(K key_prefix, std::function<bool(K, K)> comp, std::unordered_set<K>* matching_keys) {
+		std::lock_guard<std::mutex> lock(this->cache_mut);
+
+		for (auto& iter : this->cache)
+			if (comp(key_prefix, iter.first))
+				matching_keys->insert(iter.first);
 	}
 };

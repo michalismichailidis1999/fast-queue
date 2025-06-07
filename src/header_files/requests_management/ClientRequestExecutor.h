@@ -35,4 +35,6 @@ public:
 	void handle_producer_connect_request(SOCKET_ID socket, SSL* ssl, ProducerConnectRequest* request);
 
 	void handle_produce_request(SOCKET_ID socket, SSL* ssl, ProduceMessagesRequest* request);
+
+	void handle_delete_queue_request(SOCKET_ID socket, SSL* ssl, DeleteQueueRequest* request);
 };

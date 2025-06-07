@@ -97,7 +97,8 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 
 	std::string segment_key = this->pm->get_file_key(
 		partition->get_queue_name(),
-		segment_id
+		segment_id,
+		is_internal_queue ? -1 : partition->get_partition_id()
 	);
 
 	std::string segment_path = this->pm->get_file_path(
@@ -109,6 +110,7 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 	std::string index_key = this->pm->get_file_key(
 		partition->get_queue_name(),
 		segment_id,
+		is_internal_queue ? -1 : partition->get_partition_id(),
 		true
 	);
 
