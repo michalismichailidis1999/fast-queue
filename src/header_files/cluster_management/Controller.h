@@ -92,6 +92,7 @@ private:
 	void repartition_node_data(int node_id);
 
 	void insert_commands_to_log(std::vector<Command>* commands);
+	void insert_commands_to_log(void* commands, int total_commands, long commands_total_bytes);
 
 	void execute_command(void* command_metadata);
 public:

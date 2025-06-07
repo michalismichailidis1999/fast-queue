@@ -148,6 +148,10 @@ std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(c
 
 	std::unique_ptr<AppendEntriesRequest> req = std::make_unique<AppendEntriesRequest>();
 
+	req.get()->total_commands = 0;
+	req.get()->commands_total_bytes = 0;
+	req.get()->commands_data = NULL;
+
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
 
@@ -155,20 +159,25 @@ std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(c
 			req.get()->leader_id = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
 		} else if (*key == RequestValueKey::TERM) {
-			req.get()->term = *(long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->term = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(long long);
 		}
 		else if (*key == RequestValueKey::PREV_LOG_INDEX) {
-			req.get()->prev_log_index = *(long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->prev_log_index = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(long long);
 		}
 		else if (*key == RequestValueKey::PREV_LOG_TERM) {
-			req.get()->prev_log_term = *(long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->prev_log_term = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(long long);
 		}
 		else if (*key == RequestValueKey::LEADER_COMMIT) {
-			req.get()->leader_commit = *(long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->leader_commit = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(long long);
+		}
+		else if (*key == RequestValueKey::COMMANDS) {
+			req.get()->total_commands = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->commands_total_bytes = *(long*)(recvbuf + offset + sizeof(RequestValueKey) + sizeof(int));
+			req.get()->commands_data = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int) + sizeof(long);
 		}
 		else throw std::exception("Invalid request value");
 	}

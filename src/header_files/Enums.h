@@ -72,9 +72,7 @@ enum class RequestValueKey {
 	PREV_LOG_INDEX,
 	PREV_LOG_TERM,
 	LEADER_COMMIT,
-	TOTAL_COMMANDS,
-	COMMANDS_TOTAL_BYTES,
-	COMMANDS_DATA
+	COMMANDS
 	// =====================================================
 };
 

@@ -168,7 +168,7 @@ void Controller::append_entries_to_followers() {
 
 	long remaining_messsage_bytes = this->settings->get_max_message_size();
 
-	remaining_messsage_bytes -= 2 * sizeof(long) - sizeof(RequestType) - sizeof(int) * 2 - sizeof(unsigned long long) * 4 - sizeof(RequestValueKey) * 8;
+	remaining_messsage_bytes -= 2 * sizeof(long) - sizeof(RequestType) - sizeof(int) * 2 - sizeof(unsigned long long) * 4 - sizeof(RequestValueKey) * 6;
 
 	for (auto& command : this->log) {
 		long command_bytes = 0;
@@ -282,7 +282,7 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 			this->cluster_metadata->set_leader_id(request->leader_id);
 		} else this->logger->log_info("Received heartbeat from leader");
 
-		// TODO: Append log entries
+		this->insert_commands_to_log(request->commands_data, request->total_commands, request->commands_total_bytes);
 
 		this->term = request->term;
 		this->commit_index = request->leader_commit;
@@ -701,22 +701,58 @@ void Controller::insert_commands_to_log(std::vector<Command>* commands) {
 		offset += command_bytes;
 	}
 
-	this->mh->save_messages(
-		this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
-		messages_bytes.get(),
-		total_bytes
-	);
+	try
+	{
+		this->mh->save_messages(
+			this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+			messages_bytes.get(),
+			total_bytes
+		);
+	}
+	catch (const std::exception&)
+	{
+		this->log.erase(this->log.begin() + start_index, this->log.end());
+	}
 
 	auto& last_command = this->log.back();
 
-	unsigned long long last_log_index = 0;
-	unsigned long long last_log_term = 0;
+	memcpy_s(&this->last_log_index, MESSAGE_ID_SIZE, last_command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+	memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, last_command.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+}
+
+void Controller::insert_commands_to_log(void* commands, int total_commands, long commands_total_bytes) {
+	if (total_commands <= 0 || commands_total_bytes <= 0) return;
+
+	unsigned long command_bytes = 0;
+
+	unsigned long offset = 0;
+
+	for (int i = 0; i < total_commands; i++) {
+		memcpy_s(&command_bytes, sizeof(unsigned long), (char*)commands + offset, sizeof(unsigned long));
+		std::shared_ptr<char> command = std::shared_ptr<char>(new char[command_bytes]);
+		this->log.emplace_back(command);
+	}
+
+	try
+	{
+		this->mh->save_messages(
+			this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+			commands,
+			commands_total_bytes
+		);
+	}
+	catch (const std::exception&)
+	{
+		while (total_commands > 0) {
+			this->log.pop_back();
+			total_commands--;
+		}
+	}
+
+	auto& last_command = this->log.back();
 
 	memcpy_s(&this->last_log_index, MESSAGE_ID_SIZE, last_command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 	memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, last_command.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
-
-	this->last_log_index = last_log_index;
-	this->last_log_term = last_log_term;
 }
 
 void Controller::execute_command(void* command_metadata) {

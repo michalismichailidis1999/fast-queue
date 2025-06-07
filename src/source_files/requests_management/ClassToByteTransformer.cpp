@@ -3,7 +3,7 @@
 ClassToByteTransformer::ClassToByteTransformer() {}
 
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(int) + 4 * sizeof(unsigned long long) + 8 * sizeof(RequestValueKey);
+	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(int) + 4 * sizeof(unsigned long long) + 6 * sizeof(RequestValueKey);
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	RequestType req_type = RequestType::APPEND_ENTRIES;
@@ -13,10 +13,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	RequestValueKey prev_log_index_type = RequestValueKey::PREV_LOG_INDEX;
 	RequestValueKey prev_log_term_type = RequestValueKey::PREV_LOG_TERM;
 	RequestValueKey leader_commit_type = RequestValueKey::LEADER_COMMIT;
-
-	RequestValueKey total_commands_type = RequestValueKey::TOTAL_COMMANDS;
-	RequestValueKey commands_total_bytes_type = RequestValueKey::COMMANDS_TOTAL_BYTES;
-	RequestValueKey commands_data_type = RequestValueKey::COMMANDS_DATA;
+	RequestValueKey commands_type = RequestValueKey::COMMANDS;
 
 	long offset = 0;
 
@@ -56,14 +53,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->leader_commit, sizeof(long long));
 	offset += sizeof(unsigned long long);
 
-	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &total_commands_type, sizeof(RequestValueKey));
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &commands_type, sizeof(RequestValueKey));
 	offset += sizeof(RequestValueKey);
 	
 	memcpy_s(buf.get() + offset, sizeof(int), &obj->total_commands, sizeof(int));
 	offset += sizeof(int);
-	
-	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &commands_total_bytes_type, sizeof(RequestValueKey));
-	offset += sizeof(RequestValueKey);
 	
 	memcpy_s(buf.get() + offset, sizeof(long), &obj->commands_total_bytes, sizeof(int));
 	offset += sizeof(long);
