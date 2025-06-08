@@ -8,6 +8,7 @@
 #include "../util/IndexedHeap.h"
 #include "./Commands.h"
 #include "../queue_management/QueueMetadata.h"
+#include "../exceptions/CurruptionException.h"
 
 class ClusterMetadata {
 private:
@@ -32,11 +33,13 @@ private:
 	std::mutex queues_mut;
 
 	void apply_create_queue_command(CreateQueueCommand* command);
+	void apply_delete_queue_command(DeleteQueueCommand* command);
 	void apply_partition_assignment_command(PartitionAssignmentCommand* command);
 	void apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command);
 
 public:
 	ClusterMetadata(int node_id);
+	ClusterMetadata(void* metadata);
 	ClusterMetadata();
 
 	void init_node_partitions(int node_id);

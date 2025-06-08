@@ -176,3 +176,31 @@ static const unsigned int DQ_COMMAND_QUEUE_NAME_OFFSET = DQ_COMMAND_QUEUE_NAME_L
 static const unsigned int DQ_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE + DQ_COMMAND_QUEUE_NAME_SIZE;
 
 // =================================================================
+
+// Cluster Metadata
+
+static const unsigned int METADATA_VERSION_SIZE = sizeof(unsigned long long);
+static const unsigned int METADATA_VERSION_OFFSET = COMMON_METADATA_TOTAL_BYTES;
+static const unsigned int TOTAL_QUEUES_SIZE = sizeof(unsigned int);
+static const unsigned int TOTAL_QUEUES_OFFSET = METADATA_VERSION_SIZE + METADATA_VERSION_OFFSET;
+static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_SIZE = sizeof(unsigned int);
+static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_OFFSET = TOTAL_QUEUES_SIZE + TOTAL_QUEUES_OFFSET;
+static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_BYTES = COMMON_METADATA_TOTAL_BYTES + METADATA_VERSION_SIZE + TOTAL_QUEUES_SIZE + TOTAL_PARTITION_ASSIGNMENTS_SIZE;
+
+static const unsigned int PA_QUEUE_NAME_LENGTH_SIZE = sizeof(unsigned int);
+static const unsigned int PA_QUEUE_NAME_LENGTH_OFFSET = 0;
+static const unsigned int PA_QUEUE_NAME_SIZE = sizeof(char) * MAX_QUEUE_NAME_CHARS;
+static const unsigned int PA_QUEUE_NAME_OFFSET = PA_QUEUE_NAME_LENGTH_SIZE + PA_QUEUE_NAME_LENGTH_OFFSET;
+static const unsigned int PA_QUEUE_TOTAL_ASSIGNMENTS_SIZE = sizeof(char) * MAX_QUEUE_NAME_CHARS;
+static const unsigned int PA_QUEUE_TOTAL_ASSIGNMENTS_OFFSET = PA_QUEUE_NAME_SIZE + PA_QUEUE_NAME_OFFSET;
+static const unsigned int PA_QUEUE_TOTAL_BYTES = PA_QUEUE_NAME_LENGTH_SIZE + PA_QUEUE_NAME_SIZE + PA_QUEUE_TOTAL_ASSIGNMENTS_SIZE;
+
+static const unsigned int PA_PARTITION_ID_SIZE = sizeof(unsigned int);
+static const unsigned int PA_PARTITION_ID_OFFSET = 0;
+static const unsigned int PA_NODE_ID_SIZE = sizeof(unsigned int);
+static const unsigned int PA_NODE_ID_OFFSET = PA_PARTITION_ID_SIZE + PA_PARTITION_ID_OFFSET;
+static const unsigned int PA_IS_LEAD_SIZE = sizeof(bool);
+static const unsigned int PA_IS_LEAD_OFFSET = PA_NODE_ID_SIZE + PA_NODE_ID_OFFSET;
+static const unsigned int PA_NODE_ASSIGNMENT_TOTAL_BYTES = PA_PARTITION_ID_SIZE + PA_NODE_ID_SIZE + PA_IS_LEAD_SIZE;
+
+// =================================================================

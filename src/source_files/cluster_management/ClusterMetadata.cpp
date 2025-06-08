@@ -53,6 +53,8 @@ void ClusterMetadata::init_node_partitions(int node_id) {
 }
 
 void ClusterMetadata::apply_command(Command* command) {
+	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+
 	this->metadata_version = command->get_metadata_version();
 
 	switch (command->get_command_type())
@@ -63,25 +65,18 @@ void ClusterMetadata::apply_command(Command* command) {
 		return;
 	}
 	case CommandType::DELETE_QUEUE: {
-		// TODO: Complete this
+		DeleteQueueCommand* command_info = static_cast<DeleteQueueCommand*>(command->get_command_info());
+		this->apply_delete_queue_command(command_info);
 		return;
 	}
 	case CommandType::ALTER_PARTITION_ASSIGNMENT: {
-		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
-
 		PartitionAssignmentCommand* command_info = static_cast<PartitionAssignmentCommand*>(command->get_command_info());
-
 		this->apply_partition_assignment_command(command_info);
-
 		return;
 	}
 	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT: {
-		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
-
 		PartitionLeaderAssignmentCommand* command_info = static_cast<PartitionLeaderAssignmentCommand*>(command->get_command_info());
-
 		this->apply_partition_leader_assignment_command(command_info);
-
 		return;
 	}
 	default:
@@ -99,6 +94,10 @@ void ClusterMetadata::apply_create_queue_command(CreateQueueCommand* command) {
 	);
 
 	this->add_queue_metadata(queue_metadata);
+}
+
+void ClusterMetadata::apply_delete_queue_command(DeleteQueueCommand* command) {
+	this->remove_queue_metadata(command->get_queue_name());
 }
 
 void ClusterMetadata::apply_partition_assignment_command(PartitionAssignmentCommand* command) {
@@ -217,9 +216,132 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 }
 
 void ClusterMetadata::fill_from_metadata(void* metadata) {
+	if (!Helper::has_valid_checksum(metadata))
+		throw CorruptionException("Compacted cluster metadata was corrupted");
 
+	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+
+	int total_queues = 0;
+	int total_assignments = 0;
+
+	memcpy_s(&this->metadata_version, METADATA_VERSION_SIZE, (char*)metadata + METADATA_VERSION_OFFSET, METADATA_VERSION_SIZE);
+	memcpy_s(&total_queues, TOTAL_QUEUES_SIZE, (char*)metadata + TOTAL_QUEUES_OFFSET, TOTAL_QUEUES_SIZE);
+	memcpy_s(&total_assignments, TOTAL_PARTITION_ASSIGNMENTS_SIZE, (char*)metadata + TOTAL_PARTITION_ASSIGNMENTS_OFFSET, TOTAL_PARTITION_ASSIGNMENTS_SIZE);
+
+	if(total_queues > total_assignments || (total_queues == 0 && total_assignments != 0))
+		throw CorruptionException("Compacted cluster metadata was corrupted");
+
+	long offset = TOTAL_PARTITION_ASSIGNMENTS_BYTES;
+
+	for (unsigned int i = 0; i < total_queues; i++) {
+		int queue_name_length = 0;
+		int queue_total_assignments = 0;
+
+		memcpy_s(&queue_name_length, PA_QUEUE_NAME_LENGTH_SIZE, (char*)metadata + PA_QUEUE_NAME_LENGTH_OFFSET + offset, PA_QUEUE_NAME_LENGTH_SIZE);
+		memcpy_s(&queue_total_assignments, PA_QUEUE_TOTAL_ASSIGNMENTS_SIZE, (char*)metadata + PA_QUEUE_TOTAL_ASSIGNMENTS_OFFSET + offset, PA_QUEUE_TOTAL_ASSIGNMENTS_SIZE);
+
+		std::string queue_name = std::string((char*)metadata + PA_QUEUE_NAME_OFFSET + offset, queue_name_length);
+
+		offset += PA_QUEUE_TOTAL_BYTES;
+
+		this->owned_partitions[queue_name] = std::make_shared<std::unordered_map<int, std::shared_ptr<std::unordered_set<int>>>>();
+		this->partition_leader_nodes[queue_name] = std::make_shared<std::unordered_map<int, int>>();
+
+		auto owned_parts = this->owned_partitions[queue_name];
+		auto leads = this->partition_leader_nodes[queue_name];
+
+		for (unsigned j = 0; j < queue_total_assignments; j++) {
+			int partition_id = 0;
+			int node_id = 0;
+			bool is_lead = false;
+
+			memcpy_s(&partition_id, PA_PARTITION_ID_SIZE, (char*)metadata + PA_PARTITION_ID_OFFSET + offset, PA_PARTITION_ID_SIZE);
+			memcpy_s(&node_id, PA_NODE_ID_SIZE, (char*)metadata + PA_NODE_ID_OFFSET + offset, PA_NODE_ID_SIZE);
+			memcpy_s(&is_lead, PA_IS_LEAD_SIZE, (char*)metadata + PA_IS_LEAD_OFFSET + offset, PA_IS_LEAD_SIZE);
+
+			if(partition_id < 0 || node_id <= 0)
+				throw CorruptionException("Compacted cluster metadata was corrupted (partition assignment)");
+
+			if (owned_parts.get()->find(partition_id) == owned_parts.get()->end())
+				(*(owned_parts.get()))[partition_id] = std::make_shared<std::unordered_set<int>>(node_id);
+
+			if (this->nodes_partitions.find(node_id) == this->nodes_partitions.end())
+				this->nodes_partitions[node_id] = std::make_shared<std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>>>();
+
+			auto node_parts = this->nodes_partitions[node_id];
+
+			if (node_parts.get()->find(queue_name) == node_parts.get()->end())
+				(*(node_parts.get()))[queue_name] = std::make_shared<std::unordered_set<int>>();
+
+			(*(node_parts.get()))[queue_name].get()->insert(partition_id);
+
+			int current_counts = this->nodes_partition_counts->get(node_id);
+			this->nodes_partition_counts->insert(node_id, current_counts > 0 ? current_counts + 1 : 1);
+
+			if (is_lead) {
+				(*(leads.get()))[partition_id] = node_id;
+
+				int current_lead_counts = this->nodes_leader_partition_counts->get(node_id);
+				this->nodes_leader_partition_counts->insert(node_id, current_counts > 0 ? current_counts + 1 : 1);
+			}
+
+			offset += PA_NODE_ASSIGNMENT_TOTAL_BYTES;
+		}
+	}
 }
 
 std::tuple<unsigned int, std::shared_ptr<char>> ClusterMetadata::get_metadata_bytes() {
-	return std::tuple<unsigned int, std::shared_ptr<char>>(0, nullptr);
+	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+
+	int total_queues = this->owned_partitions.size();
+
+	int total_assignments = 0;
+
+	for (auto& iter : this->nodes_partitions)
+		total_assignments += iter.second.get()->size();
+
+	unsigned int total_bytes = TOTAL_PARTITION_ASSIGNMENTS_BYTES 
+		+ total_queues * PA_QUEUE_TOTAL_BYTES 
+		+ total_assignments * PA_NODE_ASSIGNMENT_TOTAL_BYTES;
+
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[total_bytes]);
+
+	Helper::add_common_metadata_values(bytes.get(), total_bytes, ObjectType::METADATA);
+
+	memcpy_s(bytes.get() + METADATA_VERSION_OFFSET, METADATA_VERSION_SIZE, &this->metadata_version, METADATA_VERSION_SIZE);
+	memcpy_s(bytes.get() + TOTAL_QUEUES_OFFSET, TOTAL_QUEUES_SIZE, &total_queues, TOTAL_QUEUES_SIZE);
+	memcpy_s(bytes.get() + TOTAL_PARTITION_ASSIGNMENTS_OFFSET, TOTAL_PARTITION_ASSIGNMENTS_SIZE, &total_assignments, TOTAL_PARTITION_ASSIGNMENTS_SIZE);
+
+	long offset = TOTAL_PARTITION_ASSIGNMENTS_BYTES;
+
+	for (auto& iter : this->owned_partitions) {
+		unsigned int queue_name_length = iter.first.size();
+
+		memcpy_s(bytes.get() + PA_QUEUE_NAME_LENGTH_OFFSET + offset, PA_QUEUE_NAME_LENGTH_SIZE, &queue_name_length, PA_QUEUE_NAME_LENGTH_SIZE);
+		memcpy_s(bytes.get() + PA_QUEUE_NAME_OFFSET + offset, PA_QUEUE_NAME_SIZE, iter.first.c_str(), PA_QUEUE_NAME_SIZE);
+
+		long current_offset = offset;
+		offset += PA_QUEUE_TOTAL_BYTES;
+
+		unsigned int total_queue_assignments = 0;
+
+		for (auto& part_iter : *(iter.second.get())) {
+			for (auto& node_id : *(part_iter.second.get())) {
+				int partition_leader = (*(this->partition_leader_nodes[iter.first].get()))[part_iter.first];
+
+				bool is_lead = partition_leader == node_id;
+
+				memcpy_s(bytes.get() + PA_PARTITION_ID_OFFSET + offset, PA_PARTITION_ID_SIZE, &part_iter.first, PA_PARTITION_ID_SIZE);
+				memcpy_s(bytes.get() + PA_NODE_ID_OFFSET + offset, PA_NODE_ID_SIZE, &node_id, PA_NODE_ID_SIZE);
+				memcpy_s(bytes.get() + PA_IS_LEAD_OFFSET + offset, PA_IS_LEAD_SIZE, &is_lead, PA_IS_LEAD_SIZE);
+
+				offset += PA_NODE_ASSIGNMENT_TOTAL_BYTES;
+				total_queue_assignments++;
+			}
+		}
+
+		memcpy_s(bytes.get() + PA_QUEUE_TOTAL_ASSIGNMENTS_OFFSET + current_offset, PA_QUEUE_TOTAL_ASSIGNMENTS_SIZE, &total_queue_assignments, PA_QUEUE_TOTAL_ASSIGNMENTS_SIZE);
+	}
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(total_bytes, bytes);
 }
