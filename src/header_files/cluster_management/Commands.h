@@ -5,6 +5,7 @@
 #include "../util/Helper.h"
 #include "../Enums.h"
 #include "../Constants.h"
+#include "../exceptions/CurruptionException.h"
 
 class Command {
 private:

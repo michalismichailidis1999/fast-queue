@@ -1,13 +1,46 @@
 #include "../../header_files/cluster_management/ClusterMetadataApplyHandler.h"
 
-ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, FileHandler* fh, Settings* settings) {
+ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings) {
 	this->qm = qm;
 	this->fh = fh;
+	this->pm = pm;
 	this->settings = settings;
 }
 
 void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id) {
+	std::unique_ptr<char> batch_size = std::unique_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
 
+	std::string segment_key = this->pm->get_file_key(CLUSTER_METADATA_QUEUE_NAME, segment_id, -1);
+	std::string segment_path = this->pm->get_file_path(CLUSTER_METADATA_QUEUE_NAME, segment_id, -1);
+
+	unsigned long long pos = SEGMENT_METADATA_TOTAL_BYTES;
+
+	unsigned long bytes_read = this->fh->read_from_file(segment_key, segment_path, READ_MESSAGES_BATCH_SIZE, pos, batch_size.get());
+
+	unsigned int command_total_bytes = 0;
+
+	while (bytes_read > 0) {
+		unsigned long offset = 0;
+
+		while (offset < bytes_read) {
+			memcpy_s(&command_total_bytes, TOTAL_METADATA_BYTES, batch_size.get() + TOTAL_METADATA_BYTES_OFFSET + offset, TOTAL_METADATA_BYTES);
+
+			if (offset + command_total_bytes > bytes_read) break;
+
+			Command command = Command(batch_size.get() + offset);
+			cluster_metadata->apply_command(&command);
+
+			offset += command_total_bytes;
+		}
+
+		if (bytes_read < READ_MESSAGES_BATCH_SIZE) break;
+
+		pos += READ_MESSAGES_BATCH_SIZE - (bytes_read == offset ? 0 : bytes_read - offset);
+
+		bytes_read = this->fh->read_from_file(segment_key, segment_path, READ_MESSAGES_BATCH_SIZE, pos, batch_size.get());
+	}
+
+	this->fh->close_file(segment_key);
 }
 
 void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadata, Command* command, bool is_from_initialization) {

@@ -11,6 +11,9 @@ Command::Command(CommandType type, unsigned long long term, unsigned long long t
 }
 
 Command::Command(void* metadata) {
+	if (!Helper::has_valid_checksum(metadata))
+		throw CorruptionException("Command metadata was corrupted");
+
 	Helper::retrieve_message_metadata_values(metadata, &this->metadata_version, &this->timestamp);
 
 	memcpy_s(&this->type, COMMAND_TYPE_SIZE, (char*)metadata + COMMAND_TYPE_OFFSET, COMMAND_TYPE_SIZE);

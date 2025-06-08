@@ -47,10 +47,12 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     unsigned long long smallest_segment_id = partition->get_smallest_segment_id();
     unsigned long long current_segment_id = partition->get_current_segment_id();
 
-    while (smallest_segment_id < current_segment_id) {
+    while (smallest_segment_id <= current_segment_id) {
         this->cmah->apply_commands_from_segment(this->controller->get_cluster_metadata(), smallest_segment_id);
         smallest_segment_id++;
     }
+
+    this->controller->get_future_cluster_metadata()->copy_from(this->controller->get_cluster_metadata());
 
     this->logger->log_info("Cluster metadata rebuilt successfully");
 }
