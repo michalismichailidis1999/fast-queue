@@ -113,6 +113,8 @@ int main(int argc, char* argv[])
     startup_handler.get()->initialize_required_folders_and_queues();
     startup_handler.get()->rebuild_cluster_metadata();
 
+    controller.get()->update_quorum_communication_values();
+
     std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
 
     std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(cm.get(), qm.get(), controller.get(), transformer.get(), fh.get(), util.get(), settings.get(), server_logger.get()));

@@ -29,6 +29,7 @@ public:
 
 	void* get_command_info();
 	unsigned long long get_metadata_version();
+	unsigned long long get_term();
 	unsigned long long get_timestamp();
 
 	void set_metadata_version(unsigned long long metadata_version);

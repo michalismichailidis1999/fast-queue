@@ -181,11 +181,13 @@ static const unsigned int DQ_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + DQ_COMM
 
 static const unsigned int METADATA_VERSION_SIZE = sizeof(unsigned long long);
 static const unsigned int METADATA_VERSION_OFFSET = COMMON_METADATA_TOTAL_BYTES;
+static const unsigned int TERM_SIZE = sizeof(unsigned long long);
+static const unsigned int TERM_OFFSET = METADATA_VERSION_SIZE + METADATA_VERSION_OFFSET;
 static const unsigned int TOTAL_QUEUES_SIZE = sizeof(unsigned int);
-static const unsigned int TOTAL_QUEUES_OFFSET = METADATA_VERSION_SIZE + METADATA_VERSION_OFFSET;
+static const unsigned int TOTAL_QUEUES_OFFSET = TERM_SIZE + TERM_OFFSET;
 static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_SIZE = sizeof(unsigned int);
 static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_OFFSET = TOTAL_QUEUES_SIZE + TOTAL_QUEUES_OFFSET;
-static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_BYTES = COMMON_METADATA_TOTAL_BYTES + METADATA_VERSION_SIZE + TOTAL_QUEUES_SIZE + TOTAL_PARTITION_ASSIGNMENTS_SIZE;
+static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_BYTES = COMMON_METADATA_TOTAL_BYTES + METADATA_VERSION_SIZE + TERM_SIZE + TOTAL_QUEUES_SIZE + TOTAL_PARTITION_ASSIGNMENTS_SIZE;
 
 static const unsigned int PA_QUEUE_NAME_LENGTH_SIZE = sizeof(unsigned int);
 static const unsigned int PA_QUEUE_NAME_LENGTH_OFFSET = 0;

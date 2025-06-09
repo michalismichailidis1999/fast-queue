@@ -44,6 +44,12 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->dummy_node_id = -1;
 }
 
+void Controller::update_quorum_communication_values() {
+	this->term = this->cluster_metadata.get()->get_current_term();
+	this->last_log_term = this->cluster_metadata.get()->get_current_term();
+	this->last_log_index = this->cluster_metadata.get()->get_current_version();
+}
+
 void Controller::run_controller_quorum_communication() {
 	while (!(*this->should_terminate)) {
 		switch (this->get_state())
@@ -117,26 +123,25 @@ void Controller::start_election() {
 			this->logger->log_info("Vote granted from node " + std::to_string(iter.first));
 		}
 		else {
-			long long prev_term = this->term;
-			this->term = res.get()->term;
-			req.get()->term = res.get()->term;
-			buf_tup = this->transformer->transform(req.get());
 			this->logger->log_info(
-				"Vote not granted from node " 
-				+ std::to_string(iter.first) 
-				+ ". Updating term from " 
-				+ std::to_string(prev_term) 
-				+ " to " 
-				+ std::to_string(res.get()->term)
+				"Vote not granted from node "
+				+ std::to_string(iter.first)
 			);
+
+			if (this->term < res.get()->term) {
+				this->term = res.get()->term;
+				req.get()->term = res.get()->term;
+				buf_tup = this->transformer->transform(req.get());
+
+				this->logger->log_error("Updated term to " + std::to_string(res.get()->term));
+			}
 		}
 	}
 
 	this->vote_for = -1;
 
 	if (votes < this->half_quorum_nodes_count) {
-		this->set_state(NodeState::FOLLOWER);
-		this->logger->log_info("Went back to follower");
+		this->step_down_to_follower();
 		return;
 	}
 
@@ -228,9 +233,19 @@ void Controller::append_entries_to_followers() {
 		}
 
 		if (!res.get()->success) {
-			this->logger->log_error("Node " + std::to_string(iter.first) + " rejected AppendEntries request. Setting term to " + std::to_string(res.get()->term) + " and going back to being a Follower.");
-			this->term = res.get()->term;
-			this->set_state(NodeState::FOLLOWER);
+			this->logger->log_error("Node " + std::to_string(iter.first) + " rejected AppendEntries request");
+
+			if (this->term < res.get()->term) {
+				this->logger->log_error("Setting term to " + std::to_string(res.get()->term));
+				this->term = res.get()->term;
+				this->step_down_to_follower();
+			} else if(res.get()->lag_index == 0)
+				this->step_down_to_follower();
+			else {
+				std::lock_guard<std::mutex> lag_followers_lock(this->lagging_followers_mut);
+				this->lagging_followers[iter.first] = res.get()->lag_index;
+			}
+
 			return;
 		}
 		else replication_count++;
@@ -245,6 +260,12 @@ void Controller::append_entries_to_followers() {
 	connections_lock.unlock();
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(LEADER_TIMEOUT));
+}
+
+void Controller::step_down_to_follower() {
+	this->set_state(NodeState::FOLLOWER);
+
+	this->logger->log_info("Went back to follower");
 }
 
 void Controller::wait_for_leader_heartbeat() {
@@ -269,7 +290,7 @@ void Controller::wait_for_leader_heartbeat() {
 std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(AppendEntriesRequest* request) {
 	std::shared_ptr<AppendEntriesResponse> res = std::make_shared<AppendEntriesResponse>();
 	res.get()->success = false;
-	res.get()->term = -1;
+	res.get()->term = this->term;
 
 	if (request->term >= this->term && request->prev_log_term >= this->last_log_term && request->prev_log_index >= this->last_log_index) {
 		this->set_received_heartbeat(true);
@@ -282,11 +303,20 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 			this->cluster_metadata->set_leader_id(request->leader_id);
 		} else this->logger->log_info("Received heartbeat from leader");
 
-		this->insert_commands_to_log(request->commands_data, request->total_commands, request->commands_total_bytes);
+		auto tup_res = this->insert_commands_to_log(request->commands_data, request->total_commands, request->commands_total_bytes);
+
+		if (std::get<0>(tup_res))
+			this->mh->update_cluster_metadata_commit_index(request->leader_commit);
+		else {
+			res.get()->success = false;
+			res.get()->lag_index = std::get<1>(tup_res);
+			return res;
+		}
 
 		this->term = request->term;
 		this->commit_index = request->leader_commit;
-	} res.get()->term = this->term;
+	}
+	else res.get()->success = false;
 
 	return res;
 }
@@ -720,14 +750,22 @@ void Controller::insert_commands_to_log(std::vector<Command>* commands) {
 	memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, last_command.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
 }
 
-void Controller::insert_commands_to_log(void* commands, int total_commands, long commands_total_bytes) {
-	if (total_commands <= 0 || commands_total_bytes <= 0) return;
+std::tuple<bool, unsigned long long> Controller::insert_commands_to_log(void* commands, int total_commands, long commands_total_bytes) {
+	if (total_commands <= 0 || commands_total_bytes <= 0) return std::tuple<bool, unsigned long long>(true, 0);
 
 	unsigned long command_bytes = 0;
 
 	unsigned long offset = 0;
 
+	unsigned long long first_version = 0;
+
 	for (int i = 0; i < total_commands; i++) {
+		if (i == 0) {
+			memcpy_s(&first_version, sizeof(unsigned long long), (char*)commands + offset + MESSAGE_ID_OFFSET, sizeof(unsigned long long));
+			if(first_version > this->last_log_index + 1)
+				return std::tuple<bool, unsigned long long>(true, this->last_log_index);
+		}
+
 		memcpy_s(&command_bytes, sizeof(unsigned long), (char*)commands + offset, sizeof(unsigned long));
 		std::shared_ptr<char> command = std::shared_ptr<char>(new char[command_bytes]);
 		this->log.emplace_back(command);
@@ -747,12 +785,16 @@ void Controller::insert_commands_to_log(void* commands, int total_commands, long
 			this->log.pop_back();
 			total_commands--;
 		}
+
+		return std::tuple<bool, unsigned long long>(false, this->last_log_index);
 	}
 
 	auto& last_command = this->log.back();
 
 	memcpy_s(&this->last_log_index, MESSAGE_ID_SIZE, last_command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 	memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, last_command.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+
+	return std::tuple<bool, unsigned long long>(true, 0);
 }
 
 void Controller::execute_command(void* command_metadata) {
@@ -802,11 +844,23 @@ void Controller::make_lagging_followers_catchup() {
 			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_LAGGING_FOLLOWERS));
 			continue;
 		}
-
-		// TODO: Do some job here
+		
 		this->logger->log_info("Fixing lagging followers...");
 
-		this->lagging_followers.clear();
+		std::unordered_set<int> to_remove;
+
+		try
+		{
+			for (auto& follower_iter : this->lagging_followers) {
+				// TODO: Fix lagging follower here
+
+				to_remove.insert(follower_iter.first);
+			}
+		}
+		catch (const std::exception&) { }
+
+		for (auto& fixed_follower : to_remove)
+			this->lagging_followers.erase(fixed_follower);
 
 		lock.unlock();
 

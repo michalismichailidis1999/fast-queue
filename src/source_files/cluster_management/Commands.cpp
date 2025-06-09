@@ -53,6 +53,10 @@ unsigned long long Command::get_metadata_version() {
 	return this->metadata_version;
 }
 
+unsigned long long Command::get_term() {
+	return this->term;
+}
+
 void Command::set_metadata_version(unsigned long long metadata_version) {
 	this->metadata_version = metadata_version;
 }

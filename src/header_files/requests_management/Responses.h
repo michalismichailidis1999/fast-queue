@@ -4,7 +4,8 @@
 #include "../network_management/Connection.h"
 
 struct AppendEntriesResponse {
-	long long term;
+	unsigned long long term;
+	unsigned long long lag_index;
 	bool success;
 };
 
@@ -36,6 +37,6 @@ struct GetLeaderIdResponse {
 };
 
 struct RequestVoteResponse {
-	long long term;
+	unsigned long long term;
 	bool vote_granted;
 };

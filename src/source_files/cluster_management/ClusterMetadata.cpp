@@ -2,6 +2,7 @@
 
 ClusterMetadata::ClusterMetadata(int node_id) {
 	this->metadata_version = 0;
+	this->current_term = 0;
 	this->leader_id = 0;
 
 	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, -1, -1);
@@ -11,6 +12,10 @@ ClusterMetadata::ClusterMetadata(int node_id) {
 }
 
 ClusterMetadata::ClusterMetadata() {
+	this->metadata_version = 0;
+	this->current_term = 0;
+	this->leader_id = 0;
+
 	this->nodes_partition_counts = NULL;
 	this->nodes_leader_partition_counts = NULL;
 }
@@ -25,6 +30,10 @@ int ClusterMetadata::get_leader_id() {
 
 unsigned long long ClusterMetadata::get_current_version() {
 	return this->metadata_version;
+}
+
+unsigned long long ClusterMetadata::get_current_term() {
+	return this->current_term;
 }
 
 void ClusterMetadata::add_queue_metadata(std::shared_ptr<QueueMetadata> queue_metadata) {
@@ -56,6 +65,7 @@ void ClusterMetadata::apply_command(Command* command) {
 	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
 
 	this->metadata_version = command->get_metadata_version();
+	this->current_term = command->get_term();
 
 	switch (command->get_command_type())
 	{
@@ -184,6 +194,7 @@ void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderA
 void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 	this->leader_id.store(obj->leader_id.load());
 	this->metadata_version.store(obj->metadata_version);
+	this->current_term.store(obj->current_term);
 
 	if(this->nodes_partition_counts != NULL)
 		free(this->nodes_partition_counts);
@@ -225,6 +236,7 @@ void ClusterMetadata::fill_from_metadata(void* metadata) {
 	int total_assignments = 0;
 
 	memcpy_s(&this->metadata_version, METADATA_VERSION_SIZE, (char*)metadata + METADATA_VERSION_OFFSET, METADATA_VERSION_SIZE);
+	memcpy_s(&this->current_term, TERM_SIZE, (char*)metadata + TERM_OFFSET, TERM_SIZE);
 	memcpy_s(&total_queues, TOTAL_QUEUES_SIZE, (char*)metadata + TOTAL_QUEUES_OFFSET, TOTAL_QUEUES_SIZE);
 	memcpy_s(&total_assignments, TOTAL_PARTITION_ASSIGNMENTS_SIZE, (char*)metadata + TOTAL_PARTITION_ASSIGNMENTS_OFFSET, TOTAL_PARTITION_ASSIGNMENTS_SIZE);
 
@@ -309,6 +321,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClusterMetadata::get_metadata_by
 	Helper::add_common_metadata_values(bytes.get(), total_bytes, ObjectType::METADATA);
 
 	memcpy_s(bytes.get() + METADATA_VERSION_OFFSET, METADATA_VERSION_SIZE, &this->metadata_version, METADATA_VERSION_SIZE);
+	memcpy_s(bytes.get() + TERM_OFFSET, TERM_SIZE, &this->current_term, TERM_SIZE);
 	memcpy_s(bytes.get() + TOTAL_QUEUES_OFFSET, TOTAL_QUEUES_SIZE, &total_queues, TOTAL_QUEUES_SIZE);
 	memcpy_s(bytes.get() + TOTAL_PARTITION_ASSIGNMENTS_OFFSET, TOTAL_PARTITION_ASSIGNMENTS_SIZE, &total_assignments, TOTAL_PARTITION_ASSIGNMENTS_SIZE);
 

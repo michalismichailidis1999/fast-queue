@@ -156,7 +156,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 }
 
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(long long) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
+	long buf_size = sizeof(long) + sizeof(ErrorCode) + 2 * sizeof(unsigned long long) + sizeof(bool) + 3 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -164,6 +164,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	long offset = 0;
 
 	ResponseValueKey term_type = ResponseValueKey::TERM;
+	ResponseValueKey lag_index_type = ResponseValueKey::LAG_INDEX;
 	ResponseValueKey success_type = ResponseValueKey::SUCCESS;
 
 	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
@@ -175,7 +176,13 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &term_type, sizeof(ResponseValueKey));
 	offset += sizeof(ResponseValueKey);
 
-	memcpy_s(buf.get() + offset, sizeof(long long), &obj->term, sizeof(long long));
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->term, sizeof(unsigned long long));
+	offset += sizeof(long long);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &lag_index_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long), &obj->lag_index, sizeof(unsigned long long));
 	offset += sizeof(long long);
 
 	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &success_type, sizeof(ResponseValueKey));
@@ -187,7 +194,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 }
 
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(RequestVoteResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(long long) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
+	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(unsigned long long) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -206,7 +213,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Reques
 	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &term_type, sizeof(ResponseValueKey));
 	offset += sizeof(ResponseValueKey);
 
-	memcpy_s(buf.get() + offset, sizeof(long long), &obj->term, sizeof(long long));
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->term, sizeof(unsigned long long));
 	offset += sizeof(long long);
 
 	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &vote_granted_type, sizeof(ResponseValueKey));

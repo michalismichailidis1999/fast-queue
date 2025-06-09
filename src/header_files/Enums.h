@@ -83,7 +83,8 @@ enum class ResponseValueKey {
 	VOTE_GRANTED,
 	OK,
 	LEADER_ID,
-	CONTROLLER_CONNECTION_INFO
+	CONTROLLER_CONNECTION_INFO,
+	LAG_INDEX
 };
 
 enum class LogTraceType {

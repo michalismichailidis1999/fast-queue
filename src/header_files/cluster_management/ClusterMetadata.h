@@ -13,6 +13,7 @@
 class ClusterMetadata {
 private:
 	std::atomic<unsigned long long> metadata_version;
+	std::atomic<unsigned long long> current_term;
 
 	std::atomic_int leader_id;
 
@@ -48,6 +49,7 @@ public:
 	int get_leader_id();
 
 	unsigned long long get_current_version();
+	unsigned long long get_current_term();
 
 	void add_queue_metadata(std::shared_ptr<QueueMetadata> queue_metadata);
 	QueueMetadata* get_queue_metadata(const std::string& queue_name);

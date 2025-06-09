@@ -81,6 +81,8 @@ private:
 	void append_entries_to_followers();
 	void wait_for_leader_heartbeat();
 
+	void step_down_to_follower();
+
 	void set_state(NodeState state);
 	NodeState get_state();
 
@@ -92,12 +94,14 @@ private:
 	void repartition_node_data(int node_id);
 
 	void insert_commands_to_log(std::vector<Command>* commands);
-	void insert_commands_to_log(void* commands, int total_commands, long commands_total_bytes);
+	std::tuple<bool, unsigned long long> insert_commands_to_log(void* commands, int total_commands, long commands_total_bytes);
 
 	void execute_command(void* command_metadata);
 public:
 	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ClusterMetadataApplyHandler* cmah, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
+	void update_quorum_communication_values();
+	
 	std::shared_ptr<AppendEntriesResponse> handle_leader_append_entries(AppendEntriesRequest* request);
 	std::shared_ptr<RequestVoteResponse> handle_candidate_request_vote(RequestVoteRequest* request);
 

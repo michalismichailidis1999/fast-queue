@@ -33,9 +33,13 @@ std::unique_ptr<AppendEntriesResponse> ResponseMapper::to_append_entries_respons
 		ResponseValueKey* key = (ResponseValueKey*)(res_buf + offset);
 
 		if (*key == ResponseValueKey::TERM) {
-			res.get()->term = *(long long*)(res_buf + offset + sizeof(ResponseValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(long long);
-		} else if (*key == ResponseValueKey::SUCCESS) {
+			res.get()->term = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		} else if (*key == ResponseValueKey::LAG_INDEX) {
+			res.get()->lag_index = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == ResponseValueKey::SUCCESS) {
 			res.get()->success = *(bool*)(res_buf + offset + sizeof(ResponseValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(bool);
 		}
@@ -57,8 +61,8 @@ std::unique_ptr<RequestVoteResponse> ResponseMapper::to_request_vote_response(ch
 		ResponseValueKey* key = (ResponseValueKey*)(res_buf + offset);
 
 		if (*key == ResponseValueKey::TERM) {
-			res.get()->term = *(long long*)(res_buf + offset + sizeof(ResponseValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(long long);
+			res.get()->term = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
 		}
 		else if (*key == ResponseValueKey::VOTE_GRANTED) {
 			res.get()->vote_granted = *(bool*)(res_buf + offset + sizeof(ResponseValueKey));
