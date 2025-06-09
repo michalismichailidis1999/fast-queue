@@ -28,7 +28,9 @@ static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
 static const unsigned int INDEX_PAGE_SIZE = 4096; // 4KB
 
-static const unsigned int READ_MESSAGES_BATCH_SIZE = INDEX_PAGE_SIZE * 4; // 16KB
+static const unsigned int READ_MESSAGES_BATCH_SIZE = 4096 * 4; // 16KB
+
+static const unsigned int TRIE_PAGE_SIZE = 4096 * 4; // 16KB
 
 static const unsigned int BLOOM_FILTER_BIT_ARRAY_ELEMENTS_COUNT = 2500000;
 static const unsigned int BLOOM_FILTER_BIT_ARRAY_COMPRESSED_BITS = BLOOM_FILTER_BIT_ARRAY_ELEMENTS_COUNT / 8; // every uint8_t will contain 8 bits of info
@@ -78,6 +80,28 @@ static const unsigned int INDEX_VALUE_POSITION_OFFSET = INDEX_KEY_SIZE + INDEX_K
 static const unsigned int INDEX_KEY_VALUE_METADATA_SIZE = INDEX_KEY_SIZE + INDEX_VALUE_POSITION_SIZE;
 
 static const unsigned int INDEX_PAGE_TOTAL_ROWS = (INDEX_PAGE_SIZE - INDEX_PAGE_METADATA_SIZE) / INDEX_KEY_VALUE_METADATA_SIZE;
+
+static const unsigned int TRIE_PAGE_OFFSET_SIZE = sizeof(unsigned int);
+static const unsigned int TRIE_PAGE_OFFSET_OFFSET = COMMON_METADATA_TOTAL_BYTES;
+static const unsigned int TRIE_PAGE_TYPE_SIZE = sizeof(unsigned int);
+static const unsigned int TRIE_PAGE_TYPE_OFFSET = TRIE_PAGE_OFFSET_SIZE + TRIE_PAGE_OFFSET_OFFSET;
+static const unsigned int TRIE_NUM_OF_ROWS_SIZE = sizeof(unsigned int);
+static const unsigned int TRIE_NUM_OF_ROWS_OFFSET = TRIE_PAGE_TYPE_SIZE + TRIE_PAGE_TYPE_OFFSET;
+static const unsigned int TRIE_PAGE_METADATA_BYTES = TRIE_PAGE_OFFSET_SIZE + TRIE_PAGE_TYPE_SIZE + TRIE_NUM_OF_ROWS_SIZE;
+
+static const unsigned int TRIE_NODE_VALUE_SIZE = sizeof(char);
+static const unsigned int TRIE_NODE_VALUE_OFFSET = 0;
+static const unsigned int TRIE_NODE_NEXT_SIZE = sizeof(int);
+static const unsigned int TRIE_NODE_NEXT_OFFSET = TRIE_NODE_VALUE_SIZE + TRIE_NODE_VALUE_OFFSET;
+static const unsigned int TRIE_NODE_FLAGS_SIZE = sizeof(uint8_t);
+static const unsigned int TRIE_NODE_FLAGS_OFFSET = TRIE_NODE_NEXT_SIZE + TRIE_NODE_NEXT_OFFSET;
+static const unsigned int TRIE_NODE_METADATA_SIZE = TRIE_NODE_VALUE_SIZE + TRIE_NODE_NEXT_SIZE + TRIE_NODE_FLAGS_SIZE;
+
+static const unsigned int TRIE_PAGE_TOTAL_ROWS = (TRIE_PAGE_SIZE - TRIE_PAGE_METADATA_BYTES) / TRIE_NODE_METADATA_SIZE;
+
+static const unsigned int TRIE_NODE_HAS_VALUE_FLAG = 1;
+static const unsigned int TRIE_NODE_IS_WORD_FLAG = 2;
+static const unsigned int TRIE_NODE_APPLIES_TO_NEXT_FLAG = 4;
 
 static const unsigned int MARKER_TYPE_SIZE = sizeof(unsigned int);
 static const unsigned int MARKER_TYPE_OFFSET = COMMON_METADATA_TOTAL_BYTES;

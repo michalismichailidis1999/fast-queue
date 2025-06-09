@@ -135,9 +135,15 @@ enum class CommitMarkerStatus {
 	ABORTED
 };
 
+// for BTree
 enum class PageType {
 	NON_LEAF,
 	LEAF
+};
+
+enum class TriePageType {
+	ROOT,
+	EXTENSION
 };
 
 enum class CleanupPolicyType {
