@@ -11,6 +11,8 @@ struct AppendEntriesRequest {
 	int total_commands;
 	long commands_total_bytes;
 	void* commands_data;
+
+	std::shared_ptr<char> commands_data_ptr;
 };
 
 struct CreateQueueRequest {

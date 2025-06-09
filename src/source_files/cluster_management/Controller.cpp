@@ -829,51 +829,26 @@ std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long> Controller
 	req.get()->prev_log_index = this->last_log_index;
 	req.get()->prev_log_term = this->last_log_term;
 
-	long commands_total_bytes = 0;
-	int total_commands = 0;
+	unsigned long long index_to_send = this->follower_indexes[follower_id];
 
-	unsigned long long largest_version_sent = 0;
-
-	long remaining_messsage_bytes = this->settings->get_max_message_size();
-
-	remaining_messsage_bytes -= 2 * sizeof(long) - sizeof(RequestType) - sizeof(int) * 2 - sizeof(unsigned long long) * 4 - sizeof(RequestValueKey) * 6;
-
-	std::vector<std::shared_ptr<char>>* log_arr = &this->log;
-
-	std::unique_ptr<std::vector<std::shared_ptr<char>>> prev_log_arr = nullptr;
-
-	// TODO: Add logic for lagging followers
-
-	for (auto& command : *log_arr) {
-		long command_bytes = 0;
-
-		memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, command.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
-		memcpy_s(&largest_version_sent, MESSAGE_ID_SIZE, command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-
-		remaining_messsage_bytes -= command_bytes;
-
-		if (remaining_messsage_bytes < 0) break;
-
-		commands_total_bytes += command_bytes;
-
-		total_commands++;
+	if (index_to_send > this->last_log_index) {
+		req.get()->total_commands = 0;
+		req.get()->commands_total_bytes = 0;
+		req.get()->commands_data = NULL;
+		return std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long>(req, 0);
 	}
 
-	std::unique_ptr<char> commands = std::unique_ptr<char>(new char[commands_total_bytes]);
-	long offset = 0;
+	std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
 
-	for (int i = 0; i < total_commands; i++) {
-		long command_bytes = 0;
-		memcpy_s(&command_bytes, sizeof(long), (*log_arr)[i].get() + TOTAL_METADATA_BYTES_OFFSET, sizeof(long));
-		memcpy_s(commands.get() + offset, command_bytes, (*log_arr)[i].get(), command_bytes);
-		offset += command_bytes;
-	}
+	auto messages_res = this->mh->read_partition_messages(queue.get()->get_partition(0), index_to_send);
 
-	req.get()->total_commands = total_commands;
-	req.get()->commands_total_bytes = commands_total_bytes;
-	req.get()->commands_data = commands.get();
+	req.get()->total_commands = std::get<4>(messages_res);
+	req.get()->commands_total_bytes = std::get<3>(messages_res) - std::get<2>(messages_res);
+	req.get()->commands_data = std::get<4>(messages_res) == 0 ? NULL : std::get<0>(messages_res).get();
+	// the below line keeps commands to memory until we go to next follower to prepare request
+	req.get()->commands_data_ptr = std::get<4>(messages_res) == 0 ? nullptr : std::get<0>(messages_res);
 
-	return std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long>(req, largest_version_sent);
+	return std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long>(req, 0);
 }
 
 unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent) {
@@ -881,5 +856,5 @@ unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned
 
 	std::sort(largest_indexes_sent->begin(), largest_indexes_sent->end());
 
-	return (*largest_indexes_sent)[this->half_quorum_nodes_count - 1];
+	return (*largest_indexes_sent)[this->half_quorum_nodes_count];
 }

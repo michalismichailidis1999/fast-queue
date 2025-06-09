@@ -44,7 +44,7 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 		if (!success) return;
 
-		if (res_buffer_length > this->settings->get_max_message_size()) {
+		if (res_buffer_length > this->settings->get_max_message_size() && !internal_communication) {
 			std::string err_msg = "Message bytes (" + std::to_string(res_buffer_length) + ") was larger than maximum allowed bytes (" + std::to_string(this->settings->get_max_message_size()) + ")";
 			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::TOO_MANY_BYTES_RECEIVED, err_msg);
 			this->logger->log_error(err_msg);
