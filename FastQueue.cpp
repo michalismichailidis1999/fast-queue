@@ -177,10 +177,6 @@ int main(int argc, char* argv[])
             controller.get()->check_for_commit_and_last_applied_diff();
         };
 
-        auto make_lagging_followers_catchup = [&]() {
-            controller.get()->make_lagging_followers_catchup();
-        };
-
         auto send_heartbeats_to_leader = [&]() {
             data_node.get()->send_heartbeats_to_leader(&should_terminate);
         };
@@ -208,7 +204,6 @@ int main(int argc, char* argv[])
         std::thread run_quorum_communication_thread = std::thread(run_controller_quorum_communication);
         std::thread check_dead_data_nodes_thread = std::thread(check_dead_data_nodes);
         std::thread check_for_commit_and_last_applied_diff_thread = std::thread(check_for_commit_and_last_applied_diff);
-        std::thread make_lagging_followers_catchup_thread = std::thread(make_lagging_followers_catchup);
         std::thread send_heartbeats_to_leader_thread = std::thread(send_heartbeats_to_leader);
         std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
         std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
@@ -222,7 +217,6 @@ int main(int argc, char* argv[])
         run_quorum_communication_thread.join();
         check_dead_data_nodes_thread.join();
         check_for_commit_and_last_applied_diff_thread.join();
-        make_lagging_followers_catchup_thread.join();
         send_heartbeats_to_leader_thread.join();
         compact_closed_segments_thread.join();
         remove_expired_segments_thread.join();

@@ -149,8 +149,11 @@ void Controller::start_election() {
 	this->set_state(NodeState::LEADER);
 	this->cluster_metadata->set_leader_id(this->settings->get_node_id());
 	this->logger->log_info("Elected as leader");
-	std::lock_guard<std::mutex> lag_lock(this->lagging_followers_mut);
-	this->lagging_followers.clear();
+
+	std::lock_guard<std::mutex> lag_lock(this->follower_indexes_mut);
+
+	for (auto iter : *controller_node_connections)
+		this->follower_indexes[iter.first] = this->last_log_index;
 }
 
 void Controller::append_entries_to_followers() {
@@ -159,56 +162,17 @@ void Controller::append_entries_to_followers() {
 
 	auto controller_node_connections = this->cm->get_controller_node_connections(false);
 
-	std::unique_ptr<AppendEntriesRequest> req = std::make_unique<AppendEntriesRequest>();
-	req.get()->leader_id = this->settings->get_node_id();
-	req.get()->term = this->term;
-	req.get()->leader_commit = this->commit_index;
-	req.get()->prev_log_index = this->last_log_index;
-	req.get()->prev_log_term = this->last_log_term;
-
-	long commands_total_bytes = 0;
-	int total_commands = 0;
-
-	unsigned long long largest_version_sent = 0;
-
-	long remaining_messsage_bytes = this->settings->get_max_message_size();
-
-	remaining_messsage_bytes -= 2 * sizeof(long) - sizeof(RequestType) - sizeof(int) * 2 - sizeof(unsigned long long) * 4 - sizeof(RequestValueKey) * 6;
-
-	for (auto& command : this->log) {
-		long command_bytes = 0;
-
-		memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, command.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
-		memcpy_s(&largest_version_sent, MESSAGE_ID_SIZE, command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-
-		remaining_messsage_bytes -= command_bytes;
-
-		if (remaining_messsage_bytes < 0) break;
-
-		commands_total_bytes += command_bytes;
-
-		total_commands++;
-	}
-
-	std::unique_ptr<char> commands = std::unique_ptr<char>(new char[commands_total_bytes]);
-	long offset = 0;
-
-	for (int i = 0; i < total_commands; i++) {
-		long command_bytes = 0;
-		memcpy_s(&command_bytes, sizeof(long), this->log[i].get() + TOTAL_METADATA_BYTES_OFFSET, sizeof(long));
-		memcpy_s(commands.get() + offset, command_bytes, this->log[i].get(), command_bytes);
-		offset += command_bytes;
-	}
-
-	req.get()->total_commands = total_commands;
-	req.get()->commands_total_bytes = commands_total_bytes;
-	req.get()->commands_data = commands.get();
-
-	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
+	std::vector<unsigned long long> largest_versions_sent(controller_node_connections->size());
 
 	int replication_count = 1;
 
 	for (auto iter : *controller_node_connections) {
+		auto req_tup = this->prepare_append_entries_request(iter.first);
+
+		std::shared_ptr<AppendEntriesRequest> req = std::get<0>(req_tup);
+
+		std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
+
 		std::tuple<std::shared_ptr<char>, long, bool> res_tup = this->cm->send_request_to_socket(
 			iter.second.get(),
 			3,
@@ -219,6 +183,7 @@ void Controller::append_entries_to_followers() {
 
 		if (std::get<1>(res_tup) == -1) {
 			this->logger->log_error("Network issue occured while communicating with node " + std::to_string(iter.first));
+			largest_versions_sent.emplace_back(0);
 			continue;
 		}
 
@@ -229,6 +194,7 @@ void Controller::append_entries_to_followers() {
 
 		if (res.get() == NULL) {
 			this->logger->log_error("Invalid mapping value in AppendEntriesResponse type");
+			largest_versions_sent.emplace_back(0);
 			continue;
 		}
 
@@ -242,18 +208,26 @@ void Controller::append_entries_to_followers() {
 			} else if(res.get()->lag_index == 0)
 				this->step_down_to_follower();
 			else {
-				std::lock_guard<std::mutex> lag_followers_lock(this->lagging_followers_mut);
-				this->lagging_followers[iter.first] = res.get()->lag_index;
+				std::lock_guard<std::mutex> lag_followers_lock2(this->follower_indexes_mut);
+				this->follower_indexes[iter.first] = res.get()->lag_index;
 			}
 
-			return;
+			largest_versions_sent.emplace_back(0);
+
+			continue;
 		}
 		else replication_count++;
+
+		largest_versions_sent.emplace_back(std::get<1>(req_tup));
 	}
 
 	if (replication_count >= this->half_quorum_nodes_count) {
-		this->commit_index = largest_version_sent;
-		this->mh->update_cluster_metadata_commit_index(largest_version_sent);
+		unsigned long long largest_replicated_index = this->get_largest_replicated_index(&largest_versions_sent);
+
+		if (largest_replicated_index > 0 && largest_replicated_index > this->commit_index) {
+			this->commit_index = largest_replicated_index;
+			this->mh->update_cluster_metadata_commit_index(largest_replicated_index);
+		}
 	}
 
 	log_lock.unlock();
@@ -835,39 +809,6 @@ void Controller::check_for_commit_and_last_applied_diff() {
 	}
 }
 
-void Controller::make_lagging_followers_catchup() {
-	while (!(*this->should_terminate)) {
-		std::unique_lock<std::mutex> lock(this->lagging_followers_mut);
-
-		if (this->lagging_followers.size() == 0) {
-			lock.unlock();
-			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_LAGGING_FOLLOWERS));
-			continue;
-		}
-		
-		this->logger->log_info("Fixing lagging followers...");
-
-		std::unordered_set<int> to_remove;
-
-		try
-		{
-			for (auto& follower_iter : this->lagging_followers) {
-				// TODO: Fix lagging follower here
-
-				to_remove.insert(follower_iter.first);
-			}
-		}
-		catch (const std::exception&) { }
-
-		for (auto& fixed_follower : to_remove)
-			this->lagging_followers.erase(fixed_follower);
-
-		lock.unlock();
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_LAGGING_FOLLOWERS));
-	}
-}
-
 ClusterMetadata* Controller::get_compacted_cluster_metadata() {
 	return this->compacetd_cluster_metadata.get();
 }
@@ -878,4 +819,67 @@ ClusterMetadata* Controller::get_cluster_metadata() {
 
 ClusterMetadata* Controller::get_future_cluster_metadata() {
 	return this->future_cluster_metadata.get();
+}
+
+std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long> Controller::prepare_append_entries_request(int follower_id) {
+	std::shared_ptr<AppendEntriesRequest> req = std::make_shared<AppendEntriesRequest>();
+	req.get()->leader_id = this->settings->get_node_id();
+	req.get()->term = this->term;
+	req.get()->leader_commit = this->commit_index;
+	req.get()->prev_log_index = this->last_log_index;
+	req.get()->prev_log_term = this->last_log_term;
+
+	long commands_total_bytes = 0;
+	int total_commands = 0;
+
+	unsigned long long largest_version_sent = 0;
+
+	long remaining_messsage_bytes = this->settings->get_max_message_size();
+
+	remaining_messsage_bytes -= 2 * sizeof(long) - sizeof(RequestType) - sizeof(int) * 2 - sizeof(unsigned long long) * 4 - sizeof(RequestValueKey) * 6;
+
+	std::vector<std::shared_ptr<char>>* log_arr = &this->log;
+
+	std::unique_ptr<std::vector<std::shared_ptr<char>>> prev_log_arr = nullptr;
+
+	// TODO: Add logic for lagging followers
+
+	for (auto& command : *log_arr) {
+		long command_bytes = 0;
+
+		memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, command.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+		memcpy_s(&largest_version_sent, MESSAGE_ID_SIZE, command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+		remaining_messsage_bytes -= command_bytes;
+
+		if (remaining_messsage_bytes < 0) break;
+
+		commands_total_bytes += command_bytes;
+
+		total_commands++;
+	}
+
+	std::unique_ptr<char> commands = std::unique_ptr<char>(new char[commands_total_bytes]);
+	long offset = 0;
+
+	for (int i = 0; i < total_commands; i++) {
+		long command_bytes = 0;
+		memcpy_s(&command_bytes, sizeof(long), (*log_arr)[i].get() + TOTAL_METADATA_BYTES_OFFSET, sizeof(long));
+		memcpy_s(commands.get() + offset, command_bytes, (*log_arr)[i].get(), command_bytes);
+		offset += command_bytes;
+	}
+
+	req.get()->total_commands = total_commands;
+	req.get()->commands_total_bytes = commands_total_bytes;
+	req.get()->commands_data = commands.get();
+
+	return std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long>(req, largest_version_sent);
+}
+
+unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent) {
+	if (largest_indexes_sent->size() == 0) return 0;
+
+	std::sort(largest_indexes_sent->begin(), largest_indexes_sent->end());
+
+	return (*largest_indexes_sent)[this->half_quorum_nodes_count - 1];
 }

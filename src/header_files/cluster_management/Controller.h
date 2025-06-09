@@ -68,8 +68,8 @@ private:
 	std::vector<std::shared_ptr<char>> log;
 	std::mutex log_mut;
 
-	std::unordered_map<int, unsigned long long> lagging_followers;
-	std::mutex lagging_followers_mut;
+	std::unordered_map<int, unsigned long long> follower_indexes;
+	std::mutex follower_indexes_mut;
 
 	std::map<int, std::chrono::milliseconds> data_nodes_heartbeats;
 	std::mutex heartbeats_mut;
@@ -97,6 +97,10 @@ private:
 	std::tuple<bool, unsigned long long> insert_commands_to_log(void* commands, int total_commands, long commands_total_bytes);
 
 	void execute_command(void* command_metadata);
+
+	std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long> prepare_append_entries_request(int follower_id);
+
+	unsigned long long get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent);
 public:
 	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ClusterMetadataApplyHandler* cmah, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
@@ -120,8 +124,6 @@ public:
 	int get_active_nodes_count();
 
 	void check_for_commit_and_last_applied_diff();
-
-	void make_lagging_followers_catchup();
 
 	ClusterMetadata* get_compacted_cluster_metadata();
 

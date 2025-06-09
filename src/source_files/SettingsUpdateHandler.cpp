@@ -24,6 +24,8 @@ void SettingsUpdateHandler::check_if_settings_updated(std::atomic_bool* should_t
 
 		this->settings->update_values_with_new_settings(new_settings.get());
 
+		// TODO: Notify classes about settings updates
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
 	}
 }
