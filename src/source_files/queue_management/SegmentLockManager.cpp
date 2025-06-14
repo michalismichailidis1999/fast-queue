@@ -18,26 +18,24 @@ void SegmentLockManager::lock_segment(Partition* partition, PartitionSegment* se
 }
 
 void SegmentLockManager::release_segment_lock(Partition* partition, PartitionSegment* segment, bool exclusive) {
-	std::async(std::launch::async, [&] {
-		std::unique_lock<std::mutex> map_lock(this->mut);
+	std::unique_lock<std::mutex> map_lock(this->mut);
 
-		std::string key = this->get_segment_key(partition, segment);
+	std::string key = this->get_segment_key(partition, segment);
 
-		if (this->locks.find(key) == this->locks.end()) return;
+	if (this->locks.find(key) == this->locks.end()) return;
 
-		auto& s_lock = this->locks[key];
-		map_lock.unlock();
+	auto& s_lock = this->locks[key];
+	map_lock.unlock();
 
-		if (exclusive) s_lock.get()->mut.unlock();
-		else s_lock.get()->mut.unlock_shared();
+	if (exclusive) s_lock.get()->mut.unlock();
+	else s_lock.get()->mut.unlock_shared();
 
-		map_lock.lock();
+	map_lock.lock();
 
-		if ((--s_lock.get()->references) <= 0) {
-			this->locks.erase(key);
-			return;
-		}
-	});
+	if ((--s_lock.get()->references) <= 0) {
+		this->locks.erase(key);
+		return;
+	}
 }
 
 const std::string& SegmentLockManager::get_segment_key(Partition* partition, PartitionSegment* segment) {

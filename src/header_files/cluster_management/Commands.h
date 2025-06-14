@@ -15,9 +15,6 @@ private:
 	unsigned long long timestamp;
 
 	std::shared_ptr<void> command_info;
-
-	std::string get_command_key();
-
 public:
 	Command();
 
@@ -42,8 +39,6 @@ private:
 	std::string queue_name;
 	int partitions;
 	int replication_factor;
-
-	std::string get_command_key();
 public:
 	CreateQueueCommand(const std::string& queue_name, int partitions, int replication_factor);
 
@@ -66,8 +61,6 @@ private:
 	int partition;
 	int to_node;
 	int from_node;
-
-	std::string get_command_key();
 public:
 	PartitionAssignmentCommand(const std::string& queue_name, int partition, int to_node, int from_node = -1);
 
@@ -93,8 +86,6 @@ private:
 	int new_leader;
 	int prev_leader;
 
-	std::string get_command_key();
-
 public:
 	PartitionLeaderAssignmentCommand(const std::string& queue_name, int partition, int new_leader, int prev_leader = -1);
 
@@ -116,9 +107,6 @@ public:
 class DeleteQueueCommand {
 private:
 	std::string queue_name;
-
-	std::string get_command_key();
-
 public:
 	DeleteQueueCommand(const std::string& queue_name);
 

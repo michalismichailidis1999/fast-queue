@@ -61,21 +61,6 @@ void Command::set_metadata_version(unsigned long long metadata_version) {
 	this->metadata_version = metadata_version;
 }
 
-std::string Command::get_command_key() {
-	switch (this->type) {
-	case CommandType::CREATE_QUEUE:
-		return ((CreateQueueCommand*)(this->command_info.get()))->get_command_key();
-	case CommandType::ALTER_PARTITION_ASSIGNMENT:
-		return ((PartitionAssignmentCommand*)(this->command_info.get()))->get_command_key();
-	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
-		return ((PartitionLeaderAssignmentCommand*)(this->command_info.get()))->get_command_key();
-	case CommandType::DELETE_QUEUE:
-		return ((DeleteQueueCommand*)(this->command_info.get()))->get_command_key();
-	default:
-		return "";
-	}
-}
-
 std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 	long total_bytes = 0;
 	int size_dif = COMMAND_TOTAL_BYTES;
@@ -101,11 +86,9 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		return std::tuple<long, std::shared_ptr<char>>(0, nullptr);
 	}
 
-	std::string command_key = this->get_command_key();
-
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[total_bytes]);
 	
-	Helper::add_message_metadata_values(bytes.get(), this->metadata_version, this->timestamp, command_key.size(), command_key.c_str());
+	Helper::add_message_metadata_values(bytes.get(), this->metadata_version, this->timestamp, 0, NULL);
 
 	memcpy_s(bytes.get() + COMMAND_TYPE_OFFSET, COMMAND_TYPE_SIZE, &this->type, COMMAND_TYPE_SIZE);
 	memcpy_s(bytes.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE, &this->term, COMMAND_TERM_SIZE);
@@ -183,10 +166,6 @@ int CreateQueueCommand::get_replication_factor() {
 	return this->replication_factor;
 }
 
-std::string CreateQueueCommand::get_command_key() {
-	return "qc_" + this->queue_name + "_" + std::to_string(this->partitions) + "_" + std::to_string(this->replication_factor);
-}
-
 std::shared_ptr<char> CreateQueueCommand::get_metadata_bytes() {
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[CQ_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
 
@@ -237,10 +216,6 @@ int PartitionAssignmentCommand::get_to_node() {
 
 int PartitionAssignmentCommand::get_from_node() {
 	return this->from_node;
-}
-
-std::string PartitionAssignmentCommand::get_command_key() {
-	return "pa_" + this->queue_name + "_" + std::to_string(this->partition) + "_to_" + std::to_string(this->to_node) + "_from_" + std::to_string(this->from_node);
 }
 
 std::shared_ptr<char> PartitionAssignmentCommand::get_metadata_bytes() {
@@ -296,10 +271,6 @@ int PartitionLeaderAssignmentCommand::get_prev_leader() {
 	return this->prev_leader;
 }
 
-std::string PartitionLeaderAssignmentCommand::get_command_key() {
-	return "pla_" + this->queue_name + "_" + std::to_string(this->partition) + "_new_" + std::to_string(this->new_leader) + "_prev_" + std::to_string(this->prev_leader);
-}
-
 std::shared_ptr<char> PartitionLeaderAssignmentCommand::get_metadata_bytes() {
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[PLA_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
 
@@ -332,10 +303,6 @@ DeleteQueueCommand::DeleteQueueCommand(void* metadata) {
 
 const std::string& DeleteQueueCommand::get_queue_name() {
 	return this->queue_name;
-}
-
-std::string DeleteQueueCommand::get_command_key() {
-	return "dc_" + this->queue_name;
 }
 
 std::shared_ptr<char> DeleteQueueCommand::get_metadata_bytes() {

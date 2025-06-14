@@ -10,8 +10,6 @@ CompactionHandler::CompactionHandler(Controller* controller, QueueManager* qm, M
 	this->pm = pm;
 	this->logger = logger;
 	this->settings = settings;
-
-	this->bf = std::unique_ptr<BloomFilter>(new BloomFilter(BLOOM_FILTER_BIT_ARRAY_SIZE, BLOOM_FILTER_HASH_FUNCTIONS_COUNT));
 }
 
 void CompactionHandler::compact_closed_segments(std::atomic_bool* should_terminate) {
@@ -50,6 +48,8 @@ void CompactionHandler::handle_queue_partitions_segment_compaction(const std::st
 }
 
 bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* partition) {
+	this->existing_keys.clear();
+
 	unsigned long long segment_id = partition->get_smallest_uncompacted_segment_id();
 
 	if (partition->get_current_segment_id() == segment_id) return false;
@@ -110,11 +110,11 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 
 	std::shared_ptr<PartitionSegment> compacted_segment = nullptr;
 
+	// Shared lock can be used since data will only be read and written to different file
+	this->lock_manager->lock_segment(partition, &segment);
+
 	try
 	{
-		// Shared lock can be used since data will only be read and written to different file
-		this->lock_manager->lock_segment(partition, &segment);
-
 		if (is_internal_queue) this->compact_internal_segment(&segment);
 		else compacted_segment = this->compact_segment(partition, &segment);
 	}
@@ -135,10 +135,10 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 
 	if (!success) return false;
 
+	this->lock_manager->lock_segment(partition, &segment, true);
+
 	try
 	{
-		this->lock_manager->lock_segment(partition, &segment, true);
-
 		if (is_internal_queue) {
 			auto tup_res = this->controller->get_compacted_cluster_metadata()->get_metadata_bytes();
 
@@ -186,8 +186,6 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 
 std::shared_ptr<PartitionSegment> CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment, std::shared_ptr<BTreeNode> write_node) {
 	if (write_segment == nullptr) {
-		this->bf->reset();
-
 		auto write_tup_res = this->initialize_compacted_segment_write_locations(partition, segment);
 
 		write_segment = std::get<0>(write_tup_res);
@@ -212,7 +210,38 @@ std::shared_ptr<PartitionSegment> CompactionHandler::compact_segment(Partition* 
 		current_last_node = this->find_index_node_with_last_message(segment, page_data.get(), current_last_node.get());
 	}
 
-	// TODO: Compact now prev compacted segment to this segment if prev segment exists
+	std::shared_ptr<PartitionSegment> prev_compacted_segment = this->get_prev_compacted_segment(partition, segment->get_id() - 1);
+
+	if (prev_compacted_segment != nullptr) {
+		try
+		{
+			this->lock_manager->lock_segment(partition, prev_compacted_segment.get());
+
+			this->compact_segment(partition, prev_compacted_segment.get(), write_segment, write_node);
+		}
+		catch (const std::exception& ex)
+		{
+			this->lock_manager->release_segment_lock(partition, prev_compacted_segment.get());
+			throw ex;
+		}
+
+		this->lock_manager->release_segment_lock(partition, prev_compacted_segment.get());
+
+		this->lock_manager->lock_segment(partition, prev_compacted_segment.get(), true);
+
+		try
+		{
+			this->fh->delete_dir_or_file(prev_compacted_segment.get()->get_index_path(), prev_compacted_segment.get()->get_index_key());
+			this->fh->delete_dir_or_file(prev_compacted_segment.get()->get_segment_path(), prev_compacted_segment.get()->get_segment_key());
+		}
+		catch (const std::exception& ex)
+		{
+			this->lock_manager->release_segment_lock(partition, prev_compacted_segment.get(), true);
+			throw ex;
+		}
+
+		this->lock_manager->release_segment_lock(partition, prev_compacted_segment.get(), true);
+	}
 
 	return write_segment;
 }
@@ -228,20 +257,6 @@ bool CompactionHandler::continue_compaction(Queue* queue) {
 	if (queue->get_metadata()->get_status() == Status::ACTIVE) return true;
 
 	this->logger->log_info("Queue " + queue->get_metadata()->get_name() + " is not active. Skipping compaction check");
-
-	return false;
-}
-
-bool CompactionHandler::ignore_message(void* message) {
-	unsigned int key_size = 0;
-
-	memcpy_s(&key_size, MESSAGE_KEY_LENGTH_SIZE, (char*)message + MESSAGE_KEY_LENGTH_OFFSET, MESSAGE_KEY_LENGTH_SIZE);
-
-	std::string key = std::string((char*)message + MESSAGE_KEY_OFFSET, key_size);
-
-	if (!this->bf->has((void*)key.c_str(), key_size)) return false;
-
-	// TODO: Create a key index for each queue with compaction and check there if key exists
 
 	return false;
 }
@@ -273,8 +288,8 @@ std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>> Compac
 		true
 	);
 
-	this->fh->delete_dir_or_file(compacted_index_path);
-	this->fh->delete_dir_or_file(compacted_segment_path);
+	this->fh->delete_dir_or_file(compacted_index_path, compacted_index_key);
+	this->fh->delete_dir_or_file(compacted_segment_path, compacted_segment_key);
 
 	this->fh->create_new_file(
 		compacted_segment_path,
@@ -304,6 +319,53 @@ std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>> Compac
 	return std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>>(
 		write_segment, write_node
 	);
+}
+
+std::shared_ptr<PartitionSegment> CompactionHandler::get_prev_compacted_segment(Partition* partition, unsigned long long prev_segment_id) {
+	std::string compacted_segment_path = this->pm->get_compacted_file_path(
+		partition->get_queue_name(),
+		prev_segment_id,
+		partition->get_partition_id()
+	);
+
+	std::string compacted_segment_key = this->pm->get_compacted_file_path(
+		partition->get_queue_name(),
+		prev_segment_id,
+		partition->get_partition_id()
+	);
+
+	std::string compacted_index_path = this->pm->get_compacted_file_path(
+		partition->get_queue_name(),
+		prev_segment_id,
+		partition->get_partition_id(),
+		true
+	);
+
+	std::string compacted_index_key = this->pm->get_compacted_file_path(
+		partition->get_queue_name(),
+		prev_segment_id,
+		partition->get_partition_id(),
+		true
+	);
+
+	if (!this->fh->check_if_exists(compacted_segment_path) || !this->fh->check_if_exists(compacted_index_path))
+		return nullptr;
+
+	std::unique_ptr<char> metadata = std::unique_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
+
+	this->fh->read_from_file(
+		compacted_segment_key,
+		compacted_segment_path,
+		SEGMENT_METADATA_TOTAL_BYTES,
+		0,
+		metadata.get()
+	);
+
+	std::shared_ptr<PartitionSegment> segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(metadata.get(), compacted_segment_key, compacted_segment_path));
+
+	segment.get()->set_index(compacted_index_key, compacted_index_path);
+
+	return segment;
 }
 
 std::shared_ptr<BTreeNode> CompactionHandler::find_index_node_with_last_message(PartitionSegment* segment, void* page_data) {
@@ -418,6 +480,8 @@ void CompactionHandler::parse_index_node_rows(Partition* partition, PartitionSeg
 	unsigned int prev_kept_key = 0;
 	unsigned int non_ignored_streak = 0;
 
+	unsigned int key_size = 0;
+
 	Partition dummy_partition = Partition(partition->get_partition_id(), partition->get_queue_name());
 	dummy_partition.set_active_segment(write_segment);
 
@@ -444,7 +508,11 @@ void CompactionHandler::parse_index_node_rows(Partition* partition, PartitionSeg
 				throw CorruptionException(err_msg);
 			}
 
-			if (!this->ignore_message((char*)read_batch.get() + offset)) {
+			memcpy_s(&key_size, MESSAGE_KEY_LENGTH_SIZE, (char*)read_batch.get() + offset + MESSAGE_KEY_LENGTH_OFFSET, MESSAGE_KEY_LENGTH_SIZE);
+
+			std::string key = std::string((char*)read_batch.get() + offset + MESSAGE_KEY_OFFSET, key_size);
+
+			if (this->existing_keys.find(key) == this->existing_keys.end()) {
 				non_ignored_streak++;
 
 				if (non_ignored_streak > 1 && prev_kept_key > 0) messages_to_keep[prev_kept_key] += message_bytes;
@@ -452,6 +520,8 @@ void CompactionHandler::parse_index_node_rows(Partition* partition, PartitionSeg
 					messages_to_keep[offset] = message_bytes;
 					prev_kept_key = offset;
 				}
+
+				this->existing_keys.insert(key);
 			}
 			else {
 				ignore_count++;
