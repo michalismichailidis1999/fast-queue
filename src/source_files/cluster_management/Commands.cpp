@@ -32,6 +32,12 @@ Command::Command(void* metadata) {
 	case CommandType::DELETE_QUEUE:
 		this->command_info = std::shared_ptr<DeleteQueueCommand>(new DeleteQueueCommand(metadata));
 		break;
+	case CommandType::REGISTER_DATA_NODE:
+		this->command_info = std::shared_ptr<RegisterDataNodeCommand>(new RegisterDataNodeCommand(metadata));
+		break;
+	case CommandType::UNREGISTER_DATA_NODE:
+		this->command_info = std::shared_ptr<UnregisterDataNodeCommand>(new UnregisterDataNodeCommand(metadata));
+		break;
 	default:
 		break;
 	}
@@ -82,6 +88,14 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		total_bytes = DQ_COMMAND_TOTAL_BYTES;
 		size_dif = DQ_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
 		break;
+	case CommandType::REGISTER_DATA_NODE:
+		total_bytes = RDN_COMMAND_TOTAL_BYTES;
+		size_dif = RDN_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		break;
+	case CommandType::UNREGISTER_DATA_NODE:
+		total_bytes = UDN_COMMAND_TOTAL_BYTES;
+		size_dif = UDN_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		break;
 	default:
 		return std::tuple<long, std::shared_ptr<char>>(0, nullptr);
 	}
@@ -123,6 +137,22 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 			bytes.get() + COMMAND_TOTAL_BYTES,
 			size_dif,
 			((DeleteQueueCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
+			size_dif
+		);
+		break;
+	case CommandType::REGISTER_DATA_NODE:
+		memcpy_s(
+			bytes.get() + COMMAND_TOTAL_BYTES,
+			size_dif,
+			((RegisterDataNodeCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
+			size_dif
+		);
+		break;
+	case CommandType::UNREGISTER_DATA_NODE:
+		memcpy_s(
+			bytes.get() + COMMAND_TOTAL_BYTES,
+			size_dif,
+			((UnregisterDataNodeCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
 			size_dif
 		);
 		break;
@@ -171,10 +201,10 @@ std::shared_ptr<char> CreateQueueCommand::get_metadata_bytes() {
 
 	int queue_name_size = this->queue_name.size();
 
-	memcpy_s(bytes.get() + CQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET, CQ_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, CQ_COMMAND_QUEUE_NAME_LENGTH_SIZE);
-	memcpy_s(bytes.get() + CQ_COMMAND_QUEUE_NAME_OFFSET, queue_name_size, this->queue_name.c_str(), queue_name_size);
-	memcpy_s(bytes.get() + CQ_COMMAND_PARTITION_OFFSET, CQ_COMMAND_PARTITION_SIZE, &this->partitions, CQ_COMMAND_PARTITION_SIZE);
-	memcpy_s(bytes.get() + CQ_COMMAND_REPLICATION_OFFSET, CQ_COMMAND_REPLICATION_SIZE, &this->replication_factor, CQ_COMMAND_REPLICATION_SIZE);
+	memcpy_s(bytes.get() + CQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, CQ_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, CQ_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(bytes.get() + CQ_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_size, this->queue_name.c_str(), queue_name_size);
+	memcpy_s(bytes.get() + CQ_COMMAND_PARTITION_OFFSET - COMMAND_TOTAL_BYTES, CQ_COMMAND_PARTITION_SIZE, &this->partitions, CQ_COMMAND_PARTITION_SIZE);
+	memcpy_s(bytes.get() + CQ_COMMAND_REPLICATION_OFFSET - COMMAND_TOTAL_BYTES, CQ_COMMAND_REPLICATION_SIZE, &this->replication_factor, CQ_COMMAND_REPLICATION_SIZE);
 
 	return bytes;
 }
@@ -223,11 +253,11 @@ std::shared_ptr<char> PartitionAssignmentCommand::get_metadata_bytes() {
 
 	int queue_name_size = this->queue_name.size();
 
-	memcpy_s(bytes.get() + PA_COMMAND_QUEUE_NAME_LENGTH_OFFSET, PA_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, PA_COMMAND_QUEUE_NAME_LENGTH_SIZE);
-	memcpy_s(bytes.get() + PA_COMMAND_QUEUE_NAME_OFFSET, queue_name_size, this->queue_name.c_str(), queue_name_size);
-	memcpy_s(bytes.get() + PA_COMMAND_PARTITION_OFFSET, PA_COMMAND_PARTITION_SIZE, &this->partition, PA_COMMAND_PARTITION_SIZE);
-	memcpy_s(bytes.get() + PA_COMMAND_TO_NODE_OFFSET, PA_COMMAND_TO_NODE_SIZE, &this->to_node, PA_COMMAND_TO_NODE_SIZE);
-	memcpy_s(bytes.get() + PA_COMMAND_FROM_NODE_OFFSET, PA_COMMAND_FROM_NODE_SIZE, &this->from_node, PA_COMMAND_FROM_NODE_SIZE);
+	memcpy_s(bytes.get() + PA_COMMAND_QUEUE_NAME_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, PA_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, PA_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(bytes.get() + PA_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_size, this->queue_name.c_str(), queue_name_size);
+	memcpy_s(bytes.get() + PA_COMMAND_PARTITION_OFFSET - COMMAND_TOTAL_BYTES, PA_COMMAND_PARTITION_SIZE, &this->partition, PA_COMMAND_PARTITION_SIZE);
+	memcpy_s(bytes.get() + PA_COMMAND_TO_NODE_OFFSET - COMMAND_TOTAL_BYTES, PA_COMMAND_TO_NODE_SIZE, &this->to_node, PA_COMMAND_TO_NODE_SIZE);
+	memcpy_s(bytes.get() + PA_COMMAND_FROM_NODE_OFFSET - COMMAND_TOTAL_BYTES, PA_COMMAND_FROM_NODE_SIZE, &this->from_node, PA_COMMAND_FROM_NODE_SIZE);
 
 	return bytes;
 }
@@ -276,11 +306,11 @@ std::shared_ptr<char> PartitionLeaderAssignmentCommand::get_metadata_bytes() {
 
 	int queue_name_size = this->queue_name.size();
 
-	memcpy_s(bytes.get() + PLA_COMMAND_QUEUE_NAME_LENGTH_OFFSET, PLA_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, PLA_COMMAND_QUEUE_NAME_LENGTH_SIZE);
-	memcpy_s(bytes.get() + PLA_COMMAND_QUEUE_NAME_OFFSET, queue_name_size, this->queue_name.c_str(), queue_name_size);
-	memcpy_s(bytes.get() + PLA_COMMAND_PARTITION_OFFSET, PLA_COMMAND_PARTITION_SIZE, &this->partition, PLA_COMMAND_PARTITION_SIZE);
-	memcpy_s(bytes.get() + PLA_COMMAND_NEW_LEADER_OFFSET, PLA_COMMAND_NEW_LEADER_SIZE, &this->new_leader, PLA_COMMAND_NEW_LEADER_SIZE);
-	memcpy_s(bytes.get() + PLA_COMMAND_PREV_LEADER_OFFSET, PLA_COMMAND_PREV_LEADER_SIZE, &this->prev_leader, PLA_COMMAND_PREV_LEADER_SIZE);
+	memcpy_s(bytes.get() + PLA_COMMAND_QUEUE_NAME_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, PLA_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, PLA_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(bytes.get() + PLA_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_size, this->queue_name.c_str(), queue_name_size);
+	memcpy_s(bytes.get() + PLA_COMMAND_PARTITION_OFFSET - COMMAND_TOTAL_BYTES, PLA_COMMAND_PARTITION_SIZE, &this->partition, PLA_COMMAND_PARTITION_SIZE);
+	memcpy_s(bytes.get() + PLA_COMMAND_NEW_LEADER_OFFSET - COMMAND_TOTAL_BYTES, PLA_COMMAND_NEW_LEADER_SIZE, &this->new_leader, PLA_COMMAND_NEW_LEADER_SIZE);
+	memcpy_s(bytes.get() + PLA_COMMAND_PREV_LEADER_OFFSET - COMMAND_TOTAL_BYTES, PLA_COMMAND_PREV_LEADER_SIZE, &this->prev_leader, PLA_COMMAND_PREV_LEADER_SIZE);
 
 	return bytes;
 }
@@ -310,8 +340,79 @@ std::shared_ptr<char> DeleteQueueCommand::get_metadata_bytes() {
 
 	int queue_name_size = this->queue_name.size();
 
-	memcpy_s(bytes.get() + DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET, DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE);
-	memcpy_s(bytes.get() + DQ_COMMAND_QUEUE_NAME_OFFSET, queue_name_size, this->queue_name.c_str(), queue_name_size);
+	memcpy_s(bytes.get() + DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(bytes.get() + DQ_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_size, this->queue_name.c_str(), queue_name_size);
+
+	return bytes;
+}
+
+// ================================================================
+
+// Register Data Node Command
+
+RegisterDataNodeCommand::RegisterDataNodeCommand(int node_id, const std::string& address, int port) {
+	this->node_id = node_id;
+	this->address = address;
+	this->port = port;
+}
+
+RegisterDataNodeCommand::RegisterDataNodeCommand(void* metadata) {
+	memcpy_s(&this->node_id, RDN_COMMAND_NODE_ID_SIZE, (char*)metadata + RDN_COMMAND_NODE_ID_OFFSET, RDN_COMMAND_NODE_ID_SIZE);
+
+	int address_lenth = 0;
+	memcpy_s(&address_lenth, RDN_COMMAND_ADDRESS_LENGTH_SIZE, (char*)metadata + RDN_COMMAND_ADDRESS_LENGTH_OFFSET, RDN_COMMAND_ADDRESS_LENGTH_SIZE);
+
+	this->address = std::string((char*)metadata + RDN_COMMAND_ADDRESS_OFFSET, address_lenth);
+
+	memcpy_s(&this->port, RDN_COMMAND_PORT_SIZE, (char*)metadata + RDN_COMMAND_PORT_OFFSET, RDN_COMMAND_PORT_SIZE);
+}
+
+int RegisterDataNodeCommand::get_node_id() {
+	return this->node_id;
+}
+
+const std::string& RegisterDataNodeCommand::get_address() {
+	return this->address;
+}
+
+int RegisterDataNodeCommand::get_port() {
+	return this->port;
+}
+
+std::shared_ptr<char> RegisterDataNodeCommand::get_metadata_bytes() {
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[RDN_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
+
+	memcpy_s(bytes.get() + RDN_COMMAND_NODE_ID_OFFSET - COMMAND_TOTAL_BYTES, RDN_COMMAND_NODE_ID_SIZE, &this->node_id, RDN_COMMAND_NODE_ID_SIZE);
+
+	int address_length = this->address.size();
+
+	memcpy_s(bytes.get() + RDN_COMMAND_ADDRESS_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, RDN_COMMAND_ADDRESS_LENGTH_SIZE, &address_length, RDN_COMMAND_ADDRESS_LENGTH_SIZE);
+	memcpy_s(bytes.get() + RDN_COMMAND_ADDRESS_OFFSET - COMMAND_TOTAL_BYTES, address_length, this->address.c_str(), address_length);
+	memcpy_s(bytes.get() + RDN_COMMAND_PORT_OFFSET - COMMAND_TOTAL_BYTES, RDN_COMMAND_PORT_SIZE, &this->port, RDN_COMMAND_PORT_SIZE);
+
+	return bytes;
+}
+
+// ================================================================
+
+// Unregister Data Node Command
+
+UnregisterDataNodeCommand::UnregisterDataNodeCommand(int node_id) {
+	this->node_id = node_id;
+}
+
+UnregisterDataNodeCommand::UnregisterDataNodeCommand(void* metadata) {
+	memcpy_s(&this->node_id, UDN_COMMAND_NODE_ID_SIZE, (char*)metadata + UDN_COMMAND_NODE_ID_OFFSET, UDN_COMMAND_NODE_ID_SIZE);
+}
+
+int UnregisterDataNodeCommand::get_node_id() {
+	return this->node_id;
+}
+
+std::shared_ptr<char> UnregisterDataNodeCommand::get_metadata_bytes() {
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[UDN_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
+
+	memcpy_s(bytes.get() + UDN_COMMAND_NODE_ID_OFFSET - COMMAND_TOTAL_BYTES, UDN_COMMAND_NODE_ID_SIZE, &this->node_id, UDN_COMMAND_NODE_ID_SIZE);
 
 	return bytes;
 }

@@ -220,17 +220,11 @@ std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_
 
 	std::unique_ptr<DataNodeHeartbeatRequest> req = std::make_unique<DataNodeHeartbeatRequest>();
 
-	req.get()->depth_count = -1;
-
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
 
 		if (*key == RequestValueKey::NODE_ID) {
 			req.get()->node_id = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(int);
-		}
-		else if (*key == RequestValueKey::DEPTH_COUNT) {
-			req.get()->depth_count = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
 		}
 		else if (*key == RequestValueKey::NODE_ADDRESS) {
@@ -244,9 +238,6 @@ std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_
 		}
 		else throw std::exception("Invalid request value");
 	}
-
-	if (req.get()->depth_count == -1)
-		req.get()->depth_count = 0;
 
 	return req;
 }

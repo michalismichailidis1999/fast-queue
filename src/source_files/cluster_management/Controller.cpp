@@ -342,19 +342,31 @@ int Controller::get_leader_id() {
 	return this->cluster_metadata->get_leader_id();
 }
 
-void Controller::update_data_node_heartbeat(int node_id) {
-	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
+void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info) {
+	{
+		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 
-	bool is_first_connection = this->data_nodes_heartbeats.find(node_id) == this->data_nodes_heartbeats.end();
+		this->data_nodes_heartbeats[node_id] = this->util->get_current_time_milli();
 
-	this->data_nodes_heartbeats[node_id] = this->util->get_current_time_milli();
-
-	if (is_first_connection) {
-		this->cluster_metadata->init_node_partitions(node_id);
-		this->future_cluster_metadata->init_node_partitions(node_id);
+		this->logger->log_info("Node " + std::to_string(node_id) + " heartbeat updated");
 	}
 
-	this->logger->log_info("Node " + std::to_string(node_id) + " heartbeat updated");
+
+	if (this->get_state() == NodeState::LEADER && !this->future_cluster_metadata.get()->has_node_partitions(node_id)) {
+		Command command = Command(
+			CommandType::REGISTER_DATA_NODE,
+			this->term,
+			this->util->get_current_time_milli().count(),
+			std::make_shared<RegisterDataNodeCommand>(new RegisterDataNodeCommand(node_id, info->address, info->port))
+		);
+
+		std::vector<Command> commands(1);
+		commands[0] = command;
+
+		this->insert_commands_to_log(&commands);
+
+		this->future_cluster_metadata->init_node_partitions(node_id);
+	}
 }
 
 void Controller::assign_partition_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int owner_node) {
@@ -631,13 +643,18 @@ void Controller::assign_queue_for_deletion(std::string& queue_name) {
 }
 
 void Controller::check_for_dead_data_nodes() {
-	std::vector<int> nodes_data_to_repartition;
+	std::vector<int> expired_nodes;
 	NodeState state = NodeState::LEADER;
 
 	while (!(*this->should_terminate)) {
+		if (!this->settings->get_is_controller_node()) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+			continue;
+		}
+
 		state = this->get_state();
 
-		nodes_data_to_repartition.clear();
+		expired_nodes.clear();
 
 		{
 			std::lock_guard<std::mutex> lock(this->heartbeats_mut);
@@ -645,7 +662,7 @@ void Controller::check_for_dead_data_nodes() {
 			for (auto iter : this->data_nodes_heartbeats)
 				if (state == NodeState::LEADER) {
 					if (this->util->has_timeframe_expired(iter.second, 10000))
-						nodes_data_to_repartition.emplace_back(iter.first);
+						expired_nodes.emplace_back(iter.first);
 				}
 				else this->data_nodes_heartbeats[iter.first] = this->util->get_current_time_milli();
 		}
@@ -655,9 +672,24 @@ void Controller::check_for_dead_data_nodes() {
 			continue;
 		}
 
-		if (nodes_data_to_repartition.size() > 0)
-			for (int node_id : nodes_data_to_repartition) {
+		if (expired_nodes.size() > 0)
+			for (int node_id : expired_nodes) {
 				this->repartition_node_data(node_id);
+				
+				Command command = Command(
+					CommandType::UNREGISTER_DATA_NODE,
+					this->term,
+					this->util->get_current_time_milli().count(),
+					std::make_shared<UnregisterDataNodeCommand>(new UnregisterDataNodeCommand(node_id))
+				);
+
+				std::vector<Command> commands(1);
+				commands[0] = command;
+
+				this->insert_commands_to_log(&commands);
+
+				this->future_cluster_metadata->remove_node_partitions(node_id);
+
 				this->logger->log_info("Data node " + std::to_string(node_id) + " heartbeat expired");
 			}
 
@@ -777,10 +809,25 @@ void Controller::execute_command(void* command_metadata) {
 	this->cmah->apply_command(this->cluster_metadata.get(), &command);
 
 	this->last_applied = command.get_metadata_version();
+
+	if (command.get_command_type() == CommandType::REGISTER_DATA_NODE) {
+		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
+		RegisterDataNodeCommand* command_info = (RegisterDataNodeCommand*)command.get_command_info();
+		this->data_nodes_heartbeats[command_info->get_node_id()] = this->util->get_current_time_milli();
+	}
+	else if (command.get_command_type() == CommandType::UNREGISTER_DATA_NODE) {
+		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
+		UnregisterDataNodeCommand* command_info = (UnregisterDataNodeCommand*)command.get_command_info();
+	}
 }
 
 void Controller::check_for_commit_and_last_applied_diff() {
 	while (!(*this->should_terminate)) {
+		if(!this->settings->get_is_controller_node()) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_UNAPPLIED_COMMANDS));
+			continue;
+		}
+
 		unsigned long long commit_index = this->commit_index;
 
 		if (commit_index <= this->last_applied) {

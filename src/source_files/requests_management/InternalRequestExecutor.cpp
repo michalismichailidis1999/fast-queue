@@ -42,52 +42,19 @@ void InternalRequestExecutor::handle_data_node_heartbeat_request(SOCKET_ID socke
 		return;
 	}
 
-	request->depth_count++;
-
-	this->controller->update_data_node_heartbeat(request->node_id);
-
 	std::unique_ptr<DataNodeHeartbeatResponse> res = std::make_unique<DataNodeHeartbeatResponse>();
+
+	std::unique_ptr<ConnectionInfo> info = std::make_unique<ConnectionInfo>();
+
+	info.get()->address = std::string(request->address, request->address_length);
+	info.get()->port = request->port;
+
+	this->controller->update_data_node_heartbeat(request->node_id, info.get());
 
 	res.get()->leader_id = this->controller->get_leader_id();
 	res.get()->ok = this->settings->get_node_id() == res.get()->leader_id;
 
-	std::tuple<long, std::shared_ptr<char>> buf_tup;
-
-	if (res.get()->ok) this->controller->update_data_node_heartbeat(request->node_id);
-	else if (
-		this->settings->get_node_id() != res.get()->leader_id 
-		&& res.get()->leader_id > 0
-		&& this->settings->get_controller_nodes()->size() > 1
-		&& request->depth_count <= 3
-	) {
-		// In case heartbeat sent to wrong controller node, redirect request to the leader and immediatelly respond to data node
-		// that the leader was incorrect
-		buf_tup = this->transformer->transform(request);
-
-		std::mutex* mut = this->cm->get_controller_node_connections_mut();
-
-		std::lock_guard<std::mutex> lock(*mut);
-
-		std::map<int, std::shared_ptr<ConnectionPool>>* connections = this->cm->get_controller_node_connections();
-
-		std::shared_ptr<ConnectionPool> pool = (*connections)[res.get()->leader_id];
-
-		auto nested_res = this->cm->send_request_to_socket(
-			pool.get(),
-			3,
-			std::get<1>(buf_tup).get(),
-			std::get<0>(buf_tup),
-			"DataNodeHeartbeatRequest"
-		);
-
-		if (std::get<1>(nested_res) == -1)
-			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INTERNAL_SERVER_ERROR, "Error occured while trying to forward heartbeat to leader");
-		else this->cm->respond_to_socket(socket, ssl, std::get<0>(nested_res).get(), std::get<1>(nested_res));
-
-		return;
-	}
-
-	buf_tup = this->transformer->transform(res.get());
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }

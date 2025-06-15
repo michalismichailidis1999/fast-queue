@@ -26,6 +26,8 @@ static const unsigned int MAX_MESSAGE_KEY_CHARS = 40;
 
 static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
+static const unsigned int MAX_ADDRESS_CHARS = 39;
+
 static const unsigned int INDEX_PAGE_SIZE = 4096; // 4KB
 
 static const unsigned int READ_MESSAGES_BATCH_SIZE = 4096 * 4; // 16KB
@@ -169,6 +171,20 @@ static const unsigned int DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET = COMMAND_TOTAL_BY
 static const unsigned int DQ_COMMAND_QUEUE_NAME_SIZE = sizeof(char) * MAX_QUEUE_NAME_CHARS;
 static const unsigned int DQ_COMMAND_QUEUE_NAME_OFFSET = DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE + DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET;
 static const unsigned int DQ_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE + DQ_COMMAND_QUEUE_NAME_SIZE;
+
+static const unsigned int RDN_COMMAND_NODE_ID_SIZE = sizeof(unsigned int);
+static const unsigned int RDN_COMMAND_NODE_ID_OFFSET = COMMAND_TOTAL_BYTES;
+static const unsigned int RDN_COMMAND_ADDRESS_LENGTH_SIZE = sizeof(unsigned int);
+static const unsigned int RDN_COMMAND_ADDRESS_LENGTH_OFFSET = RDN_COMMAND_NODE_ID_SIZE + RDN_COMMAND_NODE_ID_OFFSET;
+static const unsigned int RDN_COMMAND_ADDRESS_SIZE = sizeof(char) * MAX_ADDRESS_CHARS;
+static const unsigned int RDN_COMMAND_ADDRESS_OFFSET = RDN_COMMAND_ADDRESS_LENGTH_SIZE + RDN_COMMAND_ADDRESS_LENGTH_OFFSET;
+static const unsigned int RDN_COMMAND_PORT_SIZE = sizeof(unsigned int);
+static const unsigned int RDN_COMMAND_PORT_OFFSET = RDN_COMMAND_ADDRESS_SIZE + RDN_COMMAND_ADDRESS_OFFSET;
+static const unsigned int RDN_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + RDN_COMMAND_NODE_ID_SIZE + RDN_COMMAND_ADDRESS_LENGTH_SIZE + RDN_COMMAND_ADDRESS_SIZE + RDN_COMMAND_PORT_SIZE;
+
+static const unsigned int UDN_COMMAND_NODE_ID_SIZE = sizeof(unsigned int);
+static const unsigned int UDN_COMMAND_NODE_ID_OFFSET = COMMAND_TOTAL_BYTES;
+static const unsigned int UDN_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + UDN_COMMAND_NODE_ID_SIZE;
 
 // =================================================================
 

@@ -1,7 +1,8 @@
 #include "../../header_files/cluster_management/ClusterMetadataApplyHandler.h"
 
-ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings) {
+ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings) {
 	this->qm = qm;
+	this->cm = cm;
 	this->fh = fh;
 	this->pm = pm;
 	this->settings = settings;
@@ -62,6 +63,12 @@ void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadat
 	case CommandType::DELETE_QUEUE:
 		this->apply_delete_queue_command(cluster_metadata, (DeleteQueueCommand*)command->get_command_info());
 		break;
+	case CommandType::REGISTER_DATA_NODE:
+		this->apply_register_data_node_command(cluster_metadata, (RegisterDataNodeCommand*)command->get_command_info());
+		break;
+	case CommandType::UNREGISTER_DATA_NODE:
+		this->apply_unregister_data_node_command(cluster_metadata, (UnregisterDataNodeCommand*)command->get_command_info());
+		break;
 	default:
 		break;
 	}
@@ -108,4 +115,19 @@ void ClusterMetadataApplyHandler::apply_delete_queue_command(ClusterMetadata* cl
 	cluster_metadata->remove_queue_metadata(command->get_queue_name());
 
 	this->qm->delete_queue(command->get_queue_name());
+}
+
+void ClusterMetadataApplyHandler::apply_register_data_node_command(ClusterMetadata* cluster_metadata, RegisterDataNodeCommand* command) {
+	cluster_metadata->init_node_partitions(command->get_node_id());
+
+	std::shared_ptr<ConnectionInfo> info = std::make_shared<ConnectionInfo>();
+	info.get()->address = command->get_address();
+	info.get()->port = command->get_port();
+
+	this - cm->initialize_data_node_connection_pool(command->get_node_id(), info);
+}
+
+void ClusterMetadataApplyHandler::apply_unregister_data_node_command(ClusterMetadata* cluster_metadata, UnregisterDataNodeCommand* command) {
+	cluster_metadata->remove_node_partitions(command->get_node_id());
+	this->cm->remove_data_node_connections(command->get_node_id());
 }

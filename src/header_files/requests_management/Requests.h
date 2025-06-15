@@ -31,7 +31,6 @@ struct CreateQueueRequest {
 
 struct DataNodeHeartbeatRequest {
 	int node_id;
-	int depth_count;
 	int address_length;
 	const char* address;
 	int port;

@@ -41,9 +41,6 @@ enum class ErrorCode {
 enum class RequestValueKey {
 	// Version 1
 	
-	// Hidden
-	DEPTH_COUNT = -1,
-
 	// External Communication
 	USERNAME = 1,
 	PASSWORD,
@@ -120,7 +117,9 @@ enum class CommandType {
 	CREATE_QUEUE,
 	DELETE_QUEUE,
 	ALTER_PARTITION_ASSIGNMENT,
-	ALTER_PARTITION_LEADER_ASSIGNMENT
+	ALTER_PARTITION_LEADER_ASSIGNMENT,
+	REGISTER_DATA_NODE,
+	UNREGISTER_DATA_NODE
 };
 
 enum class ObjectType {

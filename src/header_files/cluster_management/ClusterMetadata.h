@@ -44,6 +44,8 @@ public:
 	ClusterMetadata();
 
 	void init_node_partitions(int node_id);
+	void remove_node_partitions(int node_id);
+	bool has_node_partitions(int node_id);
 
 	void set_leader_id(int leader_id);
 	int get_leader_id();

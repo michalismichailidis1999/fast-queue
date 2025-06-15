@@ -118,3 +118,39 @@ public:
 
 	friend class Command;
 };
+
+class RegisterDataNodeCommand {
+private:
+	int node_id;
+	std::string address;
+	int port;
+public:
+	RegisterDataNodeCommand(int node_id, const std::string& address, int port);
+
+	RegisterDataNodeCommand(void* metadata);
+
+	int get_node_id();
+
+	const std::string& get_address();
+
+	int get_port();
+
+	std::shared_ptr<char> get_metadata_bytes();
+
+	friend class Command;
+};
+
+class UnregisterDataNodeCommand {
+private:
+	int node_id;
+public:
+	UnregisterDataNodeCommand(int node_id);
+
+	UnregisterDataNodeCommand(void* metadata);
+
+	int get_node_id();
+
+	std::shared_ptr<char> get_metadata_bytes();
+
+	friend class Command;
+};

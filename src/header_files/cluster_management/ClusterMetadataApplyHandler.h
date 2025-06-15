@@ -1,6 +1,7 @@
 #pragma once
 #include "./ClusterMetadata.h"
 #include "./Commands.h"
+#include "../network_management/ConnectionsManager.h"
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../queue_management/QueueManager.h"
@@ -9,6 +10,7 @@
 class ClusterMetadataApplyHandler {
 private:
 	QueueManager* qm;
+	ConnectionsManager* cm;
 	FileHandler* fh;
 	QueueSegmentFilePathMapper* pm;
 	Settings* settings;
@@ -17,8 +19,10 @@ private:
 	void apply_partition_assignment_command(PartitionAssignmentCommand* command);
 	void apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command);
 	void apply_delete_queue_command(ClusterMetadata* cluster_metadata, DeleteQueueCommand* command);
+	void apply_register_data_node_command(ClusterMetadata* cluster_metadata, RegisterDataNodeCommand* command);
+	void apply_unregister_data_node_command(ClusterMetadata* cluster_metadata, UnregisterDataNodeCommand* command);
 public:
-	ClusterMetadataApplyHandler(QueueManager* qm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings);
+	ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings);
 
 	void apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id);
 

@@ -61,6 +61,21 @@ void ClusterMetadata::init_node_partitions(int node_id) {
 	}
 }
 
+void ClusterMetadata::remove_node_partitions(int node_id) {
+	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+
+	if (this->nodes_partitions.find(node_id) != this->nodes_partitions.end()) {
+		this->nodes_partitions.erase(node_id);
+		this->nodes_partition_counts->remove(node_id);
+		this->nodes_leader_partition_counts->remove(node_id);
+	}
+}
+
+bool ClusterMetadata::has_node_partitions(int node_id) {
+	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+	return this->nodes_partitions.find(node_id) != this->nodes_partitions.end();
+}
+
 void ClusterMetadata::apply_command(Command* command) {
 	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
 

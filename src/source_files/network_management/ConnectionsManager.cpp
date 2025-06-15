@@ -474,3 +474,7 @@ void ConnectionsManager::check_connections_heartbeats() {
 		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 	}
 }
+
+bool ConnectionsManager::initialize_data_node_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info){
+	return this->setup_connection_pool(node_id, info, &this->data_mut, &this->data_node_connections);
+}
