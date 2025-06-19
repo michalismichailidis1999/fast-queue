@@ -14,12 +14,9 @@ static const std::string CLUSTER_METADATA_QUEUE_NAME = "__cluster_metadata";
 static const unsigned int HEARTBEAT_SIGNAL_MIN_BOUND = 1500;
 static const unsigned int HEARTBEAT_SIGNAL_MAX_BOUND = 5000;
 static const unsigned int LEADER_TIMEOUT = 1000;
-static const unsigned int APPEND_ENTRIES_MAX_BATCH_SIZE = 20;
 static const unsigned int CHECK_FOR_UNAPPLIED_COMMANDS = 1500;
-static const unsigned int CHECK_FOR_LAGGING_FOLLOWERS = 1500;
 static const unsigned int CHECK_FOR_SETTINGS_UPDATE = 5000;
 static const unsigned int CHECK_FOR_COMPACTION = 5000;
-static const unsigned int HEARTBEAT_TO_CONTROLLER_LEADER = 1000;
 
 static const unsigned int MAX_QUEUE_NAME_CHARS = 100;
 static const unsigned int MAX_MESSAGE_KEY_CHARS = 40;

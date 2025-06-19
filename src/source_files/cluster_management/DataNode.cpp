@@ -25,7 +25,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 
 	while (!(*should_terminate)) {
 		if (this->settings->get_is_controller_node()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(HEARTBEAT_TO_CONTROLLER_LEADER));
+			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_heartbeat_to_leader_ms()));
 			continue;
 		}
 
@@ -45,7 +45,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 		if (!this->send_heartbeat_to_leader(&leader_id, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), pool))
 			pool = NULL;
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(HEARTBEAT_TO_CONTROLLER_LEADER));
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_heartbeat_to_leader_ms()));
 	}
 }
 

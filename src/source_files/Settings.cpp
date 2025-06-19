@@ -60,6 +60,9 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "flush_to_disk_after_ms"
 			|| lhs == "retention_ms"
 			|| lhs == "retention_worker_wait_ms"
+			|| lhs == "dead_data_node_check_ms"
+			|| lhs == "data_node_expire_ms"
+			|| lhs == "heartbeat_to_leader_ms"
 		) {
 			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
@@ -73,7 +76,10 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 				: lhs == "request_timeout_ms" ? &this->request_timeout_ms
 				: lhs == "flush_to_disk_after_ms" ? &this->flush_to_disk_after_ms
 				: lhs == "retention_ms" ? &this->retention_ms
-				: &this->retention_worker_wait_ms;
+				: lhs == "retention_worker_wait_ms" ? &this->retention_worker_wait_ms
+				: lhs == "dead_data_node_check_ms" ? &this->dead_data_node_check_ms
+				: lhs == "data_node_expire_ms" ? &this->data_node_expire_ms
+				: &this->heartbeat_to_leader_ms;
 
 			*(val) = rhs_size > 0 ? std::atoi(rhs.c_str()) : 0;
 		}
@@ -218,6 +224,21 @@ unsigned int Settings::get_retention_worker_wait_ms() {
 	return this->retention_worker_wait_ms;
 }
 
+unsigned int Settings::get_dead_data_node_check_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->dead_data_node_check_ms;
+}
+
+unsigned int Settings::get_data_node_expire_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->data_node_expire_ms;
+}
+
+unsigned int Settings::get_heartbeat_to_leader_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->heartbeat_to_leader_ms;
+}
+
 const std::string& Settings::get_log_path() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->log_path;
@@ -324,6 +345,9 @@ void Settings::update_values_with_new_settings(Settings* new_settings) {
 	this->request_polling_interval_ms = new_settings->request_polling_interval_ms;
 	this->maximum_connections = new_settings->maximum_connections;
 	this->request_timeout_ms = new_settings->request_timeout_ms;
+	this->dead_data_node_check_ms = new_settings->dead_data_node_check_ms;
+	this->data_node_expire_ms = new_settings->data_node_expire_ms;
+	this->heartbeat_to_leader_ms = new_settings->heartbeat_to_leader_ms;
 	// -------------------------------------------
 
 	// node_type properties

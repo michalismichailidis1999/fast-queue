@@ -352,7 +352,7 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info) {
 	}
 
 
-	if (this->get_state() == NodeState::LEADER && !this->future_cluster_metadata.get()->has_node_partitions(node_id)) {
+	if (this->get_state() == NodeState::LEADER && info != NULL && !this->future_cluster_metadata.get()->has_node_partitions(node_id)) {
 		Command command = Command(
 			CommandType::REGISTER_DATA_NODE,
 			this->term,
@@ -648,7 +648,7 @@ void Controller::check_for_dead_data_nodes() {
 
 	while (!(*this->should_terminate)) {
 		if (!this->settings->get_is_controller_node()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_data_node_check_ms()));
 			continue;
 		}
 
@@ -661,14 +661,14 @@ void Controller::check_for_dead_data_nodes() {
 
 			for (auto iter : this->data_nodes_heartbeats)
 				if (state == NodeState::LEADER) {
-					if (this->util->has_timeframe_expired(iter.second, 10000))
+					if (this->util->has_timeframe_expired(iter.second, this->settings->get_data_node_expire_ms()))
 						expired_nodes.emplace_back(iter.first);
 				}
 				else this->data_nodes_heartbeats[iter.first] = this->util->get_current_time_milli();
 		}
 
 		if (state != NodeState::LEADER) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_data_node_check_ms()));
 			continue;
 		}
 
@@ -693,16 +693,8 @@ void Controller::check_for_dead_data_nodes() {
 				this->logger->log_info("Data node " + std::to_string(node_id) + " heartbeat expired");
 			}
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_data_node_check_ms()));
 	}
-}
-
-bool Controller::is_data_node_alive(int node_id) {
-	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
-
-	if (this->data_nodes_heartbeats.find(node_id) == this->data_nodes_heartbeats.end()) return false;
-
-	return !this->util->has_timeframe_expired(this->data_nodes_heartbeats[node_id], 10000);
 }
 
 int Controller::get_active_nodes_count() {

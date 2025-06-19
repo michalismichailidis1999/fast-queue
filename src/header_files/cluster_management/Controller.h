@@ -112,7 +112,6 @@ public:
 	void run_controller_quorum_communication();
 
 	void check_for_dead_data_nodes();
-	bool is_data_node_alive(int node_id);
 
 	int get_leader_id();
 	void update_data_node_heartbeat(int node_id, ConnectionInfo* info);

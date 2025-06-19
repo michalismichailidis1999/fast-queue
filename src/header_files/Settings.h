@@ -31,6 +31,10 @@ private:
 	unsigned int retention_ms;
 	unsigned int retention_worker_wait_ms;
 
+	unsigned int dead_data_node_check_ms;
+	unsigned int data_node_expire_ms;
+	unsigned int heartbeat_to_leader_ms;
+
 	std::string log_path;
 	std::string trace_log_path;
 	// -------------------------------------------
@@ -81,6 +85,10 @@ public:
 
 	unsigned int get_retention_ms();
 	unsigned int get_retention_worker_wait_ms();
+
+	unsigned int get_dead_data_node_check_ms();
+	unsigned int get_data_node_expire_ms();
+	unsigned int get_heartbeat_to_leader_ms();
 
 	const std::string& get_log_path();
 	const std::string& get_trace_log_path();
