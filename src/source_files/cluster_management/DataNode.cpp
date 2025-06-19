@@ -10,9 +10,6 @@ DataNode::DataNode(Controller* controller, ConnectionsManager* cm, ResponseMappe
 }
 
 void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
-	// if is controller node, heartbeats would be handled through raft consensus for quorum
-	if (this->settings->get_is_controller_node()) return;
-
 	ConnectionPool* pool = NULL;
 
 	std::unique_ptr<DataNodeHeartbeatRequest> req = std::make_unique<DataNodeHeartbeatRequest>();
@@ -25,7 +22,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 
 	while (!(*should_terminate)) {
 		if (this->settings->get_is_controller_node()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_heartbeat_to_leader_ms()));
+			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
 			continue;
 		}
 

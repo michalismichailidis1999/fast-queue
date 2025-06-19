@@ -401,6 +401,16 @@ void ConnectionsManager::remove_data_node_connections(int node_id) {
 	this->data_node_connections.erase(node_id);
 }
 
+void ConnectionsManager::remove_controller_node_connections(int node_id) {
+	std::lock_guard<std::mutex> lock(this->controllers_mut);
+
+	if (this->controller_node_connections.find(node_id) == this->controller_node_connections.end()) return;
+
+	this->close_connection_pool(this->controller_node_connections[node_id].get());
+
+	this->controller_node_connections.erase(node_id);
+}
+
 void ConnectionsManager::close_connection_pool(ConnectionPool* pool) {
 	while (!pool->no_connections_left()) {
 		std::shared_ptr<Connection> conn = pool->get_connection();
@@ -477,4 +487,8 @@ void ConnectionsManager::check_connections_heartbeats() {
 
 bool ConnectionsManager::initialize_data_node_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info){
 	return this->setup_connection_pool(node_id, info, &this->data_mut, &this->data_node_connections);
+}
+
+bool ConnectionsManager::initialize_controller_node_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info) {
+	return this->setup_connection_pool(node_id, info, &this->controllers_mut, &this->controller_node_connections);
 }

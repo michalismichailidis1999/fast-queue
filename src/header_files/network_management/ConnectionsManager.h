@@ -80,6 +80,7 @@ public:
 	void remove_socket_lock(SOCKET_ID socket);
 
 	void remove_data_node_connections(int node_id);
+	void remove_controller_node_connections(int node_id);
 
 	bool add_connection_to_pool(ConnectionPool* pool);
 	void close_connection_pool(ConnectionPool* pool);
@@ -91,6 +92,7 @@ public:
 	void check_connections_heartbeats();
 
 	bool initialize_data_node_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info);
+	bool initialize_controller_node_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info);
 
 	std::map<int, std::shared_ptr<ConnectionPool>>* get_controller_node_connections(bool with_lock = true);
 }; 

@@ -52,6 +52,12 @@ void Controller::update_quorum_communication_values() {
 
 void Controller::run_controller_quorum_communication() {
 	while (!(*this->should_terminate)) {
+		if (!this->settings->get_is_controller_node())
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
+			continue;
+		}
+
 		switch (this->get_state())
 		{
 			case NodeState::FOLLOWER:

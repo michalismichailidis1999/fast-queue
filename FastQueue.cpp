@@ -137,6 +137,7 @@ int main(int argc, char* argv[])
     );
 
     std::unique_ptr<SettingsUpdateHandler> suh = std::unique_ptr<SettingsUpdateHandler>(new SettingsUpdateHandler(
+        cm.get(),
         config_path,
         fh.get(),
         settings.get(),
