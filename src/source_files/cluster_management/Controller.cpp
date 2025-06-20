@@ -903,3 +903,7 @@ unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned
 
 	return (*largest_indexes_sent)[this->half_quorum_nodes_count];
 }
+
+int Controller::get_partition_leader(const std::string& queue, int partition) {
+	return this->cluster_metadata->get_partition_leader(queue, partition);
+}

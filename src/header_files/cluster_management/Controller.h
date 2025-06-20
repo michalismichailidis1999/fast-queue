@@ -124,6 +124,8 @@ public:
 
 	void check_for_commit_and_last_applied_diff();
 
+	int get_partition_leader(const std::string& queue, int partition);
+
 	ClusterMetadata* get_compacted_cluster_metadata();
 
 	ClusterMetadata* get_cluster_metadata();

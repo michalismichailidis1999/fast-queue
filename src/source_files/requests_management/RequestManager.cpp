@@ -74,14 +74,6 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
-		case RequestType::LIST_QUEUES:
-		{
-			this->logger->log_info("Received and executing request type of LIST_QUEUES");
-
-			this->client_request_executor->handle_list_queues_request(socket, ssl);
-
-			break;
-		}
 		case RequestType::GET_CONTROLLERS_CONNECTION_INFO:
 		{
 			this->logger->log_info("Received and executing request type of GET_CONTROLLERS_CONNECTION_INFO");
@@ -95,16 +87,6 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			this->logger->log_info("Received and executing request type of GET_CONTROLLER_LEADER_ID");
 
 			this->client_request_executor->handle_get_controller_leader_id_request(socket, ssl);
-
-			break;
-		}
-		case RequestType::PRODUCER_CONNECT:
-		{
-			this->logger->log_info("Received and executing request type of PRODUCER_CONNECT");
-
-			std::unique_ptr<ProducerConnectRequest> request = this->mapper->to_producer_connect_request(recvbuf.get(), res_buffer_length);
-
-			this->client_request_executor->handle_producer_connect_request(socket, ssl, request.get());
 
 			break;
 		}

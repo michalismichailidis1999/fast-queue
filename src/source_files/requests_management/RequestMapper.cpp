@@ -60,43 +60,13 @@ std::unique_ptr<DeleteQueueRequest> RequestMapper::to_delete_queue_request(char*
 	return req;
 }
 
-std::unique_ptr<ProducerConnectRequest> RequestMapper::to_producer_connect_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
-
-	std::unique_ptr<ProducerConnectRequest> req = std::make_unique<ProducerConnectRequest>();
-
-	while (offset < recvbuflen) {
-		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
-
-		if (*key == RequestValueKey::QUEUE_NAME) {
-			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
-			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
-			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
-		} else if (*key == RequestValueKey::TRANSACTIONAL_ID) {
-			req.get()->transactional_id_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
-			req.get()->transactional_id = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
-			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->transactional_id_length;
-		} else if (*key == RequestValueKey::USERNAME) {
-			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
-			req.get()->username = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
-			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->username_length;
-		} else if (*key == RequestValueKey::PASSWORD) {
-			req.get()->password_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
-			req.get()->password = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
-			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->password_length;
-		} else throw std::exception("Invalid request value");
-	}
-
-	return req;
-}
-
 std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_request(char* recvbuf, long recvbuflen) {
 	long offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<ProduceMessagesRequest> req = std::make_unique<ProduceMessagesRequest>();
 
 	req.get()->messages = std::make_shared<std::vector<char*>>();
-	req.get()->messages_sizes = std::make_shared<std::vector<long>>();
+	req.get()->messages_sizes = std::make_shared<std::vector<int>>();
 
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
@@ -105,27 +75,18 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
 			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
-		} else if (*key == RequestValueKey::TRANSACTIONAL_ID) {
-			req.get()->transactional_id_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
-			req.get()->transactional_id = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
-			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->transactional_id_length;
-		} else if (*key == RequestValueKey::TRANSACTION_ID) {
-			req.get()->transaction_id = *(long*)(recvbuf + offset + sizeof(RequestValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(long);
-		} else if (*key == RequestValueKey::PRODUCER_ID) {
-			req.get()->producer_id = *(long*)(recvbuf + offset + sizeof(RequestValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(long);
-		} else if (*key == RequestValueKey::PRODUCER_EPOCH) {
-			req.get()->epoch = *(long*)(recvbuf + offset + sizeof(RequestValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(long);
 		} else if (*key == RequestValueKey::PARTITION) {
 			req.get()->partition = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
 		} else if (*key == RequestValueKey::MESSAGE) {
-			long* message_size = (long*)(recvbuf + offset + sizeof(RequestValueKey));
-			char* message = (char*)(recvbuf + offset + sizeof(RequestValueKey) + sizeof(long));
+			int* message_key_size = (int*)(recvbuf + offset + sizeof(RequestValueKey));
+			int* message_size = (int*)(recvbuf + offset + sizeof(RequestValueKey) + sizeof(int));
+			char* message_key = (char*)(recvbuf + offset + sizeof(RequestValueKey) + 2 * sizeof(int));
+			char* message = (char*)(recvbuf + offset + sizeof(RequestValueKey) + 2 * sizeof(int) + *message_key_size);
 
+			req.get()->messages_keys_sizes.get()->push_back(*message_key_size);
 			req.get()->messages_sizes.get()->push_back(*message_size);
+			req.get()->messages_keys.get()->push_back(message_key);
 			req.get()->messages.get()->push_back(message);
 
 			offset += sizeof(RequestValueKey) + sizeof(long) + *(message_size);

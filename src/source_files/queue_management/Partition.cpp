@@ -72,3 +72,13 @@ unsigned long long Partition::get_smallest_segment_id() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->smallest_segment_id;
 }
+
+unsigned long long Partition::get_next_message_offset() {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+	return ++this->last_message_offset;
+}
+
+void Partition::set_last_message_offset(unsigned long long last_message_offset) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+	this->last_message_offset = last_message_offset;
+}

@@ -63,6 +63,8 @@ public:
 
 	void fill_from_metadata(void* metadata);
 
+	int get_partition_leader(const std::string& queue, int partition);
+
 	std::tuple<unsigned int, std::shared_ptr<char>> get_metadata_bytes();
 
 	friend class Controller;

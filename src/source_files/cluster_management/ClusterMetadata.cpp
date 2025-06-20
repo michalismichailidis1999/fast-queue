@@ -373,3 +373,15 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClusterMetadata::get_metadata_by
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(total_bytes, bytes);
 }
+
+int ClusterMetadata::get_partition_leader(const std::string& queue, int partition) {
+	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+
+	if (this->partition_leader_nodes.find(queue) == this->partition_leader_nodes.end()) return -1;
+
+	auto queue_partition_leads = this->partition_leader_nodes[queue];
+
+	if (queue_partition_leads.get()->find(partition) == queue_partition_leads.get()->end()) return -1;
+
+	return (*(queue_partition_leads.get()))[partition];
+}

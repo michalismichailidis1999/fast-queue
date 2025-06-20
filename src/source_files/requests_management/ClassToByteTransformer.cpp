@@ -378,3 +378,27 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetLea
 
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }
+
+std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(ProduceMessagesResponse* obj) {
+	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	long offset = 0;
+
+	ResponseValueKey ok_type = ResponseValueKey::OK;
+
+	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
+	offset += sizeof(long);
+
+	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
+	offset += sizeof(ErrorCode);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &ok_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
+
+	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+}

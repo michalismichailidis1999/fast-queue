@@ -1,6 +1,6 @@
 #include "../../../header_files/queue_management/messages_management/MessagesHandler.h"
 
-MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Settings* settings, Logger* logger) {
+MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Util* util, Settings* settings, Logger* logger) {
 	this->disk_flusher = disk_flusher;
 	this->disk_reader = disk_reader;
 	this->pm = pm;
@@ -8,11 +8,43 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 	this->smm = smm;
 	this->lock_manager = lock_manager;
 	this->index_handler = index_handler;
+	this->util = util;
 	this->settings = settings;
 	this->logger = logger;
 
 	this->cluster_metadata_file_key = this->pm->get_metadata_file_key(CLUSTER_METADATA_QUEUE_NAME);
 	this->cluster_metadata_file_path = this->pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
+}
+
+bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest* request) {
+	unsigned int total_messages_bytes = 0;
+
+	for(auto& s : *(request->messages_sizes.get()))
+		total_messages_bytes += s + MESSAGE_TOTAL_BYTES;
+
+	std::unique_ptr<char> messages_data = std::unique_ptr<char>(new char[total_messages_bytes]);
+
+	unsigned int offset = 0;
+	unsigned long long current_timestamp = this->util->get_current_time_milli().count();
+
+	for (int i = 0; i < request->messages.get()->size(); i++) {
+		auto& message_size = (*(request->messages_sizes.get()))[i];
+		auto& message_body = (*(request->messages.get()))[i];
+		auto& message_key = (*(request->messages_keys.get()))[i];
+		auto& message_key_size = (*(request->messages_keys_sizes.get()))[i];
+
+		unsigned long long message_offset = partition->get_next_message_offset();
+
+		memcpy_s(messages_data.get() + offset + MESSAGE_TOTAL_BYTES, message_size, message_body, message_size);
+
+		Helper::add_message_metadata_values(messages_data.get() + offset + MESSAGE_TOTAL_BYTES, message_offset, current_timestamp, message_key_size, message_key);
+
+		Helper::add_common_metadata_values(messages_data.get() + offset, message_size + MESSAGE_TOTAL_BYTES, ObjectType::MESSAGE);
+
+		offset += MESSAGE_TOTAL_BYTES + message_size;
+	}
+
+	return this->save_messages(partition, messages_data.get(), total_messages_bytes);
 }
 
 // No segment locking is required here since retention will only happen in read only segments

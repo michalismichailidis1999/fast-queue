@@ -2,6 +2,8 @@
 #include <vector>
 #include <memory>
 
+// Internal Requests
+
 struct AppendEntriesRequest {
 	int leader_id;
 	unsigned long long term;
@@ -15,6 +17,24 @@ struct AppendEntriesRequest {
 	std::shared_ptr<char> commands_data_ptr;
 };
 
+struct DataNodeHeartbeatRequest {
+	int node_id;
+	int address_length;
+	const char* address;
+	int port;
+};
+
+struct RequestVoteRequest {
+	int candidate_id;
+	long long term;
+	long long last_log_index;
+	long long last_log_term;
+};
+
+// ======================================================================
+
+// External Requests
+
 struct CreateQueueRequest {
 	// For authentication
 	int username_length;
@@ -27,13 +47,6 @@ struct CreateQueueRequest {
 	char* queue_name;
 	int partitions;
 	int replication_factor;
-};
-
-struct DataNodeHeartbeatRequest {
-	int node_id;
-	int address_length;
-	const char* address;
-	int port;
 };
 
 struct DeleteQueueRequest {
@@ -58,33 +71,11 @@ struct ProduceMessagesRequest {
 
 	int queue_name_length;
 	char* queue_name;
-	int transactional_id_length;
-	char* transactional_id;
-	long transaction_id;
-	long producer_id;
-	long epoch;
 	int partition;
 	std::shared_ptr<std::vector<char*>> messages;
-	std::shared_ptr<std::vector<long>> messages_sizes;
+	std::shared_ptr<std::vector<char*>> messages_keys;
+	std::shared_ptr<std::vector<int>> messages_sizes;
+	std::shared_ptr<std::vector<int>> messages_keys_sizes;
 };
 
-struct ProducerConnectRequest {
-	// For authentication
-	int username_length;
-	char* username;
-	int password_length;
-	char* password;
-	// ==================
-
-	int queue_name_length;
-	char* queue_name;
-	int transactional_id_length;
-	char* transactional_id;
-};
-
-struct RequestVoteRequest {
-	int candidate_id;
-	long long term;
-	long long last_log_index;
-	long long last_log_term;
-};
+// ======================================================================

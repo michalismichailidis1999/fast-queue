@@ -21,7 +21,7 @@ private:
 	std::string message_map_key;
 	std::string message_map_path;
 
-	//std::unordered_set<unsigned long long> 
+	unsigned long long last_message_offset;
 
 	std::shared_mutex mut;
 public:
@@ -41,6 +41,9 @@ public:
 
 	void set_smallest_segment_id(unsigned long long segment_id);
 	unsigned long long get_smallest_segment_id();
+
+	unsigned long long get_next_message_offset();
+	void set_last_message_offset(unsigned long long last_message_offset);
 
 	const std::string& get_message_map_key();
 	const std::string& get_message_map_path();

@@ -52,6 +52,7 @@ void SettingsUpdateHandler::check_if_settings_updated(std::atomic_bool* should_t
 			// TODO: Send raft command that contains this nodes type & controller nodes connection info
 		}
 
+		/*
 		if (controller_nodes_updates)
 			for (auto& con_node : *(new_settings.get()->get_controller_nodes())) {
 				int node_id = std::get<0>(con_node);
@@ -63,6 +64,7 @@ void SettingsUpdateHandler::check_if_settings_updated(std::atomic_bool* should_t
 				this->cm->remove_controller_node_connections(node_id);
 				this->cm->initialize_controller_node_connection_pool(node_id, info);
 			}
+		*/
 
 		this->settings->update_values_with_new_settings(new_settings.get());
 

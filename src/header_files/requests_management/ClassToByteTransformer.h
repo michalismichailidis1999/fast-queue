@@ -18,12 +18,16 @@ public:
     // ------------------
 
     // Responses
+
+    // -- Internal
     std::tuple<long, std::shared_ptr<char>> transform(AppendEntriesResponse* obj);
 
     std::tuple<long, std::shared_ptr<char>> transform(RequestVoteResponse* obj);
 
     std::tuple<long, std::shared_ptr<char>> transform(DataNodeHeartbeatResponse* obj);
+    // --
 
+    // -- External
     std::tuple<long, std::shared_ptr<char>> transform(CreateQueueResponse* obj);
 
     std::tuple<long, std::shared_ptr<char>> transform(DeleteQueueResponse* obj);
@@ -31,5 +35,10 @@ public:
     std::tuple<long, std::shared_ptr<char>> transform(GetControllerConnectionInfoResponse* obj);
 
     std::tuple<long, std::shared_ptr<char>> transform(GetLeaderIdResponse* obj);
+
+    std::tuple<long, std::shared_ptr<char>> transform(ProduceMessagesResponse* obj);
+
+    // --
+
     // ------------------
 };
