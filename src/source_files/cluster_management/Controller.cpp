@@ -162,8 +162,10 @@ void Controller::start_election() {
 
 	std::lock_guard<std::mutex> lag_lock(this->follower_indexes_mut);
 
-	for (auto iter : *controller_node_connections)
+	for (auto iter : *controller_node_connections) {
 		this->follower_indexes[iter.first] = this->last_log_index;
+		this->update_data_node_heartbeat(iter.first, NULL, true);
+	}
 }
 
 void Controller::append_entries_to_followers() {
@@ -200,6 +202,8 @@ void Controller::append_entries_to_followers() {
 			std::get<0>(res_tup).get(),
 			std::get<1>(res_tup)
 		);
+
+		this->update_data_node_heartbeat(iter.first, NULL, true);
 
 		if (res.get() == NULL) {
 			this->logger->log_error("Invalid mapping value in AppendEntriesResponse type");
@@ -350,7 +354,7 @@ int Controller::get_leader_id() {
 	return this->cluster_metadata->get_leader_id();
 }
 
-void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info) {
+void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info, bool is_controller_node) {
 	{
 		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 
@@ -360,7 +364,7 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info) {
 	}
 
 
-	if (this->get_state() == NodeState::LEADER && info != NULL && !this->future_cluster_metadata.get()->has_node_partitions(node_id)) {
+	if (!is_controller_node && this->get_state() == NodeState::LEADER && info != NULL && !this->future_cluster_metadata.get()->has_node_partitions(node_id)) {
 		Command command = Command(
 			CommandType::REGISTER_DATA_NODE,
 			this->term,
