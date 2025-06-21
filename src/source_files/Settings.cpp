@@ -351,8 +351,12 @@ void Settings::update_values_with_new_settings(Settings* new_settings) {
 	// -------------------------------------------
 
 	// node_type properties
-	this->is_controller_node = new_settings->is_controller_node;
-	this->controller_nodes = new_settings->controller_nodes;
+	
+	// TODO: Uncomment the lines below and fix SettingsUpdateHandler to notify other nodes about those changes
+
+	//this->is_controller_node = new_settings->is_controller_node;
+	//this->controller_nodes = new_settings->controller_nodes;
+	
 	// -------------------------------------------
 }
 

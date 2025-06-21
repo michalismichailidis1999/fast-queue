@@ -18,6 +18,10 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->future_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 	this->compacetd_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 
+	for (auto& controller_node : *(this->settings->get_controller_nodes()))
+		if (std::get<0>(controller_node) != this->settings->get_node_id())
+			this->cluster_metadata->init_node_partitions(std::get<0>(controller_node));
+
 	this->is_the_only_controller_node = this->settings->get_controller_nodes()->size() == 1;
 
 	this->vote_for = -1;

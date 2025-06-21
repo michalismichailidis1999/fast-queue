@@ -5,8 +5,8 @@ ClusterMetadata::ClusterMetadata(int node_id) {
 	this->current_term = 0;
 	this->leader_id = 0;
 
-	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, -1, -1);
-	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, -1, -1);
+	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
+	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 
 	this->init_node_partitions(node_id);
 }
@@ -217,27 +217,52 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 	if(this->nodes_leader_partition_counts != NULL)
 		free(this->nodes_leader_partition_counts);
 
-	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, -1, -1);
-	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, -1, -1);
+	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
+	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 
-	for (auto iter : obj->nodes_partitions) {
+	for (auto& iter : obj->nodes_partitions) {
 		auto partitions = std::make_shared<std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>>>();
 
 		int partitions_count = 0;
 
 		this->nodes_partitions[iter.first] = partitions;
 
-		for (auto iter_two : *(iter.second.get())) {
+		for (auto& iter_two : *(iter.second.get())) {
 			auto queue_partitions = std::make_shared<std::unordered_set<int>>();
 			(*(partitions.get()))[iter_two.first] = queue_partitions;
 
-			for (auto queue_partition : *(iter_two.second.get())) {
+			for (auto& queue_partition : *(iter_two.second.get())) {
 				queue_partitions.get()->insert(queue_partition);
 				partitions_count++;
 			}
 		}
 
 		this->nodes_partition_counts->insert(iter.first, partitions_count);
+	}
+
+	for (auto& iter : obj->owned_partitions) {
+		auto owned = std::make_shared<std::unordered_map<int, std::shared_ptr<std::unordered_set<int>>>>();
+
+		this->owned_partitions[iter.first] = owned;
+
+		for (auto& iter_two : *(iter.second.get())) {
+			auto node_owners = std::make_shared<std::unordered_set<int>>();
+			(*(owned.get()))[iter_two.first] = node_owners;
+
+			for (auto& node_id : *(iter_two.second.get()))
+				node_owners.get()->insert(node_id);
+		}
+	}
+
+	for (auto& iter : obj->partition_leader_nodes) {
+		auto queue_partition_leads = std::make_shared<std::unordered_map<int, int>>();
+
+		this->partition_leader_nodes[iter.first] = queue_partition_leads;
+
+		for (auto& iter_two : *(iter.second.get())) {
+			(*(queue_partition_leads.get()))[iter_two.first] = iter_two.second;
+			this->nodes_leader_partition_counts->insert(iter_two.second, this->nodes_leader_partition_counts->get(iter_two.second) + 1);
+		}
 	}
 }
 
