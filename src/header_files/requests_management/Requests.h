@@ -31,6 +31,10 @@ struct RequestVoteRequest {
 	long long last_log_term;
 };
 
+struct GetClusterMetadataUpdateRequest {
+	unsigned long long command_id;
+};
+
 // ======================================================================
 
 // External Requests

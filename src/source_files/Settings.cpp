@@ -63,6 +63,7 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "dead_data_node_check_ms"
 			|| lhs == "data_node_expire_ms"
 			|| lhs == "heartbeat_to_leader_ms"
+			|| lhs == "cluster_update_receive_ms"
 		) {
 			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
@@ -79,7 +80,8 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 				: lhs == "retention_worker_wait_ms" ? &this->retention_worker_wait_ms
 				: lhs == "dead_data_node_check_ms" ? &this->dead_data_node_check_ms
 				: lhs == "data_node_expire_ms" ? &this->data_node_expire_ms
-				: &this->heartbeat_to_leader_ms;
+				: lhs == "heartbeat_to_leader_ms" ? &this->heartbeat_to_leader_ms
+				: &this->cluster_update_receive_ms;
 
 			*(val) = rhs_size > 0 ? std::atoi(rhs.c_str()) : 0;
 		}
@@ -239,6 +241,11 @@ unsigned int Settings::get_heartbeat_to_leader_ms() {
 	return this->heartbeat_to_leader_ms;
 }
 
+unsigned int Settings::get_cluster_update_receive_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->cluster_update_receive_ms;
+}
+
 const std::string& Settings::get_log_path() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->log_path;
@@ -348,6 +355,7 @@ void Settings::update_values_with_new_settings(Settings* new_settings) {
 	this->dead_data_node_check_ms = new_settings->dead_data_node_check_ms;
 	this->data_node_expire_ms = new_settings->data_node_expire_ms;
 	this->heartbeat_to_leader_ms = new_settings->heartbeat_to_leader_ms;
+	this->cluster_update_receive_ms = new_settings->cluster_update_receive_ms;
 	// -------------------------------------------
 
 	// node_type properties

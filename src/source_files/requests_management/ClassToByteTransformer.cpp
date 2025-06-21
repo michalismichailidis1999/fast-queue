@@ -155,6 +155,32 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }
 
+std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClusterMetadataUpdateRequest* obj) {
+	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(unsigned long long) + sizeof(RequestValueKey);
+
+	RequestType req_type = RequestType::DATA_NODE_HEARTBEAT;
+
+	RequestValueKey command_id_type = RequestValueKey::COMMAND_ID;
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	long offset = 0;
+
+	memcpy_s(buf.get() + offset, sizeof(long), &buf_size, sizeof(long));
+	offset += sizeof(long);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
+	offset += sizeof(RequestType);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &command_id_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->command_id, sizeof(int));
+	offset += sizeof(int);
+
+	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+}
+
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesResponse* obj) {
 	long buf_size = sizeof(long) + sizeof(ErrorCode) + 2 * sizeof(unsigned long long) + sizeof(bool) + 3 * sizeof(ResponseValueKey);
 

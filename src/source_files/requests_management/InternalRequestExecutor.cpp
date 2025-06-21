@@ -58,3 +58,16 @@ void InternalRequestExecutor::handle_data_node_heartbeat_request(SOCKET_ID socke
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
+
+void InternalRequestExecutor::handle_get_cluster_metadata_update_request(SOCKET_ID socket, SSL* ssl, GetClusterMetadataUpdateRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Cluster metadata can only be retrieved from controller node");
+		return;
+	}
+
+	std::shared_ptr<AppendEntriesRequest> res = this->controller->get_cluster_metadata_updates(request);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}

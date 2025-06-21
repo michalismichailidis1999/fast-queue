@@ -53,7 +53,6 @@ int main(int argc, char* argv[])
     std::unique_ptr<Settings> settings = setup_settings(fh.get(), config_path);
 
     std::unique_ptr<Logger> server_logger = std::unique_ptr<Logger>(new Logger("server", fh.get(), util.get(), settings.get()));
-    std::unique_ptr<Logger> controller_logger = std::unique_ptr<Logger>(new Logger("controller", fh.get(), util.get(), settings.get()));
     
     _logger = server_logger.get();
 
@@ -69,8 +68,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<SslContextHandler> ssl_context_handler = std::unique_ptr<SslContextHandler>(new SslContextHandler(settings.get(), server_logger.get()));
 
     std::unique_ptr<ClassToByteTransformer> transformer = std::unique_ptr<ClassToByteTransformer>(new ClassToByteTransformer());
-    std::unique_ptr<RequestMapper> request_mapper = std::unique_ptr<RequestMapper>(new RequestMapper());
-    std::unique_ptr<ResponseMapper> response_mapper = std::unique_ptr<ResponseMapper>(new ResponseMapper());
+    std::unique_ptr<RequestMapper> request_mapper = std::unique_ptr<RequestMapper>(new RequestMapper(server_logger.get()));
+    std::unique_ptr<ResponseMapper> response_mapper = std::unique_ptr<ResponseMapper>(new ResponseMapper(server_logger.get()));
 
     std::unique_ptr<DiskFlusher> df = std::unique_ptr<DiskFlusher>(new DiskFlusher(fh.get(), server_logger.get(), settings.get(), &should_terminate));
     std::unique_ptr<DiskReader> dr = std::unique_ptr<DiskReader>(new DiskReader(fh.get(), server_logger.get(), settings.get()));
@@ -89,7 +88,7 @@ int main(int argc, char* argv[])
 
     std::unique_ptr<ClusterMetadataApplyHandler> cmah = std::unique_ptr<ClusterMetadataApplyHandler>(new ClusterMetadataApplyHandler(qm.get(), cm.get(), fh.get(), pm.get(), settings.get()));
     
-    std::unique_ptr<Controller> controller = std::unique_ptr<Controller>(new Controller(cm.get(), qm.get(), mh.get(), cmah.get(), response_mapper.get(), transformer.get(), util.get(), controller_logger.get(), settings.get(), &should_terminate));
+    std::unique_ptr<Controller> controller = std::unique_ptr<Controller>(new Controller(cm.get(), qm.get(), mh.get(), cmah.get(), response_mapper.get(), transformer.get(), util.get(), server_logger.get(), settings.get(), &should_terminate));
 
     std::unique_ptr<RetentionHandler> rh = std::unique_ptr<RetentionHandler>(new RetentionHandler(qm.get(), lm.get(), fh.get(), pm.get(), util.get(), server_logger.get(), settings.get()));
     std::unique_ptr<CompactionHandler> ch = std::unique_ptr<CompactionHandler>(new CompactionHandler(controller.get(), qm.get(), mh.get(), lm.get(), cmah.get(), fh.get(), pm.get(), server_logger.get(), settings.get()));
@@ -115,7 +114,7 @@ int main(int argc, char* argv[])
 
     controller.get()->update_quorum_communication_values();
 
-    std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
+    std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), request_mapper.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
 
     std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(mh.get(), cm.get(), qm.get(), controller.get(), transformer.get(), fh.get(), util.get(), settings.get(), server_logger.get()));
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), transformer.get()));
@@ -194,6 +193,10 @@ int main(int argc, char* argv[])
             suh.get()->check_if_settings_updated(&should_terminate);
         };
 
+        auto retrieve_cluster_metadata_updates = [&]() {
+            data_node.get()->retrieve_cluster_metadata_updates(&should_terminate);
+        };
+
         std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, true);
         std::thread external_listener_thread = std::thread(create_and_run_socket_listener, false);
 
@@ -209,6 +212,7 @@ int main(int argc, char* argv[])
         std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
         std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
         std::thread check_for_settings_update_thread = std::thread(check_for_settings_update);
+        std::thread retrieve_cluster_metadata_updates_thread = std::thread(retrieve_cluster_metadata_updates);
 
         internal_listener_thread.join();
         external_listener_thread.join();
@@ -222,6 +226,7 @@ int main(int argc, char* argv[])
         compact_closed_segments_thread.join();
         remove_expired_segments_thread.join();
         check_for_settings_update_thread.join();
+        retrieve_cluster_metadata_updates_thread.join();
     }
     catch (const std::exception&) {
         should_terminate = true;

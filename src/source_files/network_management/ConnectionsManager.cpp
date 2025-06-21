@@ -379,6 +379,15 @@ std::map<int, std::shared_ptr<ConnectionPool>>* ConnectionsManager::get_controll
 	return &this->controller_node_connections;
 }
 
+std::shared_ptr<ConnectionPool> ConnectionsManager::get_controller_node_connection(int node_id, bool with_lock) {
+	if (with_lock) {
+		std::lock_guard<std::mutex> lock(this->controllers_mut);
+		return this->controller_node_connections[node_id];
+	}
+
+	return this->controller_node_connections[node_id];
+}
+
 bool ConnectionsManager::add_socket_lock(SOCKET_ID socket) {
 	std::lock_guard<std::mutex> lock(this->socket_locks_mut);
 	if (this->locked_sockets.find(socket) != this->locked_sockets.end()) return false;

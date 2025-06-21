@@ -2,10 +2,13 @@
 #include <memory>
 #include "../Enums.h"
 #include "./Requests.h"
+#include "../logging/Logger.h"
 
 class RequestMapper {
+private:
+	Logger* logger;
 public:
-	RequestMapper();
+	RequestMapper(Logger* logger);
 
 	// Internal Requests
 
@@ -14,6 +17,8 @@ public:
 	std::unique_ptr<RequestVoteRequest> to_request_vote_request(char* recvbuf, long recvbuflen);
 
 	std::unique_ptr<DataNodeHeartbeatRequest> to_data_node_heartbeat_request(char* recvbuf, long recvbuflen);
+
+	std::unique_ptr<GetClusterMetadataUpdateRequest> to_get_cluster_metadata_update_request(char* recvbuf, long recvbuflen);
 
 	// =======================================================
 

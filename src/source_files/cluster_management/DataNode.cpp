@@ -1,6 +1,6 @@
 #include "../../header_files/cluster_management/DataNode.h"
 
-DataNode::DataNode(Controller* controller, ConnectionsManager* cm, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
+DataNode::DataNode(Controller* controller, ConnectionsManager* cm, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
 	this->controller = controller;
 	this->cm = cm;
 	this->response_mapper = response_mapper;
@@ -63,10 +63,7 @@ bool DataNode::send_heartbeat_to_leader(int* leader_id, char* req_buf, long req_
 
 	std::unique_ptr<DataNodeHeartbeatResponse> res = this->response_mapper->to_data_node_heartbeat_response(std::get<0>(res_tup).get(), std::get<1>(res_tup));
 
-	if (res.get() == NULL) {
-		this->logger->log_error("Invalid mapping value in DataNodeHeartbeatResponse type");
-		return false;
-	}
+	if (res.get() == NULL) return false;
 
 	int prev_leader_id = *leader_id;
 	bool update_leader = *leader_id != res.get()->leader_id;
@@ -110,4 +107,65 @@ int DataNode::get_next_leader_id(int leader_id) {
 		return std::get<0>((*(this->settings->get_controller_nodes()))[0]);
 
 	return std::get<0>((*(this->settings->get_controller_nodes()))[leader_index + 1]);
+}
+
+void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_terminate) {
+	int leader_id = 0;
+	std::unique_ptr<GetClusterMetadataUpdateRequest> req = nullptr;
+	std::shared_ptr<AppendEntriesRequest> append_entries_req = nullptr;
+	std::tuple<long, std::shared_ptr<char>> buf_tup = std::tuple<long, std::shared_ptr<char>>(0, nullptr);
+	std::tuple<std::shared_ptr<char>, long, bool> res = std::tuple<std::shared_ptr<char>, long, bool>(nullptr, 0, false);
+
+	while (!(*should_terminate)) {
+		if (this->settings->get_is_controller_node()) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
+			continue;
+		}
+
+		leader_id = this->controller->get_cluster_metadata()->get_leader_id();
+
+		if (leader_id == 0) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_cluster_update_receive_ms()));
+			continue;
+		}
+
+		{
+			std::lock_guard<std::mutex> lock(*this->cm->get_controller_node_connections_mut());
+
+			std::shared_ptr<ConnectionPool> pool = this->cm->get_controller_node_connection(leader_id, false);
+
+			if (pool == nullptr) goto end;
+
+			req = std::make_unique<GetClusterMetadataUpdateRequest>();
+			req.get()->command_id = this->controller->get_cluster_metadata()->get_current_version() + 1;
+
+			buf_tup = this->transformer->transform(req.get());
+
+			res = this->cm->send_request_to_socket(
+				pool.get(),
+				3,
+				std::get<1>(buf_tup).get(),
+				std::get<0>(buf_tup),
+				"GetClusterMetadataUpdate"
+			);
+
+			if (std::get<1>(res) == -1) {
+				this->logger->log_error("Network issue occured while trying to get cluster metadata updates from leader");
+				goto end;
+			}
+
+			append_entries_req = this->request_mapper->to_append_entries_request(
+				std::get<0>(res).get(),
+				std::get<1>(res)
+			);
+
+			if (append_entries_req == nullptr) goto end;
+
+			this->controller->handle_leader_append_entries(append_entries_req.get(), true);
+
+		end: {}
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_cluster_update_receive_ms()));
+	}
 }

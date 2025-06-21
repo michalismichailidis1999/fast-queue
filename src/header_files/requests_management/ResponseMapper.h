@@ -2,10 +2,13 @@
 #include <memory>
 #include "./Responses.h"
 #include "../Enums.h"
+#include "../logging/Logger.h"
 
 class ResponseMapper {
+private:
+	Logger* logger;
 public:
-	ResponseMapper();
+	ResponseMapper(Logger* logger);
 
 	std::unique_ptr<ErrorResponse> to_error_response(char* res_buf, long res_buf_len);
 

@@ -1,6 +1,8 @@
 #include "../../header_files/requests_management/ResponseMapper.h"
 
-ResponseMapper::ResponseMapper() {}
+ResponseMapper::ResponseMapper(Logger* logger) {
+	this->logger = logger;
+}
 
 std::unique_ptr<ErrorResponse> ResponseMapper::to_error_response(char* res_buf, long res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
@@ -16,7 +18,7 @@ std::unique_ptr<ErrorResponse> ResponseMapper::to_error_response(char* res_buf, 
 			offset += sizeof(RequestValueKey) + sizeof(int) + res.get()->error_message_size;
 		}
 		else {
-			printf("Invalid response value %d on response type ErrorResponse\n", *key);
+			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type ErrorResponse");
 			return nullptr;
 		}
 	}
@@ -44,7 +46,7 @@ std::unique_ptr<AppendEntriesResponse> ResponseMapper::to_append_entries_respons
 			offset += sizeof(RequestValueKey) + sizeof(bool);
 		}
 		else {
-			printf("Invalid response value %d on response type AppendEntriesResponse\n", *key);
+			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type AppendEntriesResponse");
 			return nullptr;
 		}
 	}
@@ -69,7 +71,7 @@ std::unique_ptr<RequestVoteResponse> ResponseMapper::to_request_vote_response(ch
 			offset += sizeof(RequestValueKey) + sizeof(bool);
 		}
 		else {
-			printf("Invalid response value %d on response type RequestVoteResponse\n", *key);
+			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type RequestVoteResponse");
 			return nullptr;
 		}
 	}
@@ -93,7 +95,7 @@ std::unique_ptr<DataNodeHeartbeatResponse> ResponseMapper::to_data_node_heartbea
 			offset += sizeof(RequestValueKey) + sizeof(int);
 		}
 		else {
-			printf("Invalid response value %d on response type DataNodeHeartbeatResponse\n", *key);
+			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type DataNodeHeartbeatResponse");
 			return nullptr;
 		}
 	}

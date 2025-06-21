@@ -95,7 +95,7 @@ private:
 
 	void execute_command(void* command_metadata);
 
-	std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long> prepare_append_entries_request(int follower_id);
+	std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long> prepare_append_entries_request(int follower_id, unsigned long long command_id = 0);
 
 	unsigned long long get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent);
 public:
@@ -103,7 +103,7 @@ public:
 
 	void update_quorum_communication_values();
 	
-	std::shared_ptr<AppendEntriesResponse> handle_leader_append_entries(AppendEntriesRequest* request);
+	std::shared_ptr<AppendEntriesResponse> handle_leader_append_entries(AppendEntriesRequest* request, bool from_data_node = false);
 	std::shared_ptr<RequestVoteResponse> handle_candidate_request_vote(RequestVoteRequest* request);
 
 	void run_controller_quorum_communication();
@@ -128,4 +128,6 @@ public:
 	ClusterMetadata* get_cluster_metadata();
 
 	ClusterMetadata* get_future_cluster_metadata();
+
+	std::shared_ptr<AppendEntriesRequest> get_cluster_metadata_updates(GetClusterMetadataUpdateRequest* request);
 };

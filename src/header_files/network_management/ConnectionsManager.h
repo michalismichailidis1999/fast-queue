@@ -95,4 +95,6 @@ public:
 	bool initialize_controller_node_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info);
 
 	std::map<int, std::shared_ptr<ConnectionPool>>* get_controller_node_connections(bool with_lock = true);
+
+	std::shared_ptr<ConnectionPool> get_controller_node_connection(int node_id, bool with_lock = true);
 }; 

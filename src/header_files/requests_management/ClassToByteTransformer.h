@@ -15,6 +15,8 @@ public:
     std::tuple<long, std::shared_ptr<char>> transform(RequestVoteRequest* obj);
 
     std::tuple<long, std::shared_ptr<char>> transform(DataNodeHeartbeatRequest* obj);
+
+    std::tuple<long, std::shared_ptr<char>> transform(GetClusterMetadataUpdateRequest* obj);
     // ------------------
 
     // Responses

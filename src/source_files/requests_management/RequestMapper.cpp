@@ -1,6 +1,8 @@
 #include "../../header_files/requests_management/RequestMapper.h"
 
-RequestMapper::RequestMapper() {}
+RequestMapper::RequestMapper(Logger* logger) {
+	this->logger = logger;
+}
 
 std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char* recvbuf, long recvbuflen) {
 	long offset = sizeof(RequestType); // skip request type 
@@ -28,7 +30,11 @@ std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char*
 			req.get()->password_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			req.get()->password = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
 			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->password_length;
-		} else throw std::exception("Invalid request value");
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type CreateQueueRequest");
+			throw std::exception("Invalid request value");
+		}
 	}
 
 	return req;
@@ -54,7 +60,11 @@ std::unique_ptr<DeleteQueueRequest> RequestMapper::to_delete_queue_request(char*
 			req.get()->password_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			req.get()->password = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
 			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->password_length;
-		} else throw std::exception("Invalid request value");
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type DeleteQueueRequest");
+			throw std::exception("Invalid request value");
+		}
 	}
 
 	return req;
@@ -98,7 +108,11 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 			req.get()->password_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			req.get()->password = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
 			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->password_length;
-		} else throw std::exception("Invalid request value");
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type ProduceMessagesRequest");
+			throw std::exception("Invalid request value");
+		}
 	}
 
 	return req;
@@ -140,7 +154,10 @@ std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(c
 			req.get()->commands_total_bytes = *(long*)(recvbuf + offset + sizeof(RequestValueKey) + sizeof(int));
 			req.get()->commands_data = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int) + sizeof(long);
 		}
-		else throw std::exception("Invalid request value");
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type AppendEntriesRequest");
+			throw std::exception("Invalid request value");
+		}
 	}
 
 	return req;
@@ -170,7 +187,10 @@ std::unique_ptr<RequestVoteRequest> RequestMapper::to_request_vote_request(char*
 			req.get()->last_log_term = *(long long*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(long long);
 		}
-		else throw std::exception("Invalid request value");
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type RequestVoteRequest");
+			throw std::exception("Invalid request value");
+		}
 	}
 
 	return req;
@@ -197,7 +217,31 @@ std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_
 			req.get()->port = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
 		}
-		else throw std::exception("Invalid request value");
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type DataNodeHeartbeatRequest");
+			throw std::exception("Invalid request value");
+		}
+	}
+
+	return req;
+}
+
+std::unique_ptr<GetClusterMetadataUpdateRequest> RequestMapper::to_get_cluster_metadata_update_request(char* recvbuf, long recvbuflen) {
+	long offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<GetClusterMetadataUpdateRequest> req = std::make_unique<GetClusterMetadataUpdateRequest>();
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::COMMAND_ID) {
+			req.get()->command_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type DataNodeHeartbeatRequest");
+			throw std::exception("Invalid request value");
+		}
 	}
 
 	return req;
