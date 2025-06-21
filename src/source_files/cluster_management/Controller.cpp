@@ -659,11 +659,6 @@ void Controller::check_for_dead_data_nodes() {
 	NodeState state = NodeState::LEADER;
 
 	while (!(*this->should_terminate)) {
-		if (!this->settings->get_is_controller_node()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_data_node_check_ms()));
-			continue;
-		}
-
 		state = this->get_state();
 
 		expired_nodes.clear();
@@ -677,6 +672,11 @@ void Controller::check_for_dead_data_nodes() {
 						expired_nodes.emplace_back(iter.first);
 				}
 				else this->data_nodes_heartbeats[iter.first] = this->util->get_current_time_milli();
+		}
+
+		if (!this->settings->get_is_controller_node()) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_data_node_check_ms()));
+			continue;
 		}
 
 		if (state != NodeState::LEADER) {
