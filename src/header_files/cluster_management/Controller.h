@@ -65,9 +65,6 @@ private:
 	std::atomic<unsigned long long> last_log_index;
 	std::atomic<unsigned long long> last_log_term;
 
-	std::vector<std::shared_ptr<char>> log;
-	std::mutex log_mut;
-
 	std::unordered_map<int, unsigned long long> follower_indexes;
 	std::mutex follower_indexes_mut;
 
@@ -93,8 +90,8 @@ private:
 
 	void repartition_node_data(int node_id);
 
-	void insert_commands_to_log(std::vector<Command>* commands);
-	std::tuple<bool, unsigned long long> insert_commands_to_log(void* commands, int total_commands, long commands_total_bytes);
+	void store_commands(std::vector<Command>* commands);
+	std::tuple<bool, unsigned long long> store_commands(void* commands, int total_commands, long commands_total_bytes);
 
 	void execute_command(void* command_metadata);
 

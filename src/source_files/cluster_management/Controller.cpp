@@ -164,7 +164,6 @@ void Controller::start_election() {
 
 void Controller::append_entries_to_followers() {
 	std::unique_lock<std::mutex> connections_lock(*this->cm->get_controller_node_connections_mut());
-	std::unique_lock<std::mutex> log_lock(this->log_mut);
 
 	auto controller_node_connections = this->cm->get_controller_node_connections(false);
 
@@ -236,7 +235,6 @@ void Controller::append_entries_to_followers() {
 		}
 	}
 
-	log_lock.unlock();
 	connections_lock.unlock();
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(LEADER_TIMEOUT));
@@ -283,7 +281,7 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 			this->cluster_metadata->set_leader_id(request->leader_id);
 		} else this->logger->log_info("Received heartbeat from leader");
 
-		auto tup_res = this->insert_commands_to_log(request->commands_data, request->total_commands, request->commands_total_bytes);
+		auto tup_res = this->store_commands(request->commands_data, request->total_commands, request->commands_total_bytes);
 
 		if (std::get<0>(tup_res))
 			this->mh->update_cluster_metadata_commit_index(request->leader_commit);
@@ -369,7 +367,7 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info) {
 		std::vector<Command> commands(1);
 		commands[0] = command;
 
-		this->insert_commands_to_log(&commands);
+		this->store_commands(&commands);
 
 		this->future_cluster_metadata->init_node_partitions(node_id);
 	}
@@ -576,7 +574,7 @@ void Controller::repartition_node_data(int node_id) {
 				std::get<1>(change)
 			));
 
-		this->insert_commands_to_log(&commands);
+		this->store_commands(&commands);
 
 		this->logger->log_info("Reassignment of node's " + std::to_string(node_id) + " partitions completed");
 	}
@@ -627,7 +625,7 @@ void Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetad
 			std::get<1>(change)
 		));
 
-	this->insert_commands_to_log(&commands);
+	this->store_commands(&commands);
 }
 
 void Controller::assign_queue_for_deletion(std::string& queue_name) {
@@ -645,7 +643,7 @@ void Controller::assign_queue_for_deletion(std::string& queue_name) {
 		std::shared_ptr<DeleteQueueCommand>(new DeleteQueueCommand(queue_name))
 	);
 
-	this->insert_commands_to_log(&commands);
+	this->store_commands(&commands);
 }
 
 void Controller::check_for_dead_data_nodes() {
@@ -692,7 +690,7 @@ void Controller::check_for_dead_data_nodes() {
 				std::vector<Command> commands(1);
 				commands[0] = command;
 
-				this->insert_commands_to_log(&commands);
+				this->store_commands(&commands);
 
 				this->future_cluster_metadata->remove_node_partitions(node_id);
 
@@ -708,30 +706,24 @@ int Controller::get_active_nodes_count() {
 	return this->data_nodes_heartbeats.size() + 1; // +1 is for current node running
 }
 
-void Controller::insert_commands_to_log(std::vector<Command>* commands) {
-	std::lock_guard<std::mutex> lock(this->log_mut);
-
+void Controller::store_commands(std::vector<Command>* commands) {
 	if (commands->size() == 0) return;
 
 	long total_bytes = 0;
-	int start_index = this->log.size() - 1;
-
-	if (start_index < 0) start_index = 0;
 
 	for (auto& command : *commands) {
 		command.set_metadata_version(++this->future_cluster_metadata->metadata_version);
 		auto bytes_tup = command.get_metadata_bytes();
-		this->log.emplace_back(std::get<1>(bytes_tup));
 		total_bytes += std::get<0>(bytes_tup);
 	}
 
 	std::unique_ptr<char> messages_bytes = std::unique_ptr<char>(new char[total_bytes]);
 	long offset = 0;
 
-	for (int i = start_index; i < this->log.size(); i++) {
-		long command_bytes = 0;
-		memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, this->log[i].get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
-		memcpy_s(messages_bytes.get() + offset, command_bytes, this->log[i].get(), command_bytes);
+	for (auto& command : *commands) {
+		auto bytes_tup = command.get_metadata_bytes();
+		unsigned int command_bytes = std::get<0>(bytes_tup);
+		memcpy_s(messages_bytes.get() + offset, command_bytes, std::get<1>(bytes_tup).get(), command_bytes);
 		offset += command_bytes;
 	}
 
@@ -743,36 +735,32 @@ void Controller::insert_commands_to_log(std::vector<Command>* commands) {
 			total_bytes
 		);
 	}
-	catch (const std::exception&)
+	catch (const std::exception& ex)
 	{
-		this->log.erase(this->log.begin() + start_index, this->log.end());
+		// TODO: Log error
+		return;
 	}
 
-	auto& last_command = this->log.back();
+	auto& last_command = commands->back();
 
-	memcpy_s(&this->last_log_index, MESSAGE_ID_SIZE, last_command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-	memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, last_command.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+	this->last_log_index = last_command.get_metadata_version();
+	this->last_log_term = last_command.get_term();
 }
 
-std::tuple<bool, unsigned long long> Controller::insert_commands_to_log(void* commands, int total_commands, long commands_total_bytes) {
+std::tuple<bool, unsigned long long> Controller::store_commands(void* commands, int total_commands, long commands_total_bytes) {
 	if (total_commands <= 0 || commands_total_bytes <= 0) return std::tuple<bool, unsigned long long>(true, 0);
-
-	unsigned long command_bytes = 0;
 
 	unsigned long offset = 0;
 
-	unsigned long long first_version = 0;
+	unsigned long long last_command_index = 0;
+	unsigned long long last_command_term = 0;
 
 	for (int i = 0; i < total_commands; i++) {
-		if (i == 0) {
-			memcpy_s(&first_version, sizeof(unsigned long long), (char*)commands + offset + MESSAGE_ID_OFFSET, sizeof(unsigned long long));
-			if(first_version > this->last_log_index + 1)
-				return std::tuple<bool, unsigned long long>(true, this->last_log_index);
-		}
+		memcpy_s(&last_command_index, sizeof(unsigned long long), (char*)commands + offset + MESSAGE_ID_OFFSET, sizeof(unsigned long long));
+		memcpy_s(&last_command_term, sizeof(unsigned long long), (char*)commands + offset + COMMAND_TERM_OFFSET, sizeof(unsigned long long));
 
-		memcpy_s(&command_bytes, sizeof(unsigned long), (char*)commands + offset, sizeof(unsigned long));
-		std::shared_ptr<char> command = std::shared_ptr<char>(new char[command_bytes]);
-		this->log.emplace_back(command);
+		if (i == 0 && last_command_index > this->last_log_index + 1)
+			return std::tuple<bool, unsigned long long>(true, this->last_log_index);
 	}
 
 	try
@@ -783,20 +771,14 @@ std::tuple<bool, unsigned long long> Controller::insert_commands_to_log(void* co
 			commands_total_bytes
 		);
 	}
-	catch (const std::exception&)
+	catch (const std::exception& ex)
 	{
-		while (total_commands > 0) {
-			this->log.pop_back();
-			total_commands--;
-		}
-
+		// TODO: Log error
 		return std::tuple<bool, unsigned long long>(false, this->last_log_index);
 	}
 
-	auto& last_command = this->log.back();
-
-	memcpy_s(&this->last_log_index, MESSAGE_ID_SIZE, last_command.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-	memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, last_command.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+	this->last_log_index = last_command_index;
+	this->last_log_term = last_command_term;
 
 	return std::tuple<bool, unsigned long long>(true, 0);
 }
@@ -820,6 +802,10 @@ void Controller::execute_command(void* command_metadata) {
 }
 
 void Controller::check_for_commit_and_last_applied_diff() {
+	std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
+	Partition* partition = queue.get()->get_partition(0);
+	queue.reset();
+
 	while (!(*this->should_terminate)) {
 		if(!this->settings->get_is_controller_node()) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_UNAPPLIED_COMMANDS));
@@ -833,22 +819,44 @@ void Controller::check_for_commit_and_last_applied_diff() {
 			continue;
 		}
 
+		auto& res = this->mh->read_partition_messages(partition, this->last_applied + 1);
+
+		std::shared_ptr<char> commands_batch = std::get<0>(res);
+		unsigned int batch_size = std::get<1>(res);
+		unsigned int read_start = std::get<2>(res);
+		unsigned int read_end = std::get<3>(res);
+		unsigned int total_commands = std::get<4>(res);
+
+		unsigned long long metadata_version = 0;
+		unsigned long long prev_metadata_version = 0;
+		unsigned long long command_bytes = 0;
+
+		unsigned int offset = read_start;
+
+		try
 		{
-			std::lock_guard<std::mutex> lock(this->log_mut);
+			while (offset < read_end) {
+				memcpy_s(&metadata_version, MESSAGE_ID_SIZE, commands_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
-			int to_remove = 0;
-			for (auto& comamnd : this->log) {
-				unsigned long long metadata_version = 0;
-				memcpy_s(&metadata_version, MESSAGE_ID_SIZE, comamnd.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 				if (metadata_version > commit_index) break;
-				this->execute_command(comamnd.get());
-				to_remove++;
-			}
 
-			this->log.erase(this->log.begin(), this->log.begin() + to_remove);
+				this->execute_command(commands_batch.get());
+				prev_metadata_version = metadata_version;
+
+				memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, commands_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+				offset += command_bytes;
+			}
+		}
+		catch (const std::exception& ex)
+		{
+			// TODO: Log error
+			if(prev_metadata_version > 0)
+				commit_index = prev_metadata_version;
 		}
 
 		this->mh->update_cluster_metadata_last_applied(commit_index);
+		this->last_applied = commit_index;
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_UNAPPLIED_COMMANDS));
 	}
