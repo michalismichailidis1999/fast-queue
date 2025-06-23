@@ -100,6 +100,16 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
+		case RequestType::GET_QUEUE_PARTITIONS_INFO:
+		{
+			this->logger->log_info("Received and executing request type of GET_QUEUE_PARTITIONS_INFO");
+
+			std::unique_ptr<GetQueuePartitionsInfoRequest> request = this->mapper->to_get_queue_partitions_info_request(recvbuf.get(), res_buffer_length);
+
+			this->client_request_executor->handle_get_queue_partitions_info_request(socket, ssl, request.get());
+
+			break;
+		}
 		case RequestType::APPEND_ENTRIES:
 		{
 			this->logger->log_info("Received and executing request type of APPEND_ENTRIES");
