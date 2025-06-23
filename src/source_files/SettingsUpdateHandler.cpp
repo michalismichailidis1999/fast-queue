@@ -28,10 +28,10 @@ void SettingsUpdateHandler::check_if_settings_updated(std::atomic_bool* should_t
 		bool controller_nodes_updates = false;
 		bool node_type_changed = this->settings->get_is_controller_node() != new_settings->get_is_controller_node();
 
-		for (auto& con_node : *(new_settings.get()->get_controller_nodes()))
+		for (auto& con_node : new_settings.get()->get_controller_nodes())
 			new_controller_nodes[std::get<0>(con_node)] = std::get<1>(con_node);
 
-		for (auto& con_node : *(this->settings->get_controller_nodes()))
+		for (auto& con_node : this->settings->get_controller_nodes())
 			if (new_controller_nodes.find(std::get<0>(con_node)) == new_controller_nodes.end()) {
 				controller_nodes_updates = true;
 				break;

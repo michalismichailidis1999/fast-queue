@@ -410,3 +410,11 @@ int ClusterMetadata::get_partition_leader(const std::string& queue, int partitio
 
 	return (*(queue_partition_leads.get()))[partition];
 }
+
+std::mutex* ClusterMetadata::get_partitions_mut() {
+	return &this->nodes_partitions_mut;
+}
+
+std::shared_ptr<std::unordered_map<int, int>> ClusterMetadata::get_queue_partition_leaders(const std::string& queue_name) {
+	return this->partition_leader_nodes[queue_name];
+}

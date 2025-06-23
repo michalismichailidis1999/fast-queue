@@ -51,4 +51,9 @@ struct ProduceMessagesResponse {
 	bool ok;
 };
 
+struct GetQueuePartitionsInfoResponse {
+	int total_partitions;
+	std::vector<std::tuple<int, int, ConnectionInfo*>> connection_infos;
+};
+
 // =======================================================

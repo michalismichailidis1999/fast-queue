@@ -343,7 +343,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetCon
 	long offset = 0;
 
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
-	ResponseValueKey controller_connection_info_type = ResponseValueKey::CONTROLLER_CONNECTION_INFO;
+	ResponseValueKey connection_info_type = ResponseValueKey::NODE_CONNECTION_INFO;
 
 	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
 	offset += sizeof(long);
@@ -362,7 +362,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetCon
 		ConnectionInfo* conn_info = std::get<1>(info);
 		int address_size = conn_info->address.size();
 
-		memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &controller_connection_info_type, sizeof(ResponseValueKey));
+		memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &connection_info_type, sizeof(ResponseValueKey));
 		offset += sizeof(ResponseValueKey);
 
 		memcpy_s(buf.get() + offset, sizeof(int), &node_id, sizeof(int));
@@ -425,6 +425,62 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Produc
 	offset += sizeof(ResponseValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
+
+	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+}
+
+std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetQueuePartitionsInfoResponse* obj) {
+	int count = obj->connection_infos.size();
+
+	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey) + count * (3 * sizeof(int) + sizeof(ResponseValueKey));
+
+	for (auto& info : obj->connection_infos)
+		buf_size += std::get<2>(info)->address.size();
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	long offset = 0;
+
+	ResponseValueKey total_partitions_type = ResponseValueKey::TOTAL_PARTITIONS;
+	ResponseValueKey connection_info_type = ResponseValueKey::PARTITION_NODE_CONNECTION_INFO;
+
+	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
+	offset += sizeof(long);
+
+	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
+	offset += sizeof(ErrorCode);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &total_partitions_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->total_partitions, sizeof(int));
+	offset += sizeof(int);
+
+	for (auto& info : obj->connection_infos) {
+		int partition_id = std::get<0>(info);
+		int node_id = std::get<1>(info);
+		ConnectionInfo* conn_info = std::get<2>(info);
+		int address_size = conn_info->address.size();
+
+		memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &connection_info_type, sizeof(ResponseValueKey));
+		offset += sizeof(ResponseValueKey);
+
+		memcpy_s(buf.get() + offset, sizeof(int), &partition_id, sizeof(int));
+		offset += sizeof(int);
+
+		memcpy_s(buf.get() + offset, sizeof(int), &node_id, sizeof(int));
+		offset += sizeof(int);
+
+		memcpy_s(buf.get() + offset, sizeof(int), &address_size, sizeof(int));
+		offset += sizeof(int);
+
+		memcpy_s(buf.get() + offset, address_size, conn_info->address.c_str(), address_size);
+		offset += address_size;
+
+		memcpy_s(buf.get() + offset, sizeof(int), &conn_info->port, sizeof(int));
+		offset += sizeof(int);
+	}
 
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }

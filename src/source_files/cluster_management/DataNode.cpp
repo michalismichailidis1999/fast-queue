@@ -29,7 +29,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 		int leader_id = this->controller->get_cluster_metadata()->get_leader_id();
 
 		if (leader_id == 0)
-			leader_id = std::get<0>((*(this->settings->get_controller_nodes()))[0]);
+			leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
 
 		if (pool == NULL) {
 			std::lock_guard<std::mutex> lock(*this->cm->get_controller_node_connections_mut());
@@ -88,14 +88,14 @@ bool DataNode::send_heartbeat_to_leader(int* leader_id, char* req_buf, long req_
 
 // get next leader id using round robin
 int DataNode::get_next_leader_id(int leader_id) {
-	int total_controller_nodes = this->settings->get_controller_nodes()->size();
+	int total_controller_nodes = this->settings->get_controller_nodes().size();
 
 	if (total_controller_nodes == 1)
-		return std::get<0>((*(this->settings->get_controller_nodes()))[0]);
+		return std::get<0>((this->settings->get_controller_nodes())[0]);
 
 	int leader_index = 0;
 
-	for (auto contr : *this->settings->get_controller_nodes()) {
+	for (auto contr : this->settings->get_controller_nodes()) {
 		if (leader_id == std::get<0>(contr)) break;
 
 		if (leader_index == total_controller_nodes - 1) break;
@@ -104,9 +104,9 @@ int DataNode::get_next_leader_id(int leader_id) {
 	}
 
 	if (leader_index == total_controller_nodes - 1)
-		return std::get<0>((*(this->settings->get_controller_nodes()))[0]);
+		return std::get<0>((this->settings->get_controller_nodes())[0]);
 
-	return std::get<0>((*(this->settings->get_controller_nodes()))[leader_index + 1]);
+	return std::get<0>((this->settings->get_controller_nodes())[leader_index + 1]);
 }
 
 void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_terminate) {

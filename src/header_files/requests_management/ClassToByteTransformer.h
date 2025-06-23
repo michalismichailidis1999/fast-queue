@@ -40,6 +40,7 @@ public:
 
     std::tuple<long, std::shared_ptr<char>> transform(ProduceMessagesResponse* obj);
 
+    std::tuple<long, std::shared_ptr<char>> transform(GetQueuePartitionsInfoResponse* obj);
     // --
 
     // ------------------

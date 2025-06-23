@@ -82,4 +82,10 @@ struct ProduceMessagesRequest {
 	std::shared_ptr<std::vector<int>> messages_keys_sizes;
 };
 
+struct GetQueuePartitionsInfoRequest {
+	int queue_name_length;
+	char* queue_name;
+};
+
+
 // ======================================================================

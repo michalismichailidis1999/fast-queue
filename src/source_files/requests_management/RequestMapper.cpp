@@ -118,6 +118,28 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 	return req;
 }
 
+std::unique_ptr<GetQueuePartitionsInfoRequest> RequestMapper::to_get_queue_partitions_info_request(char* recvbuf, long recvbuflen) {
+	long offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<GetQueuePartitionsInfoRequest> req = std::make_unique<GetQueuePartitionsInfoRequest>();
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::QUEUE_NAME) {
+			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type GetQueuePartitionsInfoRequest");
+			throw std::exception("Invalid request value");
+		}
+	}
+
+	return req;
+}
+
 std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(char* recvbuf, long recvbuflen) {
 	long offset = sizeof(RequestType); // skip request type 
 

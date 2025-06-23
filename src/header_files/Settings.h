@@ -100,7 +100,7 @@ public:
 	
 	// node type properties getters
 	bool get_is_controller_node();
-	std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* get_controller_nodes();
+	std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>> get_controller_nodes();
 	// -------------------------------------------
 
 	// internal communication properties getters

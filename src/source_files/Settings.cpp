@@ -265,9 +265,9 @@ bool Settings::get_is_controller_node() {
 	return this->is_controller_node;
 }
 
-std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* Settings::get_controller_nodes() {
+std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>> Settings::get_controller_nodes() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
-	return &this->controller_nodes;
+	return this->controller_nodes;
 }
 
 // ------------------------------------------------------------

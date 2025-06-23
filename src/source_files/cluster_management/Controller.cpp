@@ -18,11 +18,11 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->future_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 	this->compacetd_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 
-	for (auto& controller_node : *(this->settings->get_controller_nodes()))
+	for (auto& controller_node : this->settings->get_controller_nodes())
 		if (std::get<0>(controller_node) != this->settings->get_node_id())
 			this->cluster_metadata->init_node_partitions(std::get<0>(controller_node));
 
-	this->is_the_only_controller_node = this->settings->get_controller_nodes()->size() == 1;
+	this->is_the_only_controller_node = this->settings->get_controller_nodes().size() == 1;
 
 	this->vote_for = -1;
 
@@ -43,7 +43,7 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->commit_index = cluster_metadata_queue->get_last_commit_index();
 	this->last_applied = cluster_metadata_queue->get_last_applied_index();
 
-	this->half_quorum_nodes_count = this->settings->get_controller_nodes()->size() / 2 + 1;
+	this->half_quorum_nodes_count = this->settings->get_controller_nodes().size() / 2 + 1;
 
 	this->dummy_node_id = -1;
 }

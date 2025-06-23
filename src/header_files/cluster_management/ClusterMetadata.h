@@ -67,5 +67,9 @@ public:
 
 	std::tuple<unsigned int, std::shared_ptr<char>> get_metadata_bytes();
 
+	std::mutex* get_partitions_mut();
+
+	std::shared_ptr<std::unordered_map<int, int>> get_queue_partition_leaders(const std::string& queue_name);
+
 	friend class Controller;
 };

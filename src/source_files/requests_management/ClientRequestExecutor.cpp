@@ -15,8 +15,13 @@ ClientRequestExecutor::ClientRequestExecutor(MessagesHandler* mh, ConnectionsMan
 void ClientRequestExecutor::handle_get_controllers_connection_info_request(SOCKET_ID socket, SSL* ssl) {
 	std::unique_ptr<GetControllerConnectionInfoResponse> res = std::make_unique<GetControllerConnectionInfoResponse>();
 
-	for (auto& controller_info : *this->settings->get_controller_nodes())
-		res->connection_infos.emplace_back(std::get<0>(controller_info), std::get<1>(controller_info).get());
+	std::vector<std::shared_ptr<ConnectionInfo>> infos;
+
+	for (auto& controller_info : this->settings->get_controller_nodes()) {
+		auto info = std::get<1>(controller_info);
+		res->connection_infos.emplace_back(std::get<0>(controller_info), info.get());
+		infos.emplace_back(info);
+	}
 
 	res->leader_id = this->controller->get_cluster_metadata()->get_leader_id();
 
@@ -113,7 +118,7 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 	}
 
 	if (queue == nullptr) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Cannot produce messages to internal queue");
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
 
@@ -169,6 +174,55 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 	}
 
 	this->mh->save_messages(partition, request);
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
+
+void ClientRequestExecutor::handle_get_queue_partitions_info_request(SOCKET_ID socket, SSL* ssl, GetQueuePartitionsInfoRequest* request) {
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
+
+	if (Helper::is_internal_queue(queue_name)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Cannot get internal queue's partitions info");
+		return;
+	}
+
+	if (queue == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
+		return;
+	}
+
+	std::unique_ptr<GetQueuePartitionsInfoResponse> res = std::make_unique<GetQueuePartitionsInfoResponse>();
+	res.get()->total_partitions = queue.get()->get_metadata()->get_partitions();
+
+	ClusterMetadata* cluster_metadata = this->controller->get_cluster_metadata();
+
+	std::mutex* partitions_mut = cluster_metadata->get_partitions_mut();
+
+	std::unique_lock<std::mutex> lock(*partitions_mut);
+
+	auto queue_partitions_leaders = cluster_metadata->get_queue_partition_leaders(queue_name);
+
+	if (queue_partitions_leaders == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNASSIGNED_LEADERSHIP, "Queue does not have assigned leaders yet for its partitions");
+		return;
+	}
+
+	std::vector<std::shared_ptr<ConnectionPool>> pools_ref;
+
+	for (auto& iter : *(queue_partitions_leaders.get())) {
+		std::shared_ptr<ConnectionPool> pool = this->cm->get_node_connection_pool(iter.second);
+
+		if (pool != nullptr) {
+			res.get()->connection_infos.emplace_back(iter.first, iter.second, pool.get()->get_connection_info());
+			pools_ref.emplace_back(pool);
+		}
+	}
+	
+	lock.unlock();
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }

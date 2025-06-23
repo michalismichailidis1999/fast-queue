@@ -30,5 +30,7 @@ public:
 
 	std::unique_ptr<ProduceMessagesRequest> to_produce_messages_request(char* recvbuf, long recvbuflen);
 
+	std::unique_ptr<GetQueuePartitionsInfoRequest> to_get_queue_partitions_info_request(char* recvbuf, long recvbuflen);
+
 	// =======================================================
 };

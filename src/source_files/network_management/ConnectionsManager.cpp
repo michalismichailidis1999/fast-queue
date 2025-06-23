@@ -168,7 +168,7 @@ void ConnectionsManager::initialize_controller_nodes_connections() {
 	int failed_occurunces = 0;
 	int successfull_occurunces = 0;
 
-	for (auto controller : *(this->settings->get_controller_nodes())) {
+	for (auto controller : this->settings->get_controller_nodes()) {
 		int node_id = std::get<0>(controller);
 		std::shared_ptr<ConnectionInfo> info = std::get<1>(controller);
 
@@ -500,4 +500,20 @@ bool ConnectionsManager::initialize_data_node_connection_pool(int node_id, std::
 
 bool ConnectionsManager::initialize_controller_node_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info) {
 	return this->setup_connection_pool(node_id, info, &this->controllers_mut, &this->controller_node_connections);
+}
+
+std::shared_ptr<ConnectionPool> ConnectionsManager::get_node_connection_pool(int node_id) {
+	{
+		std::lock_guard<std::mutex> lock(this->controllers_mut);
+		if (this->controller_node_connections.find(node_id) != this->controller_node_connections.end())
+			return this->controller_node_connections[node_id];
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(this->data_mut);
+		if (this->data_node_connections.find(node_id) != this->data_node_connections.end())
+			return this->data_node_connections[node_id];
+	}
+
+	return nullptr;
 }
