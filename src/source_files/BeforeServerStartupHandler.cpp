@@ -32,11 +32,13 @@ void BeforeServerStartupHandler::initialize_required_folders_and_queues() {
 void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     this->logger->log_info("Rebuilding cluster metadata...");
 
-    std::tuple<long, std::shared_ptr<char>> config_res = this->fh->get_complete_file_content(this->pm->get_cluster_metadata_compaction_path());
+    if (this->fh->check_if_exists(this->pm->get_cluster_metadata_compaction_path())) {
+        std::tuple<long, std::shared_ptr<char>> config_res = this->fh->get_complete_file_content(this->pm->get_cluster_metadata_compaction_path());
 
-    this->controller->get_compacted_cluster_metadata()->fill_from_metadata(std::get<1>(config_res).get());
+        this->controller->get_compacted_cluster_metadata()->fill_from_metadata(std::get<1>(config_res).get());
 
-    std::get<1>(config_res).reset();
+        std::get<1>(config_res).reset();
+    }
 
     this->controller->get_cluster_metadata()->copy_from(this->controller->get_compacted_cluster_metadata());
 
@@ -47,9 +49,10 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     unsigned long long smallest_segment_id = partition->get_smallest_segment_id();
     unsigned long long current_segment_id = partition->get_current_segment_id();
 
-    while (smallest_segment_id <= current_segment_id) {
+    while (smallest_segment_id > 0 && smallest_segment_id <= current_segment_id) {
         this->cmah->apply_commands_from_segment(this->controller->get_cluster_metadata(), smallest_segment_id);
-        smallest_segment_id++;
+        if (smallest_segment_id < current_segment_id) smallest_segment_id++;
+        else break;
     }
 
     this->controller->get_future_cluster_metadata()->copy_from(this->controller->get_cluster_metadata());

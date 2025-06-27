@@ -221,7 +221,7 @@ unsigned long FileHandler::read_from_file(FileStream* fs, unsigned long buffer_s
 
 	this->handle_file_failure(fs);
 
-	return feof_occured ? buffer_size - (fs->end_pos - pos) : buffer_size;
+	return feof_occured ? fs->end_pos - pos : buffer_size;
 }
 
 void FileHandler::open_file(FileStream* fs, const std::string& path, bool is_new_file) {
