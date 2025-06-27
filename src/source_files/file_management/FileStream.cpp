@@ -5,11 +5,13 @@ FileStream::FileStream() {
 	this->file = NULL;
 	this->fd = -1;
 	this->file_path = "";
+	this->file_closed = true;
 }
 
 void FileStream::set_file(const std::string& file_path, FILE* file) {
 	this->file_path = file_path;
 	this->file = file;
+	this->file_closed = false;
 
 	this->fd = fileno(file);
 

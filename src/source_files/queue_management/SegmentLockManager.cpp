@@ -7,7 +7,10 @@ void SegmentLockManager::lock_segment(Partition* partition, PartitionSegment* se
 
 	std::string key = this->get_segment_key(partition, segment);
 
-	if (this->locks.find(key) == this->locks.end()) this->locks[key] = std::make_shared<segment_lock>();
+	if (this->locks.find(key) == this->locks.end()) {
+		this->locks[key] = std::make_shared<segment_lock>();
+		this->locks[key].get()->references = 1;
+	}
 	else this->locks[key].get()->references++;
 
 	auto& s_lock = this->locks[key];
@@ -38,7 +41,7 @@ void SegmentLockManager::release_segment_lock(Partition* partition, PartitionSeg
 	}
 }
 
-const std::string& SegmentLockManager::get_segment_key(Partition* partition, PartitionSegment* segment) {
+std::string SegmentLockManager::get_segment_key(Partition* partition, PartitionSegment* segment) {
 	return partition->get_queue_name() 
 		+ "_" 
 		+ std::to_string(partition->get_partition_id()) 

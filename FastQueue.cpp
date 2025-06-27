@@ -112,6 +112,7 @@ int main(int argc, char* argv[])
     startup_handler.get()->initialize_required_folders_and_queues();
     startup_handler.get()->rebuild_cluster_metadata();
 
+    controller.get()->init_commit_index_and_last_applied();
     controller.get()->update_quorum_communication_values();
 
     std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), request_mapper.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
@@ -209,9 +210,9 @@ int main(int argc, char* argv[])
         std::thread check_dead_data_nodes_thread = std::thread(check_dead_data_nodes);
         std::thread check_for_commit_and_last_applied_diff_thread = std::thread(check_for_commit_and_last_applied_diff);
         std::thread send_heartbeats_to_leader_thread = std::thread(send_heartbeats_to_leader);
-        std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
-        std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
-        std::thread check_for_settings_update_thread = std::thread(check_for_settings_update);
+        //std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
+        //std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
+        //std::thread check_for_settings_update_thread = std::thread(check_for_settings_update);
         std::thread retrieve_cluster_metadata_updates_thread = std::thread(retrieve_cluster_metadata_updates);
 
         internal_listener_thread.join();
@@ -223,9 +224,9 @@ int main(int argc, char* argv[])
         check_dead_data_nodes_thread.join();
         check_for_commit_and_last_applied_diff_thread.join();
         send_heartbeats_to_leader_thread.join();
-        compact_closed_segments_thread.join();
-        remove_expired_segments_thread.join();
-        check_for_settings_update_thread.join();
+        //compact_closed_segments_thread.join();
+        //remove_expired_segments_thread.join();
+        //check_for_settings_update_thread.join();
         retrieve_cluster_metadata_updates_thread.join();
     }
     catch (const std::exception&) {

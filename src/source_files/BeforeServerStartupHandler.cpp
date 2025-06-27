@@ -63,9 +63,10 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
 
 void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues() {
     std::regex get_queue_name_rgx("((__|)[a-zA-Z][a-zA-Z0-9_-]*)$", std::regex_constants::icase);
-    std::regex get_segment_num_rgx("0*([1-9][0-9]*).*$", std::regex_constants::icase);
+    std::regex get_segment_num_rgx("0*([1-9][0-9]*)\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_segment_index("index_0*([1-9][0-9]*)\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
     std::regex partition_match_rgx("partition-([0-9]|[1-9][0-9]+)$", std::regex_constants::icase);
-    std::regex is_metadat_file_rgx("metadata" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_metadat_file_rgx("metadata\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
 
     int partition_id = 0;
     bool is_cluster_metadata_queue = false;
@@ -83,11 +84,9 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 
         if (std::regex_search(path, match, is_metadat_file_rgx)) return;
 
-        if (!std::regex_search(path, match, get_segment_num_rgx)) {
-            this->logger->log_warning("Incorrect file name detected at path " + path + ". Deleting it since it won't be used by server");
-            this->fh->delete_dir_or_file(path);
-            return;
-        }
+        if (std::regex_search(path, match, is_segment_index)) return;
+
+        if (!std::regex_search(path, match, get_segment_num_rgx)) return;
 
         if (match.size() < 1) return;
 
@@ -232,7 +231,7 @@ std::shared_ptr<QueueMetadata> BeforeServerStartupHandler::get_queue_metadata(co
             queue_metadata_file_path,
             std::get<0>(bytes_tup),
             std::get<1>(bytes_tup).get(),
-            "",
+            queue_name == CLUSTER_METADATA_QUEUE_NAME ? this->pm->get_metadata_file_key(queue_name) : "",
             true
         );
 
@@ -244,7 +243,7 @@ std::shared_ptr<QueueMetadata> BeforeServerStartupHandler::get_queue_metadata(co
     std::unique_ptr<char> data = std::unique_ptr<char>(new char[QUEUE_METADATA_TOTAL_BYTES]);
 
     this->fh->read_from_file(
-        queue_name,
+        queue_name == CLUSTER_METADATA_QUEUE_NAME ? this->pm->get_metadata_file_key(queue_name) : "",
         queue_metadata_file_path,
         QUEUE_METADATA_TOTAL_BYTES,
         0,
@@ -266,13 +265,13 @@ void BeforeServerStartupHandler::set_partition_segment_message_map(Partition* pa
     );
 
     if (!this->fh->check_if_exists(file_path)) {
-        std::unique_ptr<char> data = std::unique_ptr<char>(new char[MAPPED_SEGMENTS_PER_PAGE]);
+        std::unique_ptr<char> data = std::unique_ptr<char>(new char[MESSAGES_LOC_MAP_PAGE_SIZE]);
 
         this->smm->fill_new_page_with_values(data.get(), 1);
 
         this->fh->create_new_file(
             file_path,
-            MAPPED_SEGMENTS_PER_PAGE,
+            MESSAGES_LOC_MAP_PAGE_SIZE,
             data.get(),
             file_key,
             true

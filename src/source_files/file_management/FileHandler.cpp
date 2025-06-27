@@ -5,8 +5,16 @@ FileHandler::FileHandler() {
 }
 
 void FileHandler::create_new_file(const std::string& path, unsigned long bytes_to_write, void* data, const std::string& key, bool flush_data) {
-	std::shared_ptr<FileStream> fs = std::shared_ptr<FileStream>(new FileStream());
-	
+	std::shared_ptr<FileStream> fs = std::shared_ptr<FileStream>(
+		new FileStream(),
+		[](FileStream* _fs) {
+			if (!_fs->file_closed) {
+				fclose(_fs->file);
+				_fs->file_closed = true;
+			}
+		}
+	);
+
 	this->open_file(fs.get(), path, true);
 
 	if (bytes_to_write > 0 && data != NULL)
@@ -70,7 +78,15 @@ void FileHandler::execute_action_to_dir_subfiles(const std::string& path, std::f
 }
 
 std::tuple<long, std::shared_ptr<char>> FileHandler::get_complete_file_content(const std::string& path) {
-	std::shared_ptr<FileStream> fs = std::shared_ptr<FileStream>(new FileStream());
+	std::shared_ptr<FileStream> fs = std::shared_ptr<FileStream>(
+		new FileStream(),
+		[](FileStream* _fs) { 
+			if (!_fs->file_closed) {
+				fclose(_fs->file);
+				_fs->file_closed = true;
+			}
+		}
+	);
 
 	this->open_file(fs.get(), path);
 
@@ -79,6 +95,8 @@ std::tuple<long, std::shared_ptr<char>> FileHandler::get_complete_file_content(c
 	std::shared_ptr<char> content = std::shared_ptr<char>(new char[file_size]);
 
 	this->read_from_file(fs.get(), file_size, 0, content.get());
+
+	this->close_file(fs.get());
 
 	return std::tuple<long, std::shared_ptr<char>>(file_size, content);
 }
@@ -104,7 +122,17 @@ long long FileHandler::write_to_file(std::string key, const std::string& path, u
 		? nullptr
 		: this->cache->get(key);
 
-	if (fs == NULL) {
+	if (fs == nullptr) {
+		fs = std::shared_ptr<FileStream>(
+			new FileStream(),
+			[](FileStream* _fs) {
+				if (!_fs->file_closed) {
+					fclose(_fs->file);
+					_fs->file_closed = true;
+				}
+			}
+		);
+
 		this->open_file(fs.get(), path);
 
 		if (key != "") {
@@ -125,9 +153,19 @@ unsigned long FileHandler::read_from_file(std::string key, const std::string& pa
 
 	std::shared_ptr<FileStream> fs = key == ""
 		? nullptr
-		: this->cache->get(key) ;
+		: this->cache->get(key);
 
 	if (fs == NULL) {
+		fs = std::shared_ptr<FileStream>(
+			new FileStream(),
+			[](FileStream* _fs) {
+				if (!_fs->file_closed) {
+					fclose(_fs->file);
+					_fs->file_closed = true;
+				}
+			}
+		);
+
 		this->open_file(fs.get(), path);
 
 		if (key != "") {
@@ -194,7 +232,7 @@ void FileHandler::open_file(FileStream* fs, const std::string& path, bool is_new
 
 	FILE* file = fopen(path.c_str(), mode.c_str());
 
-	if (file == NULL)
+	if (file == nullptr)
 		throw std::exception("Could not open file");
 
 	fs->set_file(path, file);
@@ -205,7 +243,14 @@ void FileHandler::open_file(FileStream* fs, const std::string& path, bool is_new
 void FileHandler::close_file(FileStream* fs) {
 	std::lock_guard<std::mutex> lock(fs->mut);
 	this->remove_unflushed_stream(fs);
-	fclose(fs->file);
+
+	if (!fs->file_closed) {
+		fclose(fs->file);
+		fs->file_closed = true;
+		fs->file = NULL;
+		fs->fd = -1;
+		fs->file_path = "";
+	}
 }
 
 void FileHandler::handle_file_failure(FileStream* fs) {

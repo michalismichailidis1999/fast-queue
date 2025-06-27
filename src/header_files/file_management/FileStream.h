@@ -8,6 +8,7 @@ private:
 	long long end_pos;
 	int fd;
 	FILE* file;
+	bool file_closed;
 
 	std::mutex mut;
 public:

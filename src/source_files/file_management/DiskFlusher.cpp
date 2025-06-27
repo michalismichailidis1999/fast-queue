@@ -58,7 +58,7 @@ void DiskFlusher::flush_new_metadata_to_disk(PartitionSegment* segment, const st
 
 	this->fh->create_new_file(
 		segment->get_index_path(),
-		SEGMENT_METADATA_TOTAL_BYTES,
+		INDEX_PAGE_SIZE,
 		std::get<0>(BTreeNode(PageType::LEAF).get_page_bytes()).get(),
 		segment->get_index_key(),
 		true

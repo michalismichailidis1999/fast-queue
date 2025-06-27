@@ -31,7 +31,7 @@ std::string QueueSegmentFilePathMapper::get_partition_folder_path(const std::str
 }
 
 std::string QueueSegmentFilePathMapper::get_file_key(const std::string& queue_name, unsigned long long segment_id, int partition, bool index_file) {
-	return this->get_file_key(queue_name, segment_id, index_file, partition, false);
+	return this->get_file_key(queue_name, segment_id, partition, index_file, false);
 }
 
 std::string QueueSegmentFilePathMapper::get_file_path(const std::string& queue_name, unsigned long long segment_id, int partition, bool index_file) {
@@ -75,7 +75,7 @@ std::string QueueSegmentFilePathMapper::get_segment_message_map_path(const std::
 		+ "/"
 		+ queue_name
 		+ (partition >= 0 ? ("partition-" + std::to_string(partition) + "/") : "")
-		+ "messages_location_map"
+		+ "/messages_location_map"
 		+ FILE_EXTENSION;
 }
 

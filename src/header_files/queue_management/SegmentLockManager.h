@@ -16,7 +16,7 @@ private:
 	std::unordered_map<std::string, std::shared_ptr<segment_lock>> locks;
 	std::mutex mut;
 
-	const std::string& get_segment_key(Partition* partition, PartitionSegment* segment);
+	std::string get_segment_key(Partition* partition, PartitionSegment* segment);
 public:
 	SegmentLockManager();
 

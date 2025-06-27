@@ -38,20 +38,20 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->last_log_index = 0;
 	this->last_log_term = 0;
 
-	QueueMetadata* cluster_metadata_queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_metadata();
-
-	this->commit_index = cluster_metadata_queue->get_last_commit_index();
-	this->last_applied = cluster_metadata_queue->get_last_applied_index();
-
 	this->half_quorum_nodes_count = this->settings->get_controller_nodes().size() / 2 + 1;
-
-	this->dummy_node_id = -1;
 }
 
 void Controller::update_quorum_communication_values() {
 	this->term = this->cluster_metadata.get()->get_current_term();
 	this->last_log_term = this->cluster_metadata.get()->get_current_term();
 	this->last_log_index = this->cluster_metadata.get()->get_current_version();
+}
+
+void Controller::init_commit_index_and_last_applied() {
+	QueueMetadata* cluster_metadata_queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_metadata();
+
+	this->commit_index = cluster_metadata_queue->get_last_commit_index();
+	this->last_applied = cluster_metadata_queue->get_last_applied_index();
 }
 
 void Controller::run_controller_quorum_communication() {

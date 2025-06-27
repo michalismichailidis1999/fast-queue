@@ -72,7 +72,6 @@ private:
 	std::mutex heartbeats_mut;
 
 	std::mutex partition_assignment_mut;
-	int dummy_node_id;
 
 	void start_election();
 	void append_entries_to_followers();
@@ -102,6 +101,8 @@ public:
 	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ClusterMetadataApplyHandler* cmah, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
 	void update_quorum_communication_values();
+
+	void init_commit_index_and_last_applied();
 	
 	std::shared_ptr<AppendEntriesResponse> handle_leader_append_entries(AppendEntriesRequest* request, bool from_data_node = false);
 	std::shared_ptr<RequestVoteResponse> handle_candidate_request_vote(RequestVoteRequest* request);

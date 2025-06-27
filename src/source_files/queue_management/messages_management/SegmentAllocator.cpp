@@ -17,9 +17,11 @@ void SegmentAllocator::allocate_new_segment(Partition* partition) {
 
 	try
 	{
-		segment->set_to_read_only();
+		if (segment != NULL) {
+			segment->set_to_read_only();
 
-		this->df->flush_metadata_updates_to_disk(segment);
+			this->df->flush_metadata_updates_to_disk(segment);
+		}
 
 		unsigned long long new_segment_id = partition->get_current_segment_id() + 1;
 
@@ -54,7 +56,11 @@ void SegmentAllocator::allocate_new_segment(Partition* partition) {
 
 		new_segment.get()->set_index(new_segment_index_key, new_segment_index_path);
 
-		this->df->flush_new_metadata_to_disk(new_segment.get(), segment->get_segment_key(), segment->get_index_key());
+		this->df->flush_new_metadata_to_disk(
+			new_segment.get(), 
+			segment != NULL ? segment->get_segment_key() : "",
+			segment != NULL ? segment->get_index_key() : ""
+		);
 
 		if (new_segment_id > 1)
 			this->smm->add_last_message_info_to_segment_map(partition, segment);
