@@ -54,6 +54,8 @@ private:
 	std::string internal_ssl_cert_path;
 	std::string internal_ssl_cert_key_path;
 	std::string internal_ssl_cert_ca_path;
+	std::string internal_ssl_cert_pass;
+	bool internal_mutual_tls_enabled;
 	// -------------------------------------------
 
 	// external communication properties
@@ -64,6 +66,9 @@ private:
 	std::string external_ssl_cert_path;
 	std::string external_ssl_cert_key_path;
 	std::string external_ssl_cert_ca_path;
+	std::string external_ssl_cert_pass;
+	bool external_mutual_tls_enabled;
+	bool external_sasl_enabled;
 	// -------------------------------------------
 
 	std::shared_mutex mut;
@@ -111,6 +116,8 @@ public:
 	const std::string& get_internal_ssl_cert_path();
 	const std::string& get_internal_ssl_cert_key_path();
 	const std::string& get_internal_ssl_cert_ca_path();
+	const std::string& get_internal_ssl_cert_pass();
+	bool get_internal_mutual_tls_enabled();
 	// -------------------------------------------
 
 	// external communication properties getters
@@ -121,6 +128,8 @@ public:
 	const std::string& get_external_ssl_cert_path();
 	const std::string& get_external_ssl_cert_key_path();
 	const std::string& get_external_ssl_cert_ca_path();
+	const std::string& get_external_ssl_cert_pass();
+	bool get_external_mutual_tls_enabled();
 	// -------------------------------------------
 
 	void update_values_with_new_settings(Settings* new_settings);

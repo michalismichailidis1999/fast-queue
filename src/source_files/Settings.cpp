@@ -92,10 +92,12 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "external_ssl_cert_path"
 			|| lhs == "external_ssl_cert_key_path"
 			|| lhs == "external_ssl_cert_ca_path"
+			|| lhs == "external_ssl_cert_pass"
 			|| lhs == "internal_ip"
 			|| lhs == "internal_ssl_cert_path"
 			|| lhs == "internal_ssl_cert_key_path"
 			|| lhs == "internal_ssl_cert_ca_path"
+			|| lhs == "internal_ssl_cert_pass"
 		) {
 			std::string* val = lhs == "log_path" ? &this->log_path
 				: lhs == "trace_log_path" ? &this->trace_log_path
@@ -103,10 +105,12 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 				: lhs == "external_ssl_cert_path" ? &this->external_ssl_cert_path
 				: lhs == "external_ssl_cert_key_path" ? &this->external_ssl_cert_key_path
 				: lhs == "external_ssl_cert_ca_path" ? &this->external_ssl_cert_ca_path
+				: lhs == "external_ssl_cert_pass" ? &this->external_ssl_cert_pass
 				: lhs == "internal_ip" ? &this->internal_ip
 				: lhs == "internal_ssl_cert_path" ? &this->internal_ssl_cert_path
 				: lhs == "internal_ssl_cert_key_path" ? &this->internal_ssl_cert_key_path
-				: &this->internal_ssl_cert_ca_path;
+				: lhs == "internal_ssl_cert_ca_path" ? &this->internal_ssl_cert_ca_path
+				: &this->internal_ssl_cert_pass;
 
 			for (int i = 0; i < rhs.size(); i++)
 				if (rhs[i] == '\\')
@@ -154,11 +158,17 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 		else if (
 			lhs == "is_controller_node" 
 			|| lhs == "internal_ssl_enabled"
+			|| lhs == "internal_mutual_tls_enabled"
 			|| lhs == "external_ssl_enabled"
+			|| lhs == "external_mutual_tls_enabled"
+			|| lhs == "external_sasl_enabled"
 		) {
 			bool* val = lhs == "is_controller_node" ? &this->is_controller_node
 				: lhs == "internal_ssl_enabled" ? &this->internal_ssl_enabled
-				: &this->external_ssl_enabled;
+				: lhs == "internal_mutual_tls_enabled" ? &this->internal_mutual_tls_enabled
+				: lhs == "external_ssl_enabled" ? &this->external_ssl_enabled
+				: lhs == "external_mutual_tls_enabled" ? &this->external_mutual_tls_enabled
+				: &this->external_sasl_enabled;
 
 			*val = rhs == "true";
 		}
@@ -304,6 +314,16 @@ const std::string& Settings::get_internal_ssl_cert_ca_path() {
 	return this->internal_ssl_cert_ca_path;
 }
 
+const std::string& Settings::get_internal_ssl_cert_pass() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->internal_ssl_cert_pass;
+}
+
+bool Settings::get_internal_mutual_tls_enabled() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->internal_mutual_tls_enabled;
+}
+
 // ------------------------------------------------------------
 
 // external communication properties getters
@@ -338,6 +358,16 @@ const std::string& Settings::get_external_ssl_cert_ca_path() {
 	return this->external_ssl_cert_ca_path;
 }
 
+const std::string& Settings::get_external_ssl_cert_pass() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->external_ssl_cert_pass;
+}
+
+bool Settings::get_external_mutual_tls_enabled() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->external_mutual_tls_enabled;
+}
+
 // ------------------------------------------------------------
 
 void Settings::update_values_with_new_settings(Settings* new_settings) {
@@ -366,6 +396,8 @@ void Settings::update_values_with_new_settings(Settings* new_settings) {
 	//this->controller_nodes = new_settings->controller_nodes;
 	
 	// -------------------------------------------
+
+	this->external_sasl_enabled = new_settings->external_sasl_enabled;
 }
 
 bool Settings::should_stop_server(Settings* new_settings) {
@@ -379,9 +411,13 @@ bool Settings::should_stop_server(Settings* new_settings) {
 		|| this->internal_ssl_cert_path != new_settings->internal_ssl_cert_path
 		|| this->internal_ssl_cert_key_path != new_settings->internal_ssl_cert_key_path
 		|| this->internal_ssl_cert_ca_path != new_settings->internal_ssl_cert_ca_path
+		|| this->internal_ssl_cert_pass != new_settings->internal_ssl_cert_pass
+		|| this->internal_mutual_tls_enabled != new_settings->internal_mutual_tls_enabled
 		|| this->external_port != new_settings->external_port
 		|| this->external_ssl_enabled != new_settings->external_ssl_enabled
 		|| this->external_ssl_cert_path != new_settings->external_ssl_cert_path
 		|| this->external_ssl_cert_key_path != new_settings->external_ssl_cert_key_path
-		|| this->external_ssl_cert_ca_path != new_settings->external_ssl_cert_ca_path;
+		|| this->external_ssl_cert_ca_path != new_settings->external_ssl_cert_ca_path
+		|| this->external_ssl_cert_pass != new_settings->external_ssl_cert_pass
+		|| this->external_mutual_tls_enabled != new_settings->external_mutual_tls_enabled;
 }

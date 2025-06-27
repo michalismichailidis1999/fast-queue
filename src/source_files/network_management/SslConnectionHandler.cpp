@@ -1,5 +1,13 @@
 #include "../../header_files/network_management/SslContextHandler.h"
 
+static int password_callback(char* buf, int size, int rwflag, void* userdata) {
+    const char* password = static_cast<const char*>(userdata);
+    int len = strnlen_s(password, size - 1);
+    memcpy_s(buf, size, password, len);
+    buf[len] = '\0';
+    return len;
+}
+
 SslContextHandler::SslContextHandler(Settings* settings, Logger* logger) {
 	this->settings = settings;
 	this->logger = logger;
@@ -13,6 +21,15 @@ std::shared_ptr<SSL_CTX> SslContextHandler::create_ssl_context(bool internal_com
 	try
 	{
         std::shared_ptr<SSL_CTX> ctx = std::shared_ptr<SSL_CTX>(SSL_CTX_new(SSLv23_server_method()), SSL_CTX_deleter);
+
+        const std::string& cert_pass = internal_communication
+            ? settings->get_internal_ssl_cert_key_path()
+            : settings->get_external_ssl_cert_key_path();
+
+        if (cert_pass != "") {
+            SSL_CTX_set_default_passwd_cb(ctx.get(), password_callback);
+            SSL_CTX_set_default_passwd_cb_userdata(ctx.get(), (void*)(cert_pass.c_str()));
+        }
 
         // Load server certificate and key
         if (
@@ -55,7 +72,9 @@ std::shared_ptr<SSL_CTX> SslContextHandler::create_ssl_context(bool internal_com
             return nullptr;
         }
 
-        bool mutual_tls_enabled = false; // TODO: Probably implement logic for this also
+        bool mutual_tls_enabled = internal_communication
+            ? settings->get_internal_mutual_tls_enabled()
+            : settings->get_external_mutual_tls_enabled();
 
         if (mutual_tls_enabled) {
             // Enable client certificate verification for mTLS
