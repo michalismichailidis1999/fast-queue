@@ -46,7 +46,7 @@ void SegmentMessageMap::fill_new_page_with_values(void* page, unsigned long long
 
 	memcpy_s(page, sizeof(unsigned long long), &smallest_segment_id, sizeof(unsigned long long));
 
-	for (unsigned int i = 1; i < MAPPED_SEGMENTS_PER_PAGE; i++)
+	for (unsigned int i = 1; i <= MAPPED_SEGMENTS_PER_PAGE; i++)
 		memcpy_s((char*)page + i * sizeof(unsigned long long), sizeof(unsigned long long), &zero_value, sizeof(unsigned long long));
 }
 
@@ -83,7 +83,8 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 			continue;
 		}
 
-		segment_id = starting_page_segment + segment_offset;
+		segment_id = starting_page_segment + segment_offset - 1;
+		break;
 	}
 
 	if (segment_id == 0) return nullptr;
@@ -142,7 +143,7 @@ int SegmentMessageMap::get_page_segment_offset(void* map_page, unsigned long lon
 
 	if (first_message_id == 0) return -1;
 
-	if (first_message_id >= message_id) return 1;
+	if (first_message_id >= message_id) return 1; // will only be true for first segment
 
 	if (last_message_id != 0 && message_id > last_message_id) return -2;
 

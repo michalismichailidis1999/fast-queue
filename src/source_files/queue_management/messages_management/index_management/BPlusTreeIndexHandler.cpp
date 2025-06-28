@@ -25,6 +25,11 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(PartitionSegment
 		page_offset = node.get()->next_page_offset;
 	}
 
+	if (node.get()->get_page_type() == PageType::LEAF && node.get()->rows_num == 0) {
+		if (prev_node == nullptr) return SEGMENT_METADATA_TOTAL_BYTES;
+		return prev_node.get()->get_last_child()->val_pos;
+	}
+
 	if (prev_node != nullptr && prev_node.get()->max_key < read_from_message_id && read_from_message_id < node.get()->min_key)
 		node = prev_node;
 
@@ -185,7 +190,7 @@ void BPlusTreeIndexHandler::read_index_page_from_disk(PartitionSegment* segment,
 
 unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node, unsigned long long message_id, bool reverse_search) {
 	// This will only be true for first index node
-	if (node->type == PageType::LEAF && message_id < node->min_key && !reverse_search) 
+	if (node->type == PageType::LEAF && message_id < node->min_key && !reverse_search)
 		return SEGMENT_METADATA_TOTAL_BYTES;
 
 	if (message_id <= node->min_key) return !reverse_search ? node->rows[0].val_pos : node->rows[node->rows_num].val_pos;

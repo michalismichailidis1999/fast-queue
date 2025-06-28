@@ -272,6 +272,7 @@ void BeforeServerStartupHandler::set_partition_segment_message_map(Partition* pa
 
         this->smm->fill_new_page_with_values(data.get(), 1);
 
+
         this->fh->create_new_file(
             file_path,
             MESSAGES_LOC_MAP_PAGE_SIZE,

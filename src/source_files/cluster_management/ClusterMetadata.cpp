@@ -187,7 +187,10 @@ void ClusterMetadata::apply_partition_assignment_command(PartitionAssignmentComm
 void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {
 	auto partitions_leaders = this->partition_leader_nodes[command->get_queue_name()];
 
-	if (partitions_leaders == nullptr) return;
+	if (partitions_leaders == nullptr) {
+		partitions_leaders = std::make_shared<std::unordered_map<int, int>>();
+		this->partition_leader_nodes[command->get_queue_name()] = partitions_leaders;
+	}
 
 	int node_id = command->get_new_leader();
 

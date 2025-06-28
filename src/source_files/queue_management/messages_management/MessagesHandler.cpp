@@ -195,7 +195,7 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 		unsigned long long last_message_id = 0;
 
 		while (true) {
-			this->disk_reader->read_data_from_disk(
+			batch_size = this->disk_reader->read_data_from_disk(
 				segment_to_read->get_segment_key(),
 				segment_to_read->get_segment_path(),
 				read_batch.get(),

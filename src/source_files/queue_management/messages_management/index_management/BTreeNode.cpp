@@ -44,9 +44,18 @@ std::tuple<std::shared_ptr<char>, unsigned int> BTreeNode::get_page_bytes() {
 
 	unsigned int offset = INDEX_PAGE_METADATA_SIZE;
 
+	unsigned long long zero_value = 0;
+
 	for (int i = 0; i < INDEX_PAGE_TOTAL_ROWS; i++) {
-		memcpy_s(bytes.get() + offset + INDEX_KEY_OFFSET, INDEX_KEY_SIZE, &this->rows[i].key, INDEX_KEY_SIZE);
-		memcpy_s(bytes.get() + offset + INDEX_VALUE_POSITION_OFFSET, INDEX_VALUE_POSITION_SIZE, &this->rows[i].val_pos, INDEX_VALUE_POSITION_SIZE);
+		if (i < this->rows_num) {
+			memcpy_s(bytes.get() + offset + INDEX_KEY_OFFSET, INDEX_KEY_SIZE, &this->rows[i].key, INDEX_KEY_SIZE);
+			memcpy_s(bytes.get() + offset + INDEX_VALUE_POSITION_OFFSET, INDEX_VALUE_POSITION_SIZE, &this->rows[i].val_pos, INDEX_VALUE_POSITION_SIZE);
+		}
+		else {
+			memcpy_s(bytes.get() + offset + INDEX_KEY_OFFSET, INDEX_KEY_SIZE, &zero_value, INDEX_KEY_SIZE);
+			memcpy_s(bytes.get() + offset + INDEX_VALUE_POSITION_OFFSET, INDEX_VALUE_POSITION_SIZE, &zero_value, INDEX_VALUE_POSITION_SIZE);
+		}
+		
 		offset += INDEX_KEY_VALUE_METADATA_SIZE;
 	}
 
