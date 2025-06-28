@@ -161,14 +161,14 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "internal_mutual_tls_enabled"
 			|| lhs == "external_ssl_enabled"
 			|| lhs == "external_mutual_tls_enabled"
-			|| lhs == "external_sasl_enabled"
+			|| lhs == "external_user_authentication_enabled"
 		) {
 			bool* val = lhs == "is_controller_node" ? &this->is_controller_node
 				: lhs == "internal_ssl_enabled" ? &this->internal_ssl_enabled
 				: lhs == "internal_mutual_tls_enabled" ? &this->internal_mutual_tls_enabled
 				: lhs == "external_ssl_enabled" ? &this->external_ssl_enabled
 				: lhs == "external_mutual_tls_enabled" ? &this->external_mutual_tls_enabled
-				: &this->external_sasl_enabled;
+				: &this->external_user_authentication_enabled;
 
 			*val = rhs == "true";
 		}
@@ -368,6 +368,11 @@ bool Settings::get_external_mutual_tls_enabled() {
 	return this->external_mutual_tls_enabled;
 }
 
+bool Settings::get_external_user_authentication_enabled() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->external_user_authentication_enabled;
+}
+
 // ------------------------------------------------------------
 
 void Settings::update_values_with_new_settings(Settings* new_settings) {
@@ -397,7 +402,7 @@ void Settings::update_values_with_new_settings(Settings* new_settings) {
 	
 	// -------------------------------------------
 
-	this->external_sasl_enabled = new_settings->external_sasl_enabled;
+	this->external_user_authentication_enabled = new_settings->external_user_authentication_enabled;
 }
 
 bool Settings::should_stop_server(Settings* new_settings) {

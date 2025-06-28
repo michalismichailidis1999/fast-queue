@@ -9,6 +9,10 @@ RequestManager::RequestManager(ConnectionsManager* cm, Settings* settings, Clien
 	this->logger = logger;
 }
 
+bool RequestManager::is_user_authorized_for_action(char* username, int username_length, char* password, int password_length) {
+	return true;
+}
+
 void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_communication) {
 	bool lock_removed = false;
 
@@ -60,6 +64,19 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			std::unique_ptr<CreateQueueRequest> request = this->mapper->to_create_queue_request(recvbuf.get(), res_buffer_length);
 
+			if (
+				this->settings->get_external_user_authentication_enabled()
+				&& !this->is_user_authorized_for_action(
+					request.get()->username,
+					request.get()->username_length,
+					request.get()->password,
+					request.get()->password_length
+				)
+			) {
+				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
+				return;
+			}
+
 			this->client_request_executor->handle_create_queue_request(socket, ssl, request.get());
 
 			break;
@@ -69,6 +86,19 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			this->logger->log_info("Received and executing request type of DELETE_QUEUE");
 
 			std::unique_ptr<DeleteQueueRequest> request = this->mapper->to_delete_queue_request(recvbuf.get(), res_buffer_length);
+
+			if (
+				this->settings->get_external_user_authentication_enabled()
+				&& !this->is_user_authorized_for_action(
+					request.get()->username,
+					request.get()->username_length,
+					request.get()->password,
+					request.get()->password_length
+				)
+				) {
+				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
+				return;
+			}
 
 			this->client_request_executor->handle_delete_queue_request(socket, ssl, request.get());
 
@@ -95,6 +125,19 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			this->logger->log_info("Received and executing request type of PRODUCE");
 
 			std::unique_ptr<ProduceMessagesRequest> request = this->mapper->to_produce_messages_request(recvbuf.get(), res_buffer_length);
+
+			if (
+				this->settings->get_external_user_authentication_enabled()
+				&& !this->is_user_authorized_for_action(
+					request.get()->username,
+					request.get()->username_length,
+					request.get()->password,
+					request.get()->password_length
+				)
+				) {
+				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
+				return;
+			}
 
 			this->client_request_executor->handle_produce_request(socket, ssl, request.get());
 

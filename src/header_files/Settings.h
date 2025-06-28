@@ -68,7 +68,7 @@ private:
 	std::string external_ssl_cert_ca_path;
 	std::string external_ssl_cert_pass;
 	bool external_mutual_tls_enabled;
-	bool external_sasl_enabled;
+	bool external_user_authentication_enabled;
 	// -------------------------------------------
 
 	std::shared_mutex mut;
@@ -130,6 +130,7 @@ public:
 	const std::string& get_external_ssl_cert_ca_path();
 	const std::string& get_external_ssl_cert_pass();
 	bool get_external_mutual_tls_enabled();
+	bool get_external_user_authentication_enabled();
 	// -------------------------------------------
 
 	void update_values_with_new_settings(Settings* new_settings);
