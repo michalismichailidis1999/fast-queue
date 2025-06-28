@@ -65,6 +65,8 @@ public:
 	bool pollin_event_occur(POLLED_FD* fd);
 	bool error_event_occur(POLLED_FD* fd);
 
-	bool respond_to_socket(SOCKET_ID socket, char* res_buf, long res_buf_len);
-	bool receive_socket_buffer(SOCKET_ID socket, char* res_buf, long res_buf_len);
+	int respond_to_socket(SOCKET_ID socket, char* res_buf, long res_buf_len);
+	int receive_socket_buffer(SOCKET_ID socket, char* res_buf, long res_buf_len);
+
+	bool is_connection_broken(int response_code);
 };

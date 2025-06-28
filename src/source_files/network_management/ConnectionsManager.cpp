@@ -13,29 +13,53 @@ ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, SslContext
 }
 
 bool ConnectionsManager::receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char* res_buf, long res_buf_len) {
-	bool success = ssl != NULL
+	int res_code = ssl != NULL
 		? this->ssl_context_handler->receive_ssl_buffer(ssl, res_buf, res_buf_len)
 		: this->socket_handler->receive_socket_buffer(socket, res_buf, res_buf_len);
 
-	if (!success)
+	bool is_connection_broken = res_code > 0
+		? false
+		: ssl != NULL
+		? this->ssl_context_handler->is_connection_broken(res_code)
+		: this->socket_handler->is_connection_broken(res_code);
+
+	if (is_connection_broken) {
+		if (ssl != NULL) this->ssl_context_handler->free_ssl(ssl);
+
+		this->socket_handler->close_socket(socket);
+	}
+
+	if (res_code <= 0)
 		this->logger->log_error("Could not receive socket's data");
 	else this->update_socket_heartbeat(socket);
 
-	return success;
+	return res_code > 0;
 }
 
 bool ConnectionsManager::respond_to_socket(SOCKET_ID socket, SSL* ssl, char* res_buf, long res_buf_len) {
 	try
 	{
-		bool success = ssl != NULL
+		int res_code = ssl != NULL
 			? this->ssl_context_handler->respond_to_ssl(ssl, res_buf, res_buf_len)
 			: this->socket_handler->respond_to_socket(socket, res_buf, res_buf_len);
 
-		if (!success)
+		bool is_connection_broken = res_code > 0 
+			? false
+			: ssl != NULL
+				? this->ssl_context_handler->is_connection_broken(res_code)
+				: this->socket_handler->is_connection_broken(res_code);
+
+		if (is_connection_broken) {
+			if (ssl != NULL) this->ssl_context_handler->free_ssl(ssl);
+
+			this->socket_handler->close_socket(socket);
+		}
+
+		if (res_code <= 0)
 			this->logger->log_error("Could not respond back to the socket");
 		else this->update_socket_heartbeat(socket);
 
-		return success;
+		return res_code > 0;
 	}
 	catch (const std::exception& ex)
 	{
@@ -137,10 +161,7 @@ std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_t
 
 			pool->add_connection(std::get<2>(res_tup) ? nullptr : connection, true);
 
-			if (!std::get<2>(res_tup)) {
-				this->remove_socket_connection_heartbeat(connection.get()->socket);
-				return res_tup;
-			}
+			if (!std::get<2>(res_tup)) return res_tup;
 
 			retries--;
 		}
@@ -224,7 +245,6 @@ bool ConnectionsManager::add_connection_to_pool(ConnectionPool* pool) {
 	connection.get()->socket = socket;
 	connection.get()->ssl = ssl;
 
-	this->initialize_connection_heartbeat(socket, ssl);
 	pool->add_connection(connection);
 
 	return true;

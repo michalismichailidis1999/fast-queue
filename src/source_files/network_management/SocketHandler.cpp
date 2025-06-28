@@ -150,10 +150,22 @@ SOCKET_ID SocketHandler::accept_connection(SOCKET_ID listen_socket) {
     return accept(listen_socket, NULL, NULL);
 }
 
-bool SocketHandler::respond_to_socket(SOCKET_ID socket, char* res_buf, long res_buf_len) {
-    return send(socket, res_buf, res_buf_len, 0) > 0;
+int SocketHandler::respond_to_socket(SOCKET_ID socket, char* res_buf, long res_buf_len) {
+    return send(socket, res_buf, res_buf_len, 0);
 }
 
-bool SocketHandler::receive_socket_buffer(SOCKET_ID socket, char* res_buf, long res_buf_len) {
-    return recv(socket, res_buf, res_buf_len, 0) > 0;
+int SocketHandler::receive_socket_buffer(SOCKET_ID socket, char* res_buf, long res_buf_len) {
+    return recv(socket, res_buf, res_buf_len, 0);
+}
+
+bool SocketHandler::is_connection_broken(int response_code) {
+    bool is_broken = response_code == ECONNRESET;
+
+    #ifdef _WIN32
+        is_broken = is_broken || response_code == WSAECONNRESET;
+    #else
+        is_broken = is_broken || response_code == EPIPE;
+    #endif
+
+    return is_broken;
 }

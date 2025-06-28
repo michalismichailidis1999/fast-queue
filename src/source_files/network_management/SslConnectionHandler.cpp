@@ -138,18 +138,22 @@ void SslContextHandler::cleanup_ssl() {
 	EVP_cleanup();
 }
 
-bool SslContextHandler::respond_to_ssl(SSL* ssl, char* res_buf, long res_buf_len) {
-    bool success = SSL_write(ssl, res_buf, res_buf_len) > 0;
+int SslContextHandler::respond_to_ssl(SSL* ssl, char* res_buf, long res_buf_len) {
+    int res = SSL_write(ssl, res_buf, res_buf_len) > 0;
 
-    if(!success) ERR_print_errors_fp(stderr);
+    if(res <= 0) ERR_print_errors_fp(stderr);
 
-    return success;
+    return res;
 }
 
-bool SslContextHandler::receive_ssl_buffer(SSL* ssl, char* res_buf, long res_buf_len) {
-    bool success = SSL_read(ssl, res_buf, res_buf_len) > 0;
+int SslContextHandler::receive_ssl_buffer(SSL* ssl, char* res_buf, long res_buf_len) {
+    int res = SSL_read(ssl, res_buf, res_buf_len) > 0;
 
-    if (!success) ERR_print_errors_fp(stderr);
+    if (res <= 0) ERR_print_errors_fp(stderr);
 
-    return success;
+    return res;
+}
+
+bool SslContextHandler::is_connection_broken(int response_code) {
+    return response_code == SSL_ERROR_ZERO_RETURN || response_code == SSL_ERROR_SSL;
 }
