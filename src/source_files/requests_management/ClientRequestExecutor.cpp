@@ -41,7 +41,7 @@ void ClientRequestExecutor::handle_get_controller_leader_id_request(SOCKET_ID so
 }
 
 void ClientRequestExecutor::handle_create_queue_request(SOCKET_ID socket, SSL* ssl, CreateQueueRequest* request) {
-	if (this->controller == NULL) {
+	if (!this->settings->get_is_controller_node()) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Request to create queue must only be sent to controller nodes");
 		return;
 	}
@@ -69,7 +69,22 @@ void ClientRequestExecutor::handle_create_queue_request(SOCKET_ID socket, SSL* s
 
 	queue_metadata.get()->set_status(Status::PENDING_CREATION);
 
-	this->controller->assign_new_queue_partitions_to_nodes(queue_metadata);
+	ErrorCode err = this->controller->assign_new_queue_partitions_to_nodes(queue_metadata);
+
+	if (err != ErrorCode::NONE)
+		switch (err)
+		{
+		case ErrorCode::TOO_FEW_AVAILABLE_NODES:
+			this->cm->respond_to_socket_with_error(
+				socket,
+				ssl,
+				ErrorCode::TOO_FEW_AVAILABLE_NODES,
+				"There are not enough active nodes to handle replication factor of " + std::to_string(request->replication_factor)
+			);
+			return;
+		default:
+			break;
+		}
 
 	std::unique_ptr<CreateQueueResponse> res = std::make_unique<CreateQueueResponse>();
 	res.get()->ok = true;

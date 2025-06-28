@@ -232,7 +232,9 @@ void Controller::append_entries_to_followers() {
 	}
 
 	if (replication_count >= this->half_quorum_nodes_count) {
-		unsigned long long largest_replicated_index = this->get_largest_replicated_index(&largest_versions_sent);
+		unsigned long long largest_replicated_index = !this->is_the_only_controller_node 
+			? this->get_largest_replicated_index(&largest_versions_sent)
+			: this->last_log_index;
 
 		if (largest_replicated_index > 0 && largest_replicated_index > this->commit_index) {
 			this->commit_index = largest_replicated_index;
@@ -393,6 +395,8 @@ void Controller::assign_partition_to_node(const std::string& queue_name, int par
 	std::tuple<int, int> min_partitions_tup = this->future_cluster_metadata->nodes_partition_counts->extractTopElement();
 	int node_id = std::get<1>(min_partitions_tup);
 
+	if (node_id <= 0) node_id = this->settings->get_node_id();
+
 	auto node_queues = this->future_cluster_metadata->nodes_partitions[node_id];
 	auto owned_partitions = this->future_cluster_metadata->owned_partitions[queue_name];
 
@@ -505,9 +509,6 @@ void Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 	for (auto owner_node : *(partition_owners.get())) {
 		if (leader_node == owner_node) continue;
 
-		if (owner_node != this_node_id && this->data_nodes_heartbeats.find(owner_node) == this->data_nodes_heartbeats.end())
-			continue;
-
 		int leader_count = this->future_cluster_metadata->nodes_leader_partition_counts->get(owner_node);
 
 		if (leader_count < min_leader_count) {
@@ -596,10 +597,13 @@ void Controller::repartition_node_data(int node_id) {
 	this->data_nodes_heartbeats.erase(node_id);
 }
 
-void Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata) {
+ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata) {
 	std::lock_guard<std::mutex> partition_assignment_lock(this->partition_assignment_mut);
 	std::lock_guard<std::mutex> heatbeats_lock(this->heartbeats_mut);
 	std::lock_guard<std::mutex> partitions_lock(this->future_cluster_metadata->nodes_partitions_mut);
+
+	if (queue_metadata.get()->get_replication_factor() > this->data_nodes_heartbeats.size() + 1)
+		return ErrorCode::TOO_FEW_AVAILABLE_NODES;
 
 	unsigned long long timestamp = this->util->get_current_time_milli().count();
 
@@ -640,6 +644,8 @@ void Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetad
 		));
 
 	this->store_commands(&commands);
+
+	queue_metadata.get()->set_status(Status::ACTIVE);
 }
 
 void Controller::assign_queue_for_deletion(std::string& queue_name) {

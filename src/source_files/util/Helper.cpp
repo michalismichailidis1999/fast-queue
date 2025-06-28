@@ -7,8 +7,8 @@ void Helper::add_common_metadata_values(void* metadata, long total_bytes, Object
 
 	unsigned long long checksum = crc32(
 		crc32(0L, Z_NULL, 0), 
-		reinterpret_cast<const Bytef*>(metadata), 
-		total_bytes
+		reinterpret_cast<const Bytef*>((char*)metadata + COMMON_METADATA_TOTAL_BYTES),
+		total_bytes - COMMON_METADATA_TOTAL_BYTES
 	);
 
 	memcpy_s((char*)metadata + CHECKSUM_OFFSET, CHECKSUM_SIZE, &checksum, CHECKSUM_SIZE);
@@ -39,8 +39,8 @@ bool Helper::has_valid_checksum(void* metadata) {
 
 	unsigned long long checksum = crc32(
 		crc32(0L, Z_NULL, 0),
-		reinterpret_cast<const Bytef*>(metadata),
-		total_bytes
+		reinterpret_cast<const Bytef*>((char*)metadata + COMMON_METADATA_TOTAL_BYTES),
+		total_bytes - COMMON_METADATA_TOTAL_BYTES
 	);
 
 	return metadata_checksum == checksum;

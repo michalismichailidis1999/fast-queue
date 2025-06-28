@@ -62,6 +62,7 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 			active_segment->get_segment_key(),
 			active_segment->get_segment_path(),
 			messages,
+			total_bytes,
 			Helper::is_internal_queue(partition->get_queue_name())
 		);
 
@@ -143,8 +144,9 @@ void MessagesHandler::set_last_message_id_and_timestamp(PartitionSegment* segmen
 	while (offset < total_bytes) {
 		unsigned int message_total_bytes = 0;
 
-		memcpy_s(&last_message_offset, SEGMENT_LAST_MESSAGE_OFF_SIZE, (char*)messages + SEGMENT_LAST_MESSAGE_OFF_OFFSET, SEGMENT_LAST_MESSAGE_OFF_SIZE);
-		memcpy_s(&last_message_timestamp, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE, (char*)messages + SEGMENT_LAST_MESSAGE_TMSTMP_OFFSET, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE);
+		memcpy_s(&message_total_bytes, TOTAL_METADATA_BYTES, (char*)messages + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+		memcpy_s(&last_message_offset, MESSAGE_ID_SIZE, (char*)messages + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+		memcpy_s(&last_message_timestamp, MESSAGE_TIMESTAMP_SIZE, (char*)messages + offset + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE);
 
 		offset += message_total_bytes;
 	}

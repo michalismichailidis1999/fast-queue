@@ -38,9 +38,9 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
         this->controller->get_compacted_cluster_metadata()->fill_from_metadata(std::get<1>(config_res).get());
 
         std::get<1>(config_res).reset();
-    }
 
-    this->controller->get_cluster_metadata()->copy_from(this->controller->get_compacted_cluster_metadata());
+        this->controller->get_cluster_metadata()->copy_from(this->controller->get_compacted_cluster_metadata());
+    }
 
     std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
 

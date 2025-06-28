@@ -114,7 +114,7 @@ public:
 	int get_leader_id();
 	void update_data_node_heartbeat(int node_id, ConnectionInfo* info, bool is_controller_node = false);
 
-	void assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata);
+	ErrorCode assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata);
 
 	void assign_queue_for_deletion(std::string& queue_name);
 

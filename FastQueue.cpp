@@ -204,7 +204,7 @@ int main(int argc, char* argv[])
         cm.get()->initialize_controller_nodes_connections();
 
         std::thread connection_pools_thread = std::thread(keep_connections_to_maximum);
-        std::thread check_connections_heartbeat_thread = std::thread(check_connections_heartbeat);
+        //std::thread check_connections_heartbeat_thread = std::thread(check_connections_heartbeat);
         std::thread disk_flushing_thread = std::thread(flush_to_disk_periodically);
         std::thread run_quorum_communication_thread = std::thread(run_controller_quorum_communication);
         std::thread check_dead_data_nodes_thread = std::thread(check_dead_data_nodes);
@@ -218,7 +218,7 @@ int main(int argc, char* argv[])
         internal_listener_thread.join();
         external_listener_thread.join();
         connection_pools_thread.join();
-        check_connections_heartbeat_thread.join();
+        //check_connections_heartbeat_thread.join();
         disk_flushing_thread.join();
         run_quorum_communication_thread.join();
         check_dead_data_nodes_thread.join();

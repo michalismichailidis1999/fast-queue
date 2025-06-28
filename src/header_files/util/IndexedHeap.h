@@ -98,11 +98,11 @@ public:
     }
 
     std::tuple<T, K> extractTopElement() {
-        std::lock_guard<std::mutex> lock(this->mut);
+        auto res = this->extractTopKValues(1);
 
-        if (this->heap.empty()) return std::tuple<T, K>(this->null_value, this->null_index);
+        if (res.size() == 0) return std::tuple<T, K>(this->null_value, this->null_index);
 
-        return this->extractTopKValues(1)[0];
+        return res[0];
     }
 
     std::vector<std::tuple<T, K>> extractTopKValues(int k) {
