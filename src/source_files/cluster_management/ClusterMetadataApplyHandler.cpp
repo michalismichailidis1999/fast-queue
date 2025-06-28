@@ -45,7 +45,7 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 }
 
 void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadata, Command* command, bool is_from_initialization) {
-	if (command->get_metadata_version() >= cluster_metadata->get_current_version()) {
+	if (command->get_metadata_version() <= cluster_metadata->get_current_version()) {
 		if(!is_from_initialization) cluster_metadata->apply_command(command);
 		return;
 	}

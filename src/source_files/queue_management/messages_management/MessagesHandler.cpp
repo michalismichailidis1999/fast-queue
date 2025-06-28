@@ -194,6 +194,8 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 		unsigned int last_message_bytes = 0;
 		unsigned long long last_message_id = 0;
 
+		bool message_found = false;
+
 		while (true) {
 			batch_size = this->disk_reader->read_data_from_disk(
 				segment_to_read->get_segment_key(),
@@ -203,21 +205,21 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 				message_pos
 			);
 
-			message_id_offset = this->get_message_offset(read_batch.get(), batch_size, read_from_message_id);
+			message_id_offset = this->get_message_offset(read_batch.get(), batch_size, read_from_message_id, &message_found);
 			last_message_offset = this->get_last_message_offset_from_batch(read_batch.get(), batch_size);
 
-			if (message_id_offset > 0 && message_id_offset < batch_size)
+			if (message_found)
 				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + message_id_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 
 			memcpy_s(&last_message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + last_message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 			memcpy_s(&last_message_id, MESSAGE_ID_SIZE, read_batch.get() + last_message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
-			if (message_id_offset == 0 && last_message_id > read_from_message_id) {
+			if (!message_found && last_message_id > read_from_message_id) {
 				this->lock_manager->release_segment_lock(partition, segment_to_read);
 				return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
 			}
 
-			if (message_id_offset == batch_size) {
+			if (message_id_offset >= batch_size) {
 				message_pos += last_message_offset + last_message_bytes;
 				continue;
 			}
@@ -269,7 +271,7 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 	}
 }
 
-unsigned int MessagesHandler::get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id) {
+unsigned int MessagesHandler::get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id, bool* message_found) {
 	unsigned long long current_message_id = 0;
 	unsigned int message_bytes = 0;
 	unsigned int offset = 0;
@@ -278,7 +280,10 @@ unsigned int MessagesHandler::get_message_offset(void* read_batch, unsigned int 
 		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)read_batch + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 		memcpy_s(&current_message_id, MESSAGE_ID_SIZE, (char*)read_batch + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
-		if (message_id == current_message_id) return offset;
+		if (message_id == current_message_id) {
+			*message_found = true;
+			return offset;
+		}
 
 		offset += message_bytes;
 	}

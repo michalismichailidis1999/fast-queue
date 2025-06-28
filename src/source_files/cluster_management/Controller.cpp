@@ -860,7 +860,7 @@ void Controller::check_for_commit_and_last_applied_diff() {
 
 				if (metadata_version > commit_index) break;
 
-				this->execute_command(commands_batch.get());
+				this->execute_command(commands_batch.get() + offset);
 				prev_metadata_version = metadata_version;
 
 				memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, commands_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);

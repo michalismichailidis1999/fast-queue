@@ -42,7 +42,7 @@ private:
 
 	void set_last_message_id_and_timestamp(PartitionSegment* segment, void* messages, unsigned int total_bytes);
 
-	unsigned int get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id);
+	unsigned int get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id, bool* message_found);
 
 	unsigned int get_last_message_offset_from_batch(void* read_batch, unsigned int batch_size);
 
