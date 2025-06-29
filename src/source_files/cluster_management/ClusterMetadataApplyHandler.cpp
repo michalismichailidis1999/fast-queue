@@ -8,7 +8,7 @@ ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, Conne
 	this->settings = settings;
 }
 
-void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id) {
+void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction, std::unordered_map<int, Command>* registered_nodes, ClusterMetadata* future_cluster_metadata) {
 	std::unique_ptr<char> batch_size = std::unique_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
 
 	std::string segment_key = this->pm->get_file_key(CLUSTER_METADATA_QUEUE_NAME, segment_id, -1);
@@ -29,7 +29,35 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 			if (offset + command_total_bytes > bytes_read) break;
 
 			Command command = Command(batch_size.get() + offset);
+
+			if(future_cluster_metadata != NULL)
+				future_cluster_metadata->apply_command(&command);
+
+			if (!from_compaction && command.get_metadata_version() > last_applied) {
+				offset += command_total_bytes;
+				continue;
+			}
+
 			cluster_metadata->apply_command(&command);
+
+			if (registered_nodes != NULL) {
+				RegisterDataNodeCommand* register_info = NULL;
+				UnregisterDataNodeCommand* unregister_info = NULL;
+
+				switch (command.get_command_type())
+				{
+				case CommandType::REGISTER_DATA_NODE:
+					register_info = (RegisterDataNodeCommand*)command.get_command_info();
+					(*registered_nodes)[register_info->get_node_id()] = command;
+					break;
+				case CommandType::UNREGISTER_DATA_NODE:
+					unregister_info = (UnregisterDataNodeCommand*)command.get_command_info();
+					registered_nodes->erase(unregister_info->get_node_id());
+					break;
+				default:
+					break;
+				}
+			}
 
 			offset += command_total_bytes;
 		}
@@ -44,12 +72,7 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 	this->fh->close_file(segment_key);
 }
 
-void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadata, Command* command, bool is_from_initialization) {
-	if (command->get_metadata_version() <= cluster_metadata->get_current_version()) {
-		if(!is_from_initialization) cluster_metadata->apply_command(command);
-		return;
-	}
-
+void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadata, Command* command) {
 	switch (command->get_command_type()) {
 	case CommandType::CREATE_QUEUE:
 		this->apply_create_queue_command(cluster_metadata, (CreateQueueCommand*)command->get_command_info());
@@ -124,7 +147,7 @@ void ClusterMetadataApplyHandler::apply_register_data_node_command(ClusterMetada
 	info.get()->address = command->get_address();
 	info.get()->port = command->get_port();
 
-	this - cm->initialize_data_node_connection_pool(command->get_node_id(), info);
+	this->cm->initialize_data_node_connection_pool(command->get_node_id(), info);
 }
 
 void ClusterMetadataApplyHandler::apply_unregister_data_node_command(ClusterMetadata* cluster_metadata, UnregisterDataNodeCommand* command) {

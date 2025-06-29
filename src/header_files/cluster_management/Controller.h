@@ -131,4 +131,6 @@ public:
 	ClusterMetadata* get_future_cluster_metadata();
 
 	std::shared_ptr<AppendEntriesRequest> get_cluster_metadata_updates(GetClusterMetadataUpdateRequest* request);
+
+	unsigned long long get_last_comamnd_applied();
 };

@@ -1,23 +1,12 @@
 #include "../../header_files/cluster_management/ClusterMetadata.h"
 
-ClusterMetadata::ClusterMetadata(int node_id) {
+ClusterMetadata::ClusterMetadata() {
 	this->metadata_version = 0;
 	this->current_term = 0;
 	this->leader_id = 0;
 
 	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
-
-	this->init_node_partitions(node_id);
-}
-
-ClusterMetadata::ClusterMetadata() {
-	this->metadata_version = 0;
-	this->current_term = 0;
-	this->leader_id = 0;
-
-	this->nodes_partition_counts = NULL;
-	this->nodes_leader_partition_counts = NULL;
 }
 
 void ClusterMetadata::set_leader_id(int leader_id) {

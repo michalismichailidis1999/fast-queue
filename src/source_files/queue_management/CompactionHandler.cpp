@@ -249,7 +249,9 @@ std::shared_ptr<PartitionSegment> CompactionHandler::compact_segment(Partition* 
 void CompactionHandler::compact_internal_segment(PartitionSegment* segment) {
 	this->cmah->apply_commands_from_segment(
 		this->controller->get_compacted_cluster_metadata(),
-		segment->get_id()
+		segment->get_id(),
+		0,
+		true
 	);
 }
 

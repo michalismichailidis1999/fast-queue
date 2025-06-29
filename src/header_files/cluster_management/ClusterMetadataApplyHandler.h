@@ -1,4 +1,5 @@
 #pragma once
+#include <unordered_map>
 #include "./ClusterMetadata.h"
 #include "./Commands.h"
 #include "../network_management/ConnectionsManager.h"
@@ -24,7 +25,7 @@ private:
 public:
 	ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings);
 
-	void apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id);
+	void apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction = false, std::unordered_map<int, Command>* registered_nodes = NULL, ClusterMetadata* future_cluster_metadata = NULL);
 
-	void apply_command(ClusterMetadata* cluster_metadata, Command* command, bool is_from_initialization = false);
+	void apply_command(ClusterMetadata* cluster_metadata, Command* command);
 };

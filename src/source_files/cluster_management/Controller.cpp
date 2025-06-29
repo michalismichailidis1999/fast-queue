@@ -14,13 +14,9 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->settings = settings;
 	this->should_terminate = should_terminate;
 
-	this->cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata(this->settings->get_node_id()));
+	this->cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 	this->future_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 	this->compacetd_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
-
-	for (auto& controller_node : this->settings->get_controller_nodes())
-		if (std::get<0>(controller_node) != this->settings->get_node_id())
-			this->cluster_metadata->init_node_partitions(std::get<0>(controller_node));
 
 	this->is_the_only_controller_node = this->settings->get_controller_nodes().size() == 1;
 
@@ -938,4 +934,8 @@ int Controller::get_partition_leader(const std::string& queue, int partition) {
 
 std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(GetClusterMetadataUpdateRequest* request) {
 	return std::get<0>(this->prepare_append_entries_request(0, request->command_id));
+}
+
+unsigned long long Controller::get_last_comamnd_applied() {
+	return this->last_applied;
 }

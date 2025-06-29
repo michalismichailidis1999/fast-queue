@@ -74,7 +74,7 @@ std::string QueueSegmentFilePathMapper::get_segment_message_map_path(const std::
 	return this->settings->get_log_path()
 		+ "/"
 		+ queue_name
-		+ (partition >= 0 ? ("partition-" + std::to_string(partition) + "/") : "")
+		+ (partition >= 0 ? ("/partition-" + std::to_string(partition)) : "")
 		+ "/messages_location_map"
 		+ FILE_EXTENSION;
 }

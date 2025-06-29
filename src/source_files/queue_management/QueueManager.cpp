@@ -146,13 +146,13 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 
 	if (!this->fh->check_if_exists(mm_path))
 	{
-		std::unique_ptr<char> data = std::unique_ptr<char>(new char[MAPPED_SEGMENTS_PER_PAGE]);
+		std::unique_ptr<char> data = std::unique_ptr<char>(new char[MESSAGES_LOC_MAP_PAGE_SIZE]);
 
 		this->smm->fill_new_page_with_values(data.get(), 1);
 
 		this->fh->create_new_file(
 			mm_path,
-			MAPPED_SEGMENTS_PER_PAGE,
+			MESSAGES_LOC_MAP_PAGE_SIZE,
 			data.get(),
 			mm_key,
 			true

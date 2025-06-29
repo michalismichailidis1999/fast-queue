@@ -39,9 +39,8 @@ private:
 	void apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command);
 
 public:
-	ClusterMetadata(int node_id);
-	ClusterMetadata(void* metadata);
 	ClusterMetadata();
+	ClusterMetadata(void* metadata);
 
 	void init_node_partitions(int node_id);
 	void remove_node_partitions(int node_id);

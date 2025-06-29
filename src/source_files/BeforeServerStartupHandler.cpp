@@ -40,6 +40,7 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
         std::get<1>(config_res).reset();
 
         this->controller->get_cluster_metadata()->copy_from(this->controller->get_compacted_cluster_metadata());
+        this->controller->get_future_cluster_metadata()->copy_from(this->controller->get_compacted_cluster_metadata());
     }
 
     std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
@@ -49,13 +50,24 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     unsigned long long smallest_segment_id = partition->get_smallest_segment_id();
     unsigned long long current_segment_id = partition->get_current_segment_id();
 
+    std::unordered_map<int, Command> registered_nodes;
+
     while (smallest_segment_id > 0 && smallest_segment_id <= current_segment_id) {
-        this->cmah->apply_commands_from_segment(this->controller->get_cluster_metadata(), smallest_segment_id);
+        this->cmah->apply_commands_from_segment(
+            this->controller->get_cluster_metadata(), 
+            smallest_segment_id, 
+            this->controller->get_last_comamnd_applied(),
+            false,
+            &registered_nodes,
+            this->controller->get_future_cluster_metadata()
+        );
+
         if (smallest_segment_id < current_segment_id) smallest_segment_id++;
         else break;
     }
 
-    this->controller->get_future_cluster_metadata()->copy_from(this->controller->get_cluster_metadata());
+    for (auto& iter : registered_nodes)
+        this->cmah->apply_command(this->controller->get_cluster_metadata(), &iter.second);
 
     this->logger->log_info("Cluster metadata rebuilt successfully");
 }
@@ -220,6 +232,8 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 }
 
 std::shared_ptr<QueueMetadata> BeforeServerStartupHandler::get_queue_metadata(const std::string& queue_metadata_file_path, const std::string& queue_name, bool must_exist) {
+    if (!this->fh->check_if_exists(queue_metadata_file_path) && must_exist) return nullptr;
+    
     if (!this->fh->check_if_exists(queue_metadata_file_path) && !must_exist) {
         std::shared_ptr<QueueMetadata> metadata = std::shared_ptr<QueueMetadata>(
             new QueueMetadata(queue_name, 1, 1, CleanupPolicyType::COMPACT_SEGMENTS)
@@ -240,8 +254,6 @@ std::shared_ptr<QueueMetadata> BeforeServerStartupHandler::get_queue_metadata(co
 
         return metadata;
     }
-
-    if (must_exist) return nullptr;
 
     std::unique_ptr<char> data = std::unique_ptr<char>(new char[QUEUE_METADATA_TOTAL_BYTES]);
 

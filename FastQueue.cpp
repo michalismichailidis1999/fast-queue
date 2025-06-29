@@ -110,9 +110,11 @@ int main(int argc, char* argv[])
 
     // needs to run before controller is created since it initialized some values based on existing queues metadata
     startup_handler.get()->initialize_required_folders_and_queues();
-    startup_handler.get()->rebuild_cluster_metadata();
 
     controller.get()->init_commit_index_and_last_applied();
+
+    startup_handler.get()->rebuild_cluster_metadata();
+    
     controller.get()->update_quorum_communication_values();
 
     std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), request_mapper.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
