@@ -38,9 +38,9 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 }
 
 void Controller::update_quorum_communication_values() {
-	this->term = this->cluster_metadata.get()->get_current_term();
-	this->last_log_term = this->cluster_metadata.get()->get_current_term();
-	this->last_log_index = this->cluster_metadata.get()->get_current_version();
+	this->term = this->future_cluster_metadata.get()->get_current_term();
+	this->last_log_term = this->future_cluster_metadata.get()->get_current_term();
+	this->last_log_index = this->future_cluster_metadata.get()->get_current_version();
 }
 
 void Controller::init_commit_index_and_last_applied() {
@@ -274,29 +274,34 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 	res.get()->term = this->term;
 	res.get()->lag_index = 0;
 
-	if (!from_data_node && request->term >= this->term && request->prev_log_term >= this->last_log_term && request->prev_log_index >= this->last_log_index) {
-		this->set_received_heartbeat(true);
+	if (!from_data_node) {
+		if(this->get_state() == NodeState::FOLLOWER)
+			this->set_received_heartbeat(true);
 
-		if (this->get_state() == NodeState::LEADER) {
-			this->logger->log_info("Received heartbeat from another leader with higher term and log entries. Stepping down to follower");
-			this->set_state(NodeState::FOLLOWER);
-			this->cluster_metadata->set_leader_id(request->leader_id);
+		if (request->term > this->term)
+			this->term = request->term;
+
+		if (request->prev_log_term >= this->last_log_term && request->prev_log_index >= this->last_log_index) {
+			if (this->get_state() == NodeState::LEADER) {
+				this->step_down_to_follower();
+				this->cluster_metadata->set_leader_id(request->leader_id);
+			}
+			else this->logger->log_info("Received heartbeat from leader");
+
+			auto tup_res = this->store_commands(request->commands_data, request->total_commands, request->commands_total_bytes);
+
+			if (std::get<0>(tup_res))
+				this->mh->update_cluster_metadata_commit_index(request->leader_commit);
+			else {
+				res.get()->lag_index = std::get<1>(tup_res);
+				return res;
+			}
+
+			res.get()->success = true;
+
+			this->term = request->term;
+			this->commit_index = request->leader_commit;
 		}
-		else this->logger->log_info("Received heartbeat from leader");
-
-		auto tup_res = this->store_commands(request->commands_data, request->total_commands, request->commands_total_bytes);
-
-		if (std::get<0>(tup_res))
-			this->mh->update_cluster_metadata_commit_index(request->leader_commit);
-		else {
-			res.get()->lag_index = std::get<1>(tup_res);
-			return res;
-		}
-
-		res.get()->success = true;
-
-		this->term = request->term;
-		this->commit_index = request->leader_commit;
 
 		return res;
 	}
@@ -332,7 +337,6 @@ std::shared_ptr<RequestVoteResponse> Controller::handle_candidate_request_vote(R
 		
 	if (res.get()->vote_granted && this->get_state() == NodeState::LEADER) {
 		this->logger->log_info("Vote for other candidate. Stepping down as Leader and becoming Follower");
-		this->set_received_heartbeat(true);
 		this->set_state(NodeState::FOLLOWER);
 	}
 
