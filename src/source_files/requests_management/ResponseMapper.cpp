@@ -37,9 +37,9 @@ std::unique_ptr<AppendEntriesResponse> ResponseMapper::to_append_entries_respons
 		if (*key == ResponseValueKey::TERM) {
 			res.get()->term = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
-		} else if (*key == ResponseValueKey::LAG_INDEX) {
-			res.get()->lag_index = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		} else if (*key == ResponseValueKey::LOG_MATCHED) {
+			res.get()->log_matched = *(bool*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(bool);
 		}
 		else if (*key == ResponseValueKey::SUCCESS) {
 			res.get()->success = *(bool*)(res_buf + offset + sizeof(ResponseValueKey));

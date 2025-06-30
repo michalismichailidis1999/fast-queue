@@ -65,7 +65,8 @@ enum class RequestValueKey {
 	PREV_LOG_INDEX,
 	PREV_LOG_TERM,
 	LEADER_COMMIT,
-	COMMANDS
+	COMMANDS,
+	INDEX_MATCHED
 	// =====================================================
 };
 
@@ -77,7 +78,7 @@ enum class ResponseValueKey {
 	OK,
 	LEADER_ID,
 	NODE_CONNECTION_INFO,
-	LAG_INDEX,
+	LOG_MATCHED,
 	TOTAL_PARTITIONS,
 	PARTITION_NODE_CONNECTION_INFO
 };

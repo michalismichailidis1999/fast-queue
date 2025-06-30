@@ -156,7 +156,7 @@ void Controller::start_election() {
 	std::lock_guard<std::mutex> lag_lock(this->follower_indexes_mut);
 
 	for (auto iter : *controller_node_connections) {
-		this->follower_indexes[iter.first] = this->last_log_index;
+		this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(this->last_log_term, this->last_log_index);
 		this->update_data_node_heartbeat(iter.first, NULL, true);
 	}
 }
@@ -171,9 +171,7 @@ void Controller::append_entries_to_followers() {
 	int replication_count = 1;
 
 	for (auto iter : *controller_node_connections) {
-		auto req_tup = this->prepare_append_entries_request(iter.first);
-
-		std::shared_ptr<AppendEntriesRequest> req = std::get<0>(req_tup);
+		std::shared_ptr<AppendEntriesRequest> req = this->prepare_append_entries_request(iter.first);
 
 		std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
 
@@ -207,15 +205,8 @@ void Controller::append_entries_to_followers() {
 		if (!res.get()->success) {
 			this->logger->log_error("Node " + std::to_string(iter.first) + " rejected AppendEntries request");
 
-			if (this->term < res.get()->term) {
-				this->logger->log_error("Setting term to " + std::to_string(res.get()->term));
-				this->term = res.get()->term;
-				this->step_down_to_follower();
-			} else if(res.get()->lag_index == 0)
-				this->step_down_to_follower();
-			else {
-				std::lock_guard<std::mutex> lag_followers_lock2(this->follower_indexes_mut);
-				this->follower_indexes[iter.first] = res.get()->lag_index;
+			if (!res.get()->log_matched) {
+				// TODO: Find previous message from the one sent to follower and update follower index map
 			}
 
 			largest_versions_sent.emplace_back(0);
@@ -224,7 +215,22 @@ void Controller::append_entries_to_followers() {
 		}
 		else replication_count++;
 
-		largest_versions_sent.emplace_back(std::get<1>(req_tup));
+		unsigned long long last_message_id = 0;
+
+		if (req.get()->total_commands > 0) {
+			unsigned int offset = 0;
+			unsigned int command_bytes = 0;
+
+			while (offset < req.get()->commands_total_bytes) {
+				memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, (char*)req.get()->commands_data + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+				
+				memcpy_s(&last_message_id, MESSAGE_ID_SIZE, (char*)req.get()->commands_data + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+				offset += command_bytes;
+			}
+		}
+
+		largest_versions_sent.emplace_back(last_message_id);
 	}
 
 	if (replication_count >= this->half_quorum_nodes_count) {
@@ -272,44 +278,38 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 	std::shared_ptr<AppendEntriesResponse> res = std::make_shared<AppendEntriesResponse>();
 	res.get()->success = false;
 	res.get()->term = this->term;
-	res.get()->lag_index = 0;
+	res.get()->log_matched = true;
 
 	if (!from_data_node) {
-		if(this->get_state() == NodeState::FOLLOWER)
+		if (this->get_state() == NodeState::FOLLOWER) {
 			this->set_received_heartbeat(true);
-
-		if (request->term > this->term)
-			this->term = request->term;
-
-		if (request->prev_log_term >= this->last_log_term && request->prev_log_index >= this->last_log_index) {
-			if (this->get_state() == NodeState::LEADER) {
-				this->step_down_to_follower();
-				this->cluster_metadata->set_leader_id(request->leader_id);
-			}
-			else this->logger->log_info("Received heartbeat from leader");
-
-			auto tup_res = this->store_commands(request->commands_data, request->total_commands, request->commands_total_bytes);
-
-			if (std::get<0>(tup_res))
-				this->mh->update_cluster_metadata_commit_index(request->leader_commit);
-			else {
-				res.get()->lag_index = std::get<1>(tup_res);
-				return res;
-			}
-
-			res.get()->success = true;
-
-			this->term = request->term;
-			this->commit_index = request->leader_commit;
+			this->logger->log_info("Received heartbeat from leader");
+		}
+		else if (this->get_state() == NodeState::LEADER) {
+			this->step_down_to_follower();
+			this->cluster_metadata->set_leader_id(request->leader_id);
 		}
 
-		return res;
+		if (request->term > this->term) {
+			this->term = request->term;
+			res.get()->term = request->term;
+		}
 	}
 
-	auto tup_res = this->store_commands(request->commands_data, request->total_commands, request->commands_total_bytes);
+	if (request->total_commands > 0) {
+		unsigned long long first_command_index = 0;
 
-	if (std::get<0>(tup_res)) {
+		//memcpy_s();
+
+		if (request->prev_log_term > this->last_log_term || request->prev_log_index > this->last_log_index) {
+			res.get()->log_matched = false;
+			return res;
+		}
+	}
+
+	if (this->store_commands(request->commands_data, request->total_commands, request->commands_total_bytes)) {
 		this->mh->update_cluster_metadata_commit_index(request->leader_commit);
+		this->commit_index = request->leader_commit;
 		res.get()->success = true;
 	}
 
@@ -324,16 +324,18 @@ std::shared_ptr<RequestVoteResponse> Controller::handle_candidate_request_vote(R
 	int expected = -1;
 
 	res.get()->vote_granted = request->term >= this->term
-		&& (request->last_log_term > this->last_log_term
-			|| request->last_log_index >= this->last_log_index)
+		&& request->last_log_term >= this->last_log_term
+		&& request->last_log_index >= this->last_log_index
 		&& (this->vote_for.compare_exchange_weak(expected, request->candidate_id)
 			|| this->vote_for == request->candidate_id);
+
+	if (request->term > this->term)
+		this->term = request->term;
 
 	if (!res.get()->vote_granted)
 		this->logger->log_info("Vote was not granted for candidate " + std::to_string(request->candidate_id));
 	else
 		this->logger->log_info("Vote was granted for candidate " + std::to_string(request->candidate_id));
-		
 		
 	if (res.get()->vote_granted && this->get_state() == NodeState::LEADER) {
 		this->logger->log_info("Vote for other candidate. Stepping down as Leader and becoming Follower");
@@ -767,8 +769,8 @@ void Controller::store_commands(std::vector<Command>* commands) {
 	this->last_log_term = last_command.get_term();
 }
 
-std::tuple<bool, unsigned long long> Controller::store_commands(void* commands, int total_commands, long commands_total_bytes) {
-	if (total_commands <= 0 || commands_total_bytes <= 0) return std::tuple<bool, unsigned long long>(true, 0);
+bool Controller::store_commands(void* commands, int total_commands, long commands_total_bytes) {
+	if (total_commands <= 0 || commands_total_bytes <= 0) return true;
 
 	unsigned long offset = 0;
 
@@ -778,9 +780,6 @@ std::tuple<bool, unsigned long long> Controller::store_commands(void* commands, 
 	for (int i = 0; i < total_commands; i++) {
 		memcpy_s(&last_command_index, sizeof(unsigned long long), (char*)commands + offset + MESSAGE_ID_OFFSET, sizeof(unsigned long long));
 		memcpy_s(&last_command_term, sizeof(unsigned long long), (char*)commands + offset + COMMAND_TERM_OFFSET, sizeof(unsigned long long));
-
-		if (i == 0 && last_command_index > this->last_log_index + 1)
-			return std::tuple<bool, unsigned long long>(true, this->last_log_index);
 	}
 
 	try
@@ -794,13 +793,13 @@ std::tuple<bool, unsigned long long> Controller::store_commands(void* commands, 
 	catch (const std::exception& ex)
 	{
 		// TODO: Log error
-		return std::tuple<bool, unsigned long long>(false, this->last_log_index);
+		return false;
 	}
 
 	this->last_log_index = last_command_index;
 	this->last_log_term = last_command_term;
 
-	return std::tuple<bool, unsigned long long>(true, 0);
+	return true;
 }
 
 void Controller::execute_command(void* command_metadata) {
@@ -894,21 +893,21 @@ ClusterMetadata* Controller::get_future_cluster_metadata() {
 	return this->future_cluster_metadata.get();
 }
 
-std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long> Controller::prepare_append_entries_request(int follower_id, unsigned long long command_id) {
+std::shared_ptr<AppendEntriesRequest> Controller::prepare_append_entries_request(int follower_id) {
 	std::shared_ptr<AppendEntriesRequest> req = std::make_shared<AppendEntriesRequest>();
 	req.get()->leader_id = this->settings->get_node_id();
 	req.get()->term = this->term;
 	req.get()->leader_commit = this->commit_index;
-	req.get()->prev_log_index = this->last_log_index;
-	req.get()->prev_log_term = this->last_log_term;
+	req.get()->prev_log_term = follower_id > 0 ? std::get<1>(this->follower_indexes[follower_id]) : this->last_log_term;
+	req.get()->prev_log_index = follower_id > 0 ? std::get<1>(this->follower_indexes[follower_id]) : this->last_log_index;
 
-	unsigned long long index_to_send = command_id == 0 ? this->follower_indexes[follower_id] : command_id;
+	unsigned long long index_to_send = req.get()->prev_log_index + 1;
 
 	if (index_to_send > this->last_log_index) {
 		req.get()->total_commands = 0;
 		req.get()->commands_total_bytes = 0;
 		req.get()->commands_data = NULL;
-		return std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long>(req, 0);
+		return req;
 	}
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
@@ -921,7 +920,7 @@ std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long> Controller
 	// the below line keeps commands to memory until we go to next follower to prepare request
 	req.get()->commands_data_ptr = std::get<4>(messages_res) == 0 ? nullptr : std::get<0>(messages_res);
 
-	return std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long>(req, 0);
+	return req;
 }
 
 unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent) {
@@ -937,7 +936,7 @@ int Controller::get_partition_leader(const std::string& queue, int partition) {
 }
 
 std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(GetClusterMetadataUpdateRequest* request) {
-	return std::get<0>(this->prepare_append_entries_request(0, request->command_id));
+	return this->prepare_append_entries_request(request->node_id);
 }
 
 unsigned long long Controller::get_last_comamnd_applied() {

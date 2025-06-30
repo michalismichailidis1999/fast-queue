@@ -32,7 +32,8 @@ struct RequestVoteRequest {
 };
 
 struct GetClusterMetadataUpdateRequest {
-	unsigned long long command_id;
+	int node_id;
+	bool prev_req_index_matched;
 };
 
 // ======================================================================

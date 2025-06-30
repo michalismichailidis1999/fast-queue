@@ -65,7 +65,7 @@ private:
 	std::atomic<unsigned long long> last_log_index;
 	std::atomic<unsigned long long> last_log_term;
 
-	std::unordered_map<int, unsigned long long> follower_indexes;
+	std::unordered_map<int, std::tuple<unsigned long long, unsigned long long>> follower_indexes;
 	std::mutex follower_indexes_mut;
 
 	std::map<int, std::chrono::milliseconds> data_nodes_heartbeats;
@@ -90,11 +90,11 @@ private:
 	void repartition_node_data(int node_id);
 
 	void store_commands(std::vector<Command>* commands);
-	std::tuple<bool, unsigned long long> store_commands(void* commands, int total_commands, long commands_total_bytes);
+	bool store_commands(void* commands, int total_commands, long commands_total_bytes);
 
 	void execute_command(void* command_metadata);
 
-	std::tuple<std::shared_ptr<AppendEntriesRequest>, unsigned long long> prepare_append_entries_request(int follower_id, unsigned long long command_id = 0);
+	std::shared_ptr<AppendEntriesRequest> prepare_append_entries_request(int follower_id);
 
 	unsigned long long get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent);
 public:

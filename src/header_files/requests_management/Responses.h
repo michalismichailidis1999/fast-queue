@@ -12,7 +12,7 @@ struct ErrorResponse {
 
 struct AppendEntriesResponse {
 	unsigned long long term;
-	unsigned long long lag_index;
+	bool log_matched;
 	bool success;
 };
 

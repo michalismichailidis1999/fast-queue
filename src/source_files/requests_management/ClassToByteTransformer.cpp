@@ -160,7 +160,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClu
 
 	RequestType req_type = RequestType::DATA_NODE_HEARTBEAT;
 
-	RequestValueKey command_id_type = RequestValueKey::COMMAND_ID;
+	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
+	RequestValueKey index_matched_type = RequestValueKey::INDEX_MATCHED;
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -172,11 +173,17 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClu
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
 	offset += sizeof(RequestType);
 
-	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &command_id_type, sizeof(RequestValueKey));
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &node_id_type, sizeof(RequestValueKey));
 	offset += sizeof(RequestValueKey);
 
-	memcpy_s(buf.get() + offset, sizeof(int), &obj->command_id, sizeof(int));
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->node_id, sizeof(int));
 	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &index_matched_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->prev_req_index_matched, sizeof(bool));
+	offset += sizeof(bool);
 
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }
@@ -190,7 +197,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	long offset = 0;
 
 	ResponseValueKey term_type = ResponseValueKey::TERM;
-	ResponseValueKey lag_index_type = ResponseValueKey::LAG_INDEX;
+	ResponseValueKey log_matched_type = ResponseValueKey::LOG_MATCHED;
 	ResponseValueKey success_type = ResponseValueKey::SUCCESS;
 
 	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
@@ -203,13 +210,13 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	offset += sizeof(ResponseValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->term, sizeof(unsigned long long));
-	offset += sizeof(long long);
+	offset += sizeof(unsigned long long);
 
-	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &lag_index_type, sizeof(ResponseValueKey));
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &log_matched_type, sizeof(ResponseValueKey));
 	offset += sizeof(ResponseValueKey);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned long), &obj->lag_index, sizeof(unsigned long long));
-	offset += sizeof(long long);
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->log_matched, sizeof(bool));
+	offset += sizeof(bool);
 
 	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &success_type, sizeof(ResponseValueKey));
 	offset += sizeof(ResponseValueKey);
