@@ -73,6 +73,8 @@ private:
 
 	std::mutex partition_assignment_mut;
 
+	std::mutex append_enties_mut;
+
 	void start_election();
 	void append_entries_to_followers();
 	void wait_for_leader_heartbeat();

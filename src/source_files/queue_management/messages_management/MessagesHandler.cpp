@@ -155,7 +155,7 @@ void MessagesHandler::set_last_message_id_and_timestamp(PartitionSegment* segmen
 	segment->set_last_message_timestamp(last_message_timestamp);
 }
 
-std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> MessagesHandler::read_partition_messages(Partition* partition, unsigned long long read_from_message_id) {
+std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> MessagesHandler::read_partition_messages(Partition* partition, unsigned long long read_from_message_id, unsigned int maximum_messages_to_read) {
 	PartitionSegment* segment_to_read = NULL;
 
 	try
@@ -248,12 +248,28 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 			? second_last_message_offset + second_last_message_bytes
 			: last_message_offset + last_message_bytes;
 
+		unsigned int total_read = 0;
+
+		if (maximum_messages_to_read > 0) {
+			message_bytes = 0;
+
+			unsigned int new_read_end = read_start;
+
+			while (new_read_end < read_end && total_read < maximum_messages_to_read) {
+				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+				new_read_end += message_bytes;
+				total_read++;
+			}
+
+			read_end = new_read_end;
+		}
+
 		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(
 			read_batch,
 			batch_size,
 			read_start,
 			read_end,
-			this->get_total_messages_read(read_batch.get(), batch_size, read_start, read_end)
+			maximum_messages_to_read > 0 ? total_read : this->get_total_messages_read(read_batch.get(), batch_size, read_start, read_end)
 		);
 	}
 	catch (const CorruptionException& ex)
@@ -339,4 +355,8 @@ unsigned int MessagesHandler::get_second_last_message_offset_from_batch(void* re
 	}
 
 	return offset;
+}
+
+void MessagesHandler::remove_messages_after_message_id(Partition* partition, unsigned long long message_id) {
+
 }

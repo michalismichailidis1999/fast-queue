@@ -162,6 +162,8 @@ void Controller::start_election() {
 }
 
 void Controller::append_entries_to_followers() {
+	std::lock_guard<std::mutex> lock(this->append_enties_mut);
+
 	std::unique_lock<std::mutex> connections_lock(*this->cm->get_controller_node_connections_mut());
 
 	auto controller_node_connections = this->cm->get_controller_node_connections(false);
@@ -205,8 +207,25 @@ void Controller::append_entries_to_followers() {
 		if (!res.get()->success) {
 			this->logger->log_error("Node " + std::to_string(iter.first) + " rejected AppendEntries request");
 
-			if (!res.get()->log_matched) {
-				// TODO: Find previous message from the one sent to follower and update follower index map
+			if (!res.get()->log_matched && req.get()->prev_log_index > 0) {
+				auto messages_res = this->mh->read_partition_messages(
+					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+					req.get()->prev_log_index - 1,
+					1
+				);
+
+				if (std::get<4>(messages_res) == 1) {
+					unsigned long long prev_log_index = 0;
+					unsigned long long prev_log_term = 0;
+
+					char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+					memcpy_s(&prev_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+					memcpy_s(&prev_log_index, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+
+					std::lock_guard<std::mutex> lock(this->follower_indexes_mut);
+					this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(prev_log_term, prev_log_index);
+				}
 			}
 
 			largest_versions_sent.emplace_back(0);
@@ -275,6 +294,8 @@ void Controller::wait_for_leader_heartbeat() {
 }
 
 std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(AppendEntriesRequest* request, bool from_data_node) {
+	std::lock_guard<std::mutex> lock(this->append_enties_mut);
+
 	std::shared_ptr<AppendEntriesResponse> res = std::make_shared<AppendEntriesResponse>();
 	res.get()->success = false;
 	res.get()->term = this->term;
@@ -296,15 +317,47 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 		}
 	}
 
-	if (request->total_commands > 0) {
-		unsigned long long first_command_index = 0;
+	if (request->total_commands > 0 
+		&& (request->prev_log_index != this->last_log_index
+			|| request->prev_log_term != this->last_log_term
+		)
+	) {
+		res.get()->log_matched = false;
 
-		//memcpy_s();
+		if (
+			request->prev_log_index < this->last_log_index
+			|| (request->prev_log_index == this->last_log_index
+				&& request->prev_log_term > this->last_log_term)
+		) {
+			Partition* partition = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0);
 
-		if (request->prev_log_term > this->last_log_term || request->prev_log_index > this->last_log_index) {
-			res.get()->log_matched = false;
-			return res;
+			unsigned long long message_to_delete_from = request->prev_log_index < this->last_log_index
+				? request->prev_log_index
+				: request->prev_log_index - 1;
+
+			if (this->commit_index > message_to_delete_from)
+				throw std::exception("Node has commit index larger than current leader");
+
+			this->mh->remove_messages_after_message_id(partition, request->prev_log_index);
+
+			auto messages_res = this->mh->read_partition_messages(partition, message_to_delete_from);
+
+			if (std::get<4>(messages_res) != 1) {
+				this->logger->log_error("Something went wrong while trying to fix log offset to match the leader");
+				std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+				exit(EXIT_FAILURE);
+			}
+
+			char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+			memcpy_s(&this->last_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+			memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+
+			if (request->prev_log_index == this->last_log_index && request->prev_log_term == this->last_log_term);
+				res.get()->log_matched = true;
 		}
+
+		if(!res.get()->log_matched) return res;
 	}
 
 	if (this->store_commands(request->commands_data, request->total_commands, request->commands_total_bytes)) {
@@ -898,7 +951,7 @@ std::shared_ptr<AppendEntriesRequest> Controller::prepare_append_entries_request
 	req.get()->leader_id = this->settings->get_node_id();
 	req.get()->term = this->term;
 	req.get()->leader_commit = this->commit_index;
-	req.get()->prev_log_term = follower_id > 0 ? std::get<1>(this->follower_indexes[follower_id]) : this->last_log_term;
+	req.get()->prev_log_term = follower_id > 0 ? std::get<0>(this->follower_indexes[follower_id]) : this->last_log_term;
 	req.get()->prev_log_index = follower_id > 0 ? std::get<1>(this->follower_indexes[follower_id]) : this->last_log_index;
 
 	unsigned long long index_to_send = req.get()->prev_log_index + 1;
@@ -916,7 +969,7 @@ std::shared_ptr<AppendEntriesRequest> Controller::prepare_append_entries_request
 
 	req.get()->total_commands = std::get<4>(messages_res);
 	req.get()->commands_total_bytes = std::get<3>(messages_res) - std::get<2>(messages_res);
-	req.get()->commands_data = std::get<4>(messages_res) == 0 ? NULL : std::get<0>(messages_res).get();
+	req.get()->commands_data = std::get<4>(messages_res) == 0 ? NULL : std::get<0>(messages_res).get() + std::get<2>(messages_res);
 	// the below line keeps commands to memory until we go to next follower to prepare request
 	req.get()->commands_data_ptr = std::get<4>(messages_res) == 0 ? nullptr : std::get<0>(messages_res);
 
