@@ -51,5 +51,7 @@ public:
 
 	unsigned int get_total_rows_count();
 
+	void remove_from_key_and_after(unsigned long long key);
+
 	friend class BPlusTreeIndexHandler;
 };

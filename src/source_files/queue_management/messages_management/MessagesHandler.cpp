@@ -357,6 +357,58 @@ unsigned int MessagesHandler::get_second_last_message_offset_from_batch(void* re
 	return offset;
 }
 
-void MessagesHandler::remove_messages_after_message_id(Partition* partition, unsigned long long message_id) {
+bool MessagesHandler::remove_messages_after_message_id(Partition* partition, unsigned long long message_id) {
+	PartitionSegment* segment_to_read = NULL;
 
+	try
+	{
+		bool success = true;
+
+		std::shared_ptr<PartitionSegment> old_segment = this->smm->find_message_segment(partition, message_id, &success);
+
+		if (old_segment == nullptr && !success) {
+			this->lock_manager->release_segment_lock(partition, segment_to_read);
+			return;
+		}
+
+		PartitionSegment* segment_to_read = old_segment == nullptr
+			? partition->get_active_segment()
+			: old_segment.get();
+
+		if (segment_to_read->get_is_read_only()) return false;
+
+		this->lock_manager->lock_segment(partition, segment_to_read);
+
+		if (segment_to_read->get_id() < partition->get_smallest_segment_id()) {
+			this->lock_manager->release_segment_lock(partition, segment_to_read);
+			return false;
+		}
+
+		long long message_pos = this->index_handler->find_message_location(segment_to_read, message_id, true);
+
+		if (message_pos <= 0) {
+			this->lock_manager->release_segment_lock(partition, segment_to_read);
+			return false;
+		}
+
+		std::shared_ptr<char> read_batch = std::shared_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
+		unsigned int batch_size = READ_MESSAGES_BATCH_SIZE;
+
+		// TODO: Complete this part
+
+		return true;
+	}
+	catch (const CorruptionException& ex)
+	{
+		// TODO: Mark corruption for fix
+		this->logger->log_error(ex.what());
+		this->lock_manager->release_segment_lock(partition, segment_to_read);
+		return false;
+	}
+	catch (const std::exception& ex)
+	{
+		this->logger->log_error(ex.what());
+		this->lock_manager->release_segment_lock(partition, segment_to_read);
+		return false;
+	}
 }

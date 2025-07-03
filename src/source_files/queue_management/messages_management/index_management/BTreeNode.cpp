@@ -121,3 +121,22 @@ BTreeNodeRow* BTreeNode::get_nth_child(unsigned int index) {
 unsigned int BTreeNode::get_total_rows_count() {
 	return this->rows_num;
 }
+
+void BTreeNode::remove_from_key_and_after(unsigned long long key) {
+	unsigned int end_pos = 0;
+
+	for (unsigned int i = 0; i < this->rows_num; i++) {
+		auto& row = this->rows[i];
+
+		if (row.key < key) end_pos = i;
+		else break;
+	}
+	
+	for (unsigned int i = end_pos; i < this->rows_num; i++)
+	{
+		this->rows[i].key = 0;
+		this->rows[i].val_pos = 0;
+	}
+
+	this->rows_num = end_pos + 1;
+}

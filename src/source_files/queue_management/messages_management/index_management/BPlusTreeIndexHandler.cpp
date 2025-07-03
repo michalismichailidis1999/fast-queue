@@ -5,12 +5,14 @@ BPlusTreeIndexHandler::BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskRead
 	this->disk_reader = disk_reader;
 }
 
-unsigned long long BPlusTreeIndexHandler::find_message_location(PartitionSegment* segment, unsigned long long read_from_message_id) {
+unsigned long long BPlusTreeIndexHandler::find_message_location(PartitionSegment* segment, unsigned long long read_from_message_id, bool remove_everything_after_match) {
 	std::unique_ptr<char> node_data = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
 	std::shared_ptr<BTreeNode> node = nullptr;
 	std::shared_ptr<BTreeNode> prev_node = nullptr;
+	std::shared_ptr<BTreeNode> parent_node = nullptr;
 
 	unsigned int page_offset = 0;
+	unsigned int iter = 0;
 
 	while (true) {
 		this->read_index_page_from_disk(segment, node_data.get(), page_offset);
@@ -23,10 +25,14 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(PartitionSegment
 		if (node.get()->max_key >= read_from_message_id && node.get()->min_key <= read_from_message_id) break;
 
 		page_offset = node.get()->next_page_offset;
+		iter++;
 	}
+
+	if (node.get()->get_page_type() == PageType::LEAF && node.get()->rows_num == 0 && iter > 0) node = prev_node;
 
 	if (node.get()->get_page_type() == PageType::LEAF && node.get()->rows_num == 0) {
 		if (prev_node == nullptr) return SEGMENT_METADATA_TOTAL_BYTES;
+		if (remove_everything_after_match) this->clear_index_values(segment, NULL, node.get(), read_from_message_id);
 		return prev_node.get()->get_last_child()->val_pos;
 	}
 
@@ -34,10 +40,14 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(PartitionSegment
 		node = prev_node;
 
 	if (node.get()->type == PageType::NON_LEAF) {
+		parent_node = node;
 		page_offset = this->find_message_location(node.get(), read_from_message_id, segment->is_segment_compacted());
 		this->read_index_page_from_disk(segment, node_data.get(), page_offset);
 		node = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
 	}
+
+	if (remove_everything_after_match)
+		this->clear_index_values(segment, parent_node != nullptr ? parent_node.get() : NULL, node.get(), read_from_message_id);
 
 	return this->find_message_location(node.get(), read_from_message_id, segment->is_segment_compacted());
 }
@@ -221,4 +231,33 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node,
 	}
 
 	return node->rows[pos].val_pos;
+}
+
+void BPlusTreeIndexHandler::clear_index_values(PartitionSegment* segment, BTreeNode* parent_node, BTreeNode* node, unsigned long long message_id) {
+	unsigned long long min_key = node->get_first_child()->key;
+	unsigned long long prev_min_key = min_key;
+
+	std::unique_ptr<char> node_data = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
+
+	node->remove_from_key_and_after(message_id);
+
+	std::shared_ptr<BTreeNode> node_ref = nullptr;
+	BTreeNode* node_to_remove_rows = parent_node;
+
+	while (node_to_remove_rows != NULL) {
+		min_key = node_to_remove_rows->get_first_child()->key;
+		node_to_remove_rows->remove_from_key_and_after(prev_min_key);
+		prev_min_key = min_key;
+		this->flush_node_to_disk(segment, node_to_remove_rows);
+
+		if (node_to_remove_rows->rows_num == 0 && node_to_remove_rows->prev_page_offset != 0) {
+			this->read_index_page_from_disk(segment, node_data.get(), node_to_remove_rows->prev_page_offset);
+			node_ref = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
+			node_to_remove_rows = node_ref.get();
+		}
+		else {
+			node_to_remove_rows = NULL;
+			node_ref = nullptr;
+		}
+	}
 }

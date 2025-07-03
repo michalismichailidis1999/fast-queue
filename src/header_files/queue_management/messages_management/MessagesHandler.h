@@ -62,5 +62,5 @@ public:
 
 	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> read_partition_messages(Partition* partition, unsigned long long read_from_message_id, unsigned int maximum_messages_to_read = 0);
 
-	void remove_messages_after_message_id(Partition* partition, unsigned long long message_id);
+	bool remove_messages_after_message_id(Partition* partition, unsigned long long message_id);
 };
