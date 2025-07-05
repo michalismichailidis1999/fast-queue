@@ -18,6 +18,10 @@ void Helper::add_message_metadata_values(void* metadata, unsigned long long mess
 	memcpy_s((char*)metadata + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &message_id, MESSAGE_ID_SIZE);
 	memcpy_s((char*)metadata + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE, &timestamp, MESSAGE_TIMESTAMP_SIZE);
 
+	bool is_active = true;
+
+	memcpy_s((char*)metadata + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE, &is_active, MESSAGE_IS_ACTIVE_SIZE);
+
 	if (key != NULL && key_size > 0)
 	{
 		memcpy_s((char*)metadata + MESSAGE_KEY_LENGTH_OFFSET, MESSAGE_KEY_LENGTH_SIZE, &key_size, MESSAGE_KEY_LENGTH_SIZE);

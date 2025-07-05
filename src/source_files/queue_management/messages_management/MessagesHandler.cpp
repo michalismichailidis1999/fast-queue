@@ -188,13 +188,14 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 		std::shared_ptr<char> read_batch = std::shared_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
 		unsigned int batch_size = READ_MESSAGES_BATCH_SIZE;
 
-		unsigned int message_id_offset = 0;
+		unsigned int message_offset = 0;
 		unsigned int message_bytes = 0;
 		unsigned int last_message_offset = 0;
 		unsigned int last_message_bytes = 0;
 		unsigned long long last_message_id = 0;
 
 		bool message_found = false;
+		bool is_message_active = true;
 
 		while (true) {
 			batch_size = this->disk_reader->read_data_from_disk(
@@ -205,11 +206,20 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 				message_pos
 			);
 
-			message_id_offset = this->get_message_offset(read_batch.get(), batch_size, read_from_message_id, &message_found);
+			message_offset = this->get_message_offset(read_batch.get(), batch_size, read_from_message_id, &message_found);
 			last_message_offset = this->get_last_message_offset_from_batch(read_batch.get(), batch_size);
 
 			if (message_found)
-				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + message_id_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+			{
+				memcpy_s(&is_message_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + message_offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
+				
+				if (!is_message_active) {
+					this->lock_manager->release_segment_lock(partition, segment_to_read);
+					return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+				}
+
+				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+			}
 
 			memcpy_s(&last_message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + last_message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 			memcpy_s(&last_message_id, MESSAGE_ID_SIZE, read_batch.get() + last_message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
@@ -219,14 +229,14 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 				return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
 			}
 
-			if (message_id_offset >= batch_size) {
+			if (message_offset >= batch_size - MESSAGE_TOTAL_BYTES) {
 				message_pos += last_message_offset + last_message_bytes;
 				continue;
 			}
 
-			if (message_id_offset + message_bytes <= batch_size) break;
+			if (message_offset + message_bytes <= batch_size) break;
 
-			message_pos += message_id_offset;
+			message_pos += message_offset;
 			batch_size = message_bytes > READ_MESSAGES_BATCH_SIZE ? message_bytes : READ_MESSAGES_BATCH_SIZE;
 			read_batch = std::shared_ptr<char>(new char[batch_size]);
 		}
@@ -236,40 +246,42 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 		unsigned int second_last_message_offset = this->get_second_last_message_offset_from_batch(
 			read_batch.get(),
 			batch_size,
-			message_id_offset,
+			message_offset,
 			last_message_offset
 		);
 
 		unsigned int second_last_message_bytes = 0;
 		memcpy_s(&second_last_message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + second_last_message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 
-		unsigned int read_start = message_id_offset;
+		unsigned int read_start = message_offset;
 		unsigned int read_end = last_message_offset + last_message_bytes > batch_size
 			? second_last_message_offset + second_last_message_bytes
 			: last_message_offset + last_message_bytes;
 
+		message_bytes = 0;
+		is_message_active = true;
+
 		unsigned int total_read = 0;
+		unsigned int new_read_end = read_start;
 
-		if (maximum_messages_to_read > 0) {
-			message_bytes = 0;
+		while (new_read_end < read_end && (maximum_messages_to_read > 0 ? total_read < maximum_messages_to_read : true)) {
+			memcpy_s(&is_message_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + new_read_end + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
 
-			unsigned int new_read_end = read_start;
+			if (!is_message_active) break;
 
-			while (new_read_end < read_end && total_read < maximum_messages_to_read) {
-				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
-				new_read_end += message_bytes;
-				total_read++;
-			}
-
-			read_end = new_read_end;
+			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + new_read_end + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+			new_read_end += message_bytes;
+			total_read++;
 		}
+
+		read_end = new_read_end;
 
 		return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(
 			read_batch,
 			batch_size,
 			read_start,
 			read_end,
-			maximum_messages_to_read > 0 ? total_read : this->get_total_messages_read(read_batch.get(), batch_size, read_start, read_end)
+			total_read
 		);
 	}
 	catch (const CorruptionException& ex)
@@ -287,16 +299,21 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 	}
 }
 
-unsigned int MessagesHandler::get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id, bool* message_found) {
+unsigned int MessagesHandler::get_message_offset(void* read_batch, unsigned int batch_size, unsigned long long message_id, bool* message_found, bool message_can_have_larger_id) {
 	unsigned long long current_message_id = 0;
 	unsigned int message_bytes = 0;
 	unsigned int offset = 0;
 
-	while (offset < batch_size) {
+	while (offset <= batch_size - MESSAGE_TOTAL_BYTES) {
 		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)read_batch + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 		memcpy_s(&current_message_id, MESSAGE_ID_SIZE, (char*)read_batch + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
-		if (message_id == current_message_id) {
+		if (message_id == current_message_id && !message_can_have_larger_id) {
+			*message_found = true;
+			return offset;
+		}
+
+		if (message_id >= current_message_id && message_can_have_larger_id) {
 			*message_found = true;
 			return offset;
 		}
@@ -311,7 +328,7 @@ unsigned int MessagesHandler::get_last_message_offset_from_batch(void* read_batc
 	unsigned int message_bytes = 0;
 	unsigned int offset = 0;
 
-	while (offset < batch_size) {
+	while (offset <= batch_size - MESSAGE_TOTAL_BYTES) {
 		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)read_batch + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 
 		if (offset + message_bytes >= batch_size) return offset;
@@ -323,23 +340,6 @@ unsigned int MessagesHandler::get_last_message_offset_from_batch(void* read_batc
 	}
 
 	return offset;
-}
-
-unsigned int MessagesHandler::get_total_messages_read(void* read_batch, unsigned int batch_size, unsigned int read_start, unsigned int read_end) {
-	unsigned int message_bytes = 0;
-	unsigned int messages_read = 0;
-	unsigned int offset = 0;
-
-	while (offset < batch_size) {
-		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)read_batch + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
-
-		if (offset + message_bytes > batch_size) break;
-
-		messages_read++;
-		offset += message_bytes;
-	}
-
-	return messages_read;
 }
 
 unsigned int MessagesHandler::get_second_last_message_offset_from_batch(void* read_batch, unsigned int batch_size, unsigned int starting_offset, unsigned int ending_offset) {
@@ -368,16 +368,14 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 
 		if (old_segment == nullptr && !success) {
 			this->lock_manager->release_segment_lock(partition, segment_to_read);
-			return;
+			return false;
 		}
 
 		PartitionSegment* segment_to_read = old_segment == nullptr
 			? partition->get_active_segment()
 			: old_segment.get();
 
-		if (segment_to_read->get_is_read_only()) return false;
-
-		this->lock_manager->lock_segment(partition, segment_to_read);
+		this->lock_manager->lock_segment(partition, segment_to_read, true);
 
 		if (segment_to_read->get_id() < partition->get_smallest_segment_id()) {
 			this->lock_manager->release_segment_lock(partition, segment_to_read);
@@ -394,7 +392,59 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 		std::shared_ptr<char> read_batch = std::shared_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
 		unsigned int batch_size = READ_MESSAGES_BATCH_SIZE;
 
-		// TODO: Complete this part
+		unsigned int message_offset = 0;
+
+		bool message_found = false;
+
+		while (true) {
+			batch_size = this->disk_reader->read_data_from_disk(
+				segment_to_read->get_segment_key(),
+				segment_to_read->get_segment_path(),
+				read_batch.get(),
+				batch_size,
+				message_pos
+			);
+
+			if (batch_size == 0) break;
+
+			message_found = false;
+			message_offset = this->get_message_offset(read_batch.get(), batch_size, message_id, &message_found, true);
+
+			if (message_found) {
+				unsigned int message_bytes = 0;
+				unsigned int changed = 0;
+				bool is_message_active = true;
+
+				unsigned int offset = message_offset;
+
+				while (offset <= batch_size - MESSAGE_TOTAL_BYTES) {
+					memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+					memcpy_s(&is_message_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
+
+					if (is_message_active) {
+						is_message_active = false;
+						memcpy_s(read_batch.get() + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE, &is_message_active, MESSAGE_IS_ACTIVE_SIZE);
+						changed++;
+					}
+
+					offset += message_bytes;
+				}
+
+				if(changed > 0)
+					this->disk_flusher->write_data_to_specific_file_location(
+						segment_to_read->get_segment_key(),
+						segment_to_read->get_segment_path(),
+						read_batch.get(),
+						batch_size,
+						message_pos,
+						true
+					);
+
+				message_pos += offset;
+			}
+
+			if (batch_size < READ_MESSAGES_BATCH_SIZE) break;
+		}
 
 		return true;
 	}
@@ -402,13 +452,13 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 	{
 		// TODO: Mark corruption for fix
 		this->logger->log_error(ex.what());
-		this->lock_manager->release_segment_lock(partition, segment_to_read);
+		this->lock_manager->release_segment_lock(partition, segment_to_read, true);
 		return false;
 	}
 	catch (const std::exception& ex)
 	{
 		this->logger->log_error(ex.what());
-		this->lock_manager->release_segment_lock(partition, segment_to_read);
+		this->lock_manager->release_segment_lock(partition, segment_to_read, true);
 		return false;
 	}
 }
