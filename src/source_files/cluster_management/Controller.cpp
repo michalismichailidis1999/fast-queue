@@ -20,6 +20,9 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 
 	this->is_the_only_controller_node = this->settings->get_controller_nodes().size() == 1;
 
+	for (auto& controller : this->settings->get_controller_nodes())
+		this->controller_nodes_ids.insert(std::get<0>(controller));
+
 	this->vote_for = -1;
 
 	this->state = !this->is_the_only_controller_node ? NodeState::FOLLOWER : NodeState::LEADER;
@@ -74,6 +77,8 @@ void Controller::run_controller_quorum_communication() {
 }
 
 void Controller::start_election() {
+	//if (this->settings->get_node_id() == 2) return;
+
 	int expected = -1;
 
 	if (!this->vote_for.compare_exchange_weak(expected, this->settings->get_node_id())) {
@@ -169,6 +174,7 @@ void Controller::append_entries_to_followers() {
 	auto controller_node_connections = this->cm->get_controller_node_connections(false);
 
 	std::vector<unsigned long long> largest_versions_sent(controller_node_connections->size());
+	unsigned int version_sent_index = 0;
 
 	int replication_count = 1;
 
@@ -187,7 +193,7 @@ void Controller::append_entries_to_followers() {
 
 		if (std::get<1>(res_tup) == -1) {
 			this->logger->log_error("Network issue occured while communicating with node " + std::to_string(iter.first));
-			largest_versions_sent.emplace_back(0);
+			largest_versions_sent[version_sent_index++] = 0;
 			continue;
 		}
 
@@ -200,7 +206,7 @@ void Controller::append_entries_to_followers() {
 
 		if (res.get() == NULL) {
 			this->logger->log_error("Invalid mapping value in AppendEntriesResponse type");
-			largest_versions_sent.emplace_back(0);
+			largest_versions_sent[version_sent_index++] = 0;
 			continue;
 		}
 
@@ -228,7 +234,7 @@ void Controller::append_entries_to_followers() {
 				}
 			}
 
-			largest_versions_sent.emplace_back(0);
+			largest_versions_sent[version_sent_index++] = 0;
 
 			continue;
 		}
@@ -249,7 +255,7 @@ void Controller::append_entries_to_followers() {
 			}
 		}
 
-		largest_versions_sent.emplace_back(last_message_id);
+		largest_versions_sent[version_sent_index++] = last_message_id;
 	}
 
 	if (replication_count >= this->half_quorum_nodes_count) {
@@ -302,13 +308,13 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 	res.get()->log_matched = true;
 
 	if (!from_data_node) {
-		if (this->get_state() == NodeState::FOLLOWER) {
-			this->set_received_heartbeat(true);
-			this->logger->log_info("Received heartbeat from leader");
-		}
-		else if (this->get_state() == NodeState::LEADER) {
+		if (this->get_state() == NodeState::LEADER) {
 			this->step_down_to_follower();
 			this->cluster_metadata->set_leader_id(request->leader_id);
+		}
+		else {
+			this->set_received_heartbeat(true);
+			this->logger->log_info("Received heartbeat from leader");
 		}
 
 		if (request->term > this->term) {
@@ -361,8 +367,11 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 	}
 
 	if (this->store_commands(request->commands_data, request->total_commands, request->commands_total_bytes)) {
-		this->mh->update_cluster_metadata_commit_index(request->leader_commit);
-		this->commit_index = request->leader_commit;
+		if (request->leader_commit > this->commit_index) {
+			this->mh->update_cluster_metadata_commit_index(request->leader_commit);
+			this->commit_index = request->leader_commit;
+		}
+
 		res.get()->success = true;
 	}
 
@@ -726,17 +735,19 @@ void Controller::check_for_dead_data_nodes() {
 	NodeState state = NodeState::LEADER;
 
 	while (!(*this->should_terminate)) {
-		state = this->get_state();
-
 		expired_nodes.clear();
 
 		{
 			std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 
 			for (auto iter : this->data_nodes_heartbeats)
-				if (state == NodeState::LEADER) {
-					if (this->util->has_timeframe_expired(iter.second, this->settings->get_data_node_expire_ms()))
+				if (this->get_state() == NodeState::LEADER) {
+					if (iter.second.count() != 0 
+						&& this->util->has_timeframe_expired(iter.second, this->settings->get_data_node_expire_ms())
+					) {
+						this->data_nodes_heartbeats[iter.first] = std::chrono::milliseconds(0);
 						expired_nodes.emplace_back(iter.first);
+					}
 				}
 				else this->data_nodes_heartbeats[iter.first] = this->util->get_current_time_milli();
 		}
@@ -746,7 +757,7 @@ void Controller::check_for_dead_data_nodes() {
 			continue;
 		}
 
-		if (state != NodeState::LEADER) {
+		if (this->get_state() != NodeState::LEADER) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_data_node_check_ms()));
 			continue;
 		}
@@ -754,20 +765,22 @@ void Controller::check_for_dead_data_nodes() {
 		if (expired_nodes.size() > 0)
 			for (int node_id : expired_nodes) {
 				this->repartition_node_data(node_id);
-				
-				Command command = Command(
-					CommandType::UNREGISTER_DATA_NODE,
-					this->term,
-					this->util->get_current_time_milli().count(),
-					std::make_shared<UnregisterDataNodeCommand>(new UnregisterDataNodeCommand(node_id))
-				);
-
-				std::vector<Command> commands(1);
-				commands[0] = command;
-
-				this->store_commands(&commands);
 
 				this->future_cluster_metadata->remove_node_partitions(node_id);
+				
+				if (!this->is_controller_node(node_id)) {
+					Command command = Command(
+						CommandType::UNREGISTER_DATA_NODE,
+						this->term,
+						this->util->get_current_time_milli().count(),
+						std::make_shared<UnregisterDataNodeCommand>(new UnregisterDataNodeCommand(node_id))
+					);
+
+					std::vector<Command> commands(1);
+					commands[0] = command;
+
+					this->store_commands(&commands);
+				}
 
 				this->logger->log_info("Data node " + std::to_string(node_id) + " heartbeat expired");
 			}
@@ -981,7 +994,7 @@ unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned
 
 	std::sort(largest_indexes_sent->begin(), largest_indexes_sent->end());
 
-	return (*largest_indexes_sent)[this->half_quorum_nodes_count];
+	return (*largest_indexes_sent)[this->half_quorum_nodes_count - 1];
 }
 
 int Controller::get_partition_leader(const std::string& queue, int partition) {
@@ -994,4 +1007,8 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 
 unsigned long long Controller::get_last_comamnd_applied() {
 	return this->last_applied;
+}
+
+bool Controller::is_controller_node(int node_id) {
+	return this->controller_nodes_ids.find(node_id) != this->controller_nodes_ids.end();
 }

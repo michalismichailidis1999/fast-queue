@@ -198,11 +198,10 @@ void ConnectionsManager::initialize_controller_nodes_connections() {
 			continue;
 		}
 
-		bool succeed1 = this->setup_connection_pool(node_id, info, &this->controllers_mut, &this->controller_node_connections);
-		bool succeed2 = this->setup_connection_pool(node_id, info, &this->data_mut, &this->data_node_connections);
+		bool succeed = this->setup_connection_pool(node_id, info, &this->controllers_mut, &this->controller_node_connections);
 
-		failed_occurunces += (!succeed1 ? 1 : 0) + (!succeed2 ? 1 : 0);
-		successfull_occurunces += (int)succeed1 + (int)succeed2;
+		failed_occurunces += (!succeed ? 1 : 0);
+		successfull_occurunces += (int)succeed;
 	}
 
 	std::string log_msg = failed_occurunces > 0 && successfull_occurunces > 0
@@ -259,16 +258,13 @@ bool ConnectionsManager::create_node_connection_pool(int node_id, ConnectionPool
 			bool connection_added = this->add_connection_to_pool(pool);
 
 			if (!connection_added) {
-				if (--retries == 0) return false;
+				if (--retries == 0) throw std::exception();
 				std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds_to_wait));
 				continue;
 			}
 
 			break;
 		}
-
-		if (retries == 0)
-			throw std::exception();
 
 		this->logger->log_info("Initialized connection pool successfully to node " + std::to_string(node_id));
 		return true;

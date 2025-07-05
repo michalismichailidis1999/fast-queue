@@ -75,6 +75,8 @@ private:
 
 	std::mutex append_enties_mut;
 
+	std::unordered_set<int> controller_nodes_ids;
+
 	void start_election();
 	void append_entries_to_followers();
 	void wait_for_leader_heartbeat();
@@ -99,6 +101,8 @@ private:
 	std::shared_ptr<AppendEntriesRequest> prepare_append_entries_request(int follower_id);
 
 	unsigned long long get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent);
+
+	bool is_controller_node(int node_id);
 public:
 	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ClusterMetadataApplyHandler* cmah, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 

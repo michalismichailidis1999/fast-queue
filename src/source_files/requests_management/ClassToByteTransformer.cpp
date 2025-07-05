@@ -3,7 +3,7 @@
 ClassToByteTransformer::ClassToByteTransformer() {}
 
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(int) + 4 * sizeof(unsigned long long) + 6 * sizeof(RequestValueKey);
+	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(long) + 2 * sizeof(int) + 4 * sizeof(unsigned long long) + 6 * sizeof(RequestValueKey) + obj->commands_total_bytes;
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	RequestType req_type = RequestType::APPEND_ENTRIES;
@@ -62,7 +62,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	memcpy_s(buf.get() + offset, sizeof(long), &obj->commands_total_bytes, sizeof(int));
 	offset += sizeof(long);
 	
-	memcpy_s(buf.get() + offset, obj->commands_total_bytes, obj->commands_data, obj->commands_total_bytes);
+	if(obj->total_commands > 0)
+		memcpy_s(buf.get() + offset, obj->commands_total_bytes, obj->commands_data, obj->commands_total_bytes);
 
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }
@@ -189,7 +190,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClu
 }
 
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + 2 * sizeof(unsigned long long) + sizeof(bool) + 3 * sizeof(ResponseValueKey);
+	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(unsigned long long) + 2 * sizeof(bool) + 3 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 

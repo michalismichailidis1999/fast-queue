@@ -175,6 +175,7 @@ std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(c
 			req.get()->total_commands = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			req.get()->commands_total_bytes = *(long*)(recvbuf + offset + sizeof(RequestValueKey) + sizeof(int));
 			req.get()->commands_data = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int) + sizeof(long);
+			offset += sizeof(RequestValueKey) + sizeof(int) + sizeof(long) + req.get()->commands_total_bytes;
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type AppendEntriesRequest");
