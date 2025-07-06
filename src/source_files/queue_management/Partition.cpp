@@ -31,10 +31,12 @@ PartitionSegment* Partition::get_active_segment() {
 	return this->active_segment.get();
 }
 
-void Partition::set_active_segment(std::shared_ptr<PartitionSegment> segment) {
+std::shared_ptr<PartitionSegment> Partition::set_active_segment(std::shared_ptr<PartitionSegment> segment) {
 	std::lock_guard<std::shared_mutex> lock(this->mut);
+	std::shared_ptr<PartitionSegment> old_active_segment = this->active_segment;
 	this->active_segment = segment;
 	this->current_segment_id = segment->get_id();
+	return old_active_segment;
 }
 
 void Partition::set_message_map(const std::string& message_map_key, const std::string& message_map_path) {

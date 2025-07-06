@@ -337,16 +337,40 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
 
     segment->set_index(index_file_key, index_file_path);
 
-    if (this->fh->check_if_exists(index_file_path)) return;
+    if (this->fh->check_if_exists(index_file_path)) {
+        this->logger->log_info("Setting up last index page offset for queue's " + queue_name + " partition " + std::to_string(partition) + " segment " + std::to_string(segment->get_id()));
 
-    BTreeNode initial_node = BTreeNode(PageType::LEAF);
-    BTreeNodeRow default_initial_row = { 0, SEGMENT_METADATA_TOTAL_BYTES };
-    initial_node.insert(default_initial_row);
+        std::unique_ptr<char> index_page = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
+        std::unique_ptr<BTreeNode> node = nullptr;
+
+        unsigned int page_offset = 0;
+
+        while (true) {
+            this->fh->read_from_file(
+                index_file_key,
+                index_file_path,
+                INDEX_PAGE_SIZE,
+                page_offset,
+                index_page.get()
+            );
+
+            node = std::unique_ptr<BTreeNode>(new BTreeNode(index_page.get()));
+
+            if (node.get()->get_next_page_offset() == 0) break;
+
+            segment->set_last_index_page_offset(page_offset);
+            page_offset = node.get()->get_next_page_offset();
+        }
+
+        this->logger->log_info("Last index page offset was set successfully");
+
+        return;
+    }
 
     this->fh->create_new_file(
         index_file_path,
         INDEX_PAGE_SIZE,
-        std::get<0>(initial_node.get_page_bytes()).get(),
+        std::get<0>(BTreeNode(PageType::LEAF).get_page_bytes()).get(),
         index_file_key,
         true
     );

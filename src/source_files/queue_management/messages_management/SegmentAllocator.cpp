@@ -12,6 +12,7 @@ void SegmentAllocator::allocate_new_segment(Partition* partition) {
 	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
 
 	PartitionSegment* segment = partition->get_active_segment();
+	std::shared_ptr<PartitionSegment> old_active_segment = nullptr;
 
 	this->lock_manager->lock_segment(partition, segment);
 
@@ -65,7 +66,7 @@ void SegmentAllocator::allocate_new_segment(Partition* partition) {
 		if (new_segment_id > 1)
 			this->smm->add_last_message_info_to_segment_map(partition, segment);
 
-		partition->set_active_segment(new_segment);
+		old_active_segment = partition->set_active_segment(new_segment);
 	}
 	catch (const std::exception& ex)
 	{

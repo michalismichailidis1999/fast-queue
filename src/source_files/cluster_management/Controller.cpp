@@ -18,10 +18,14 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->future_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 	this->compacetd_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 
-	this->is_the_only_controller_node = this->settings->get_controller_nodes().size() == 1;
+	unsigned int total_controllers = 0;
 
-	for (auto& controller : this->settings->get_controller_nodes())
+	for (auto& controller : this->settings->get_controller_nodes()) {
 		this->controller_nodes_ids.insert(std::get<0>(controller));
+		total_controllers++;
+	}
+
+	this->is_the_only_controller_node = total_controllers == 1;
 
 	this->vote_for = -1;
 
@@ -37,7 +41,7 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->last_log_index = 0;
 	this->last_log_term = 0;
 
-	this->half_quorum_nodes_count = this->settings->get_controller_nodes().size() / 2 + 1;
+	this->half_quorum_nodes_count = total_controllers / 2 + 1;
 }
 
 void Controller::update_quorum_communication_values() {
@@ -61,6 +65,8 @@ void Controller::run_controller_quorum_communication() {
 			continue;
 		}
 
+		this->logger->log_info("Quorum communication here.....");
+
 		switch (this->get_state())
 		{
 			case NodeState::FOLLOWER:
@@ -77,7 +83,10 @@ void Controller::run_controller_quorum_communication() {
 }
 
 void Controller::start_election() {
-	//if (this->settings->get_node_id() == 2) return;
+	if (this->settings->get_node_id() == 1) {
+		this->step_down_to_follower();
+		return;
+	}
 
 	int expected = -1;
 
@@ -254,6 +263,7 @@ void Controller::append_entries_to_followers() {
 				offset += command_bytes;
 			}
 		}
+		else last_message_id = req.get()->prev_log_index;
 
 		largest_versions_sent[version_sent_index++] = last_message_id;
 	}
@@ -307,15 +317,15 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 	res.get()->term = this->term;
 	res.get()->log_matched = true;
 
+	NodeState state = this->get_state();
+
 	if (!from_data_node) {
-		if (this->get_state() == NodeState::LEADER) {
-			this->step_down_to_follower();
-			this->cluster_metadata->set_leader_id(request->leader_id);
-		}
-		else {
-			this->set_received_heartbeat(true);
-			this->logger->log_info("Received heartbeat from leader");
-		}
+		if (this->get_state() == NodeState::LEADER) this->step_down_to_follower();
+
+		this->set_received_heartbeat(true);
+		this->logger->log_info("Received heartbeat from leader");
+
+		this->cluster_metadata->set_leader_id(request->leader_id);
 
 		if (request->term > this->term) {
 			this->term = request->term;
@@ -323,10 +333,9 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 		}
 	}
 
-	if (request->total_commands > 0 
-		&& (request->prev_log_index != this->last_log_index
-			|| request->prev_log_term != this->last_log_term
-		)
+	if (
+		request->prev_log_index != this->last_log_index
+		|| request->prev_log_term != this->last_log_term
 	) {
 		res.get()->log_matched = false;
 
@@ -389,6 +398,10 @@ std::shared_ptr<RequestVoteResponse> Controller::handle_candidate_request_vote(R
 		&& request->last_log_term >= this->last_log_term
 		&& request->last_log_index >= this->last_log_index
 		&& (this->vote_for.compare_exchange_weak(expected, request->candidate_id)
+			|| this->vote_for == request->candidate_id);
+
+	if(this->settings->get_node_id() == 1)
+		res.get()->vote_granted = (this->vote_for.compare_exchange_weak(expected, request->candidate_id)
 			|| this->vote_for == request->candidate_id);
 
 	if (request->term > this->term)
@@ -605,7 +618,7 @@ void Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 
 void Controller::repartition_node_data(int node_id) {
 	if (this->get_state() != NodeState::LEADER) {
-		this->logger->log_warning("Stopping node's " + std::to_string(node_id) + " repartitions. Current not is not leader anymore.");
+		this->logger->log_warning("Stopping node's " + std::to_string(node_id) + " repartitions. Current node is not leader anymore.");
 		return;
 	}
 
@@ -843,9 +856,15 @@ bool Controller::store_commands(void* commands, int total_commands, long command
 	unsigned long long last_command_index = 0;
 	unsigned long long last_command_term = 0;
 
+	unsigned int messgae_bytes = 0;
+
 	for (int i = 0; i < total_commands; i++) {
-		memcpy_s(&last_command_index, sizeof(unsigned long long), (char*)commands + offset + MESSAGE_ID_OFFSET, sizeof(unsigned long long));
-		memcpy_s(&last_command_term, sizeof(unsigned long long), (char*)commands + offset + COMMAND_TERM_OFFSET, sizeof(unsigned long long));
+		memcpy_s(&messgae_bytes, TOTAL_METADATA_BYTES, (char*)commands + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+		memcpy_s(&last_command_index, MESSAGE_ID_SIZE, (char*)commands + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+		memcpy_s(&last_command_term, COMMAND_TERM_SIZE, (char*)commands + offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+
+		offset += messgae_bytes;
 	}
 
 	try
@@ -994,7 +1013,7 @@ unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned
 
 	std::sort(largest_indexes_sent->begin(), largest_indexes_sent->end());
 
-	return (*largest_indexes_sent)[this->half_quorum_nodes_count - 1];
+	return (*largest_indexes_sent)[this->half_quorum_nodes_count - 2];
 }
 
 int Controller::get_partition_leader(const std::string& queue, int partition) {

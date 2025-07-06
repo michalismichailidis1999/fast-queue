@@ -21,6 +21,7 @@ PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_ke
 	this->segment_path = segment_path;
 	this->index_key = "";
 	this->index_path = "";
+	this->total_written_bytes = 0;
 
 	memcpy_s(&this->id, SEGMENT_ID_SIZE, (char*)metadata + SEGMENT_ID_OFFSET, SEGMENT_ID_SIZE);
 	memcpy_s(&this->last_message_timestamp, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE, (char*)metadata + SEGMENT_LAST_MESSAGE_TMSTMP_OFFSET, SEGMENT_LAST_MESSAGE_TMSTMP_SIZE);
@@ -103,16 +104,6 @@ unsigned int PartitionSegment::get_last_index_page_offset(bool increase_before_g
 void PartitionSegment::set_last_index_page_offset(unsigned int last_index_page_offset) {
 	std::lock_guard<std::mutex> lock(this->mut);
 	this->last_index_page_offset = last_index_page_offset;
-}
-
-unsigned int PartitionSegment::get_last_index_non_leaf_offset() {
-	std::lock_guard<std::mutex> lock(this->mut);
-	return this->last_index_non_leaf_offset;
-}
-
-void PartitionSegment::set_last_index_non_leaf_offset(unsigned int last_index_non_leaf_offset) {
-	std::lock_guard<std::mutex> lock(this->mut);
-	this->last_index_non_leaf_offset = last_index_non_leaf_offset;
 }
 
 unsigned long PartitionSegment::add_written_bytes(unsigned long bytes) {

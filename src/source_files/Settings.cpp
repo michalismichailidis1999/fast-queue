@@ -243,7 +243,7 @@ unsigned int Settings::get_dead_data_node_check_ms() {
 
 unsigned int Settings::get_data_node_expire_ms() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
-	return this->data_node_expire_ms;
+	return 100000000;//this->data_node_expire_ms;
 }
 
 unsigned int Settings::get_heartbeat_to_leader_ms() {

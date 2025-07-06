@@ -58,9 +58,6 @@ public:
 	unsigned int get_last_index_page_offset(bool increase_before_get = false);
 	void set_last_index_page_offset(unsigned int last_index_page_offset);
 
-	unsigned int get_last_index_non_leaf_offset();
-	void set_last_index_non_leaf_offset(unsigned int last_index_non_leaf_offset);
-
 	unsigned long add_written_bytes(unsigned long bytes);
 
 	std::tuple<long, std::shared_ptr<char>> get_metadata_bytes();

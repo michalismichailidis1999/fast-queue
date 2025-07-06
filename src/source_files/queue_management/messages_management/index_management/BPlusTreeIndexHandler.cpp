@@ -108,7 +108,7 @@ std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> BPlusTreeInde
 	std::shared_ptr<BTreeNode> prev_node = nullptr;
 	std::shared_ptr<BTreeNode> parent_node = nullptr;
 
-	unsigned int page_offset = segment->get_last_index_non_leaf_offset();
+	unsigned int page_offset = segment->get_last_index_page_offset();
 	bool node_to_insert_found = false;
 
 	while (!node_to_insert_found) {
