@@ -320,10 +320,11 @@ void BeforeServerStartupHandler::set_partition_active_segment(Partition* partiti
         );
 
         segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(bytes.get(), segment_key, segment_path));
+        partition->set_active_segment(segment);
 
         if (!segment.get()->get_is_read_only()) {
-            partition->set_active_segment(segment);
             this->set_segment_index(partition->get_queue_name(), segment.get(), is_cluster_metadata_queue ? -1 : partition->get_partition_id());
+            this->set_segment_last_message_offset_and_timestamp(segment.get());
             return;
         }
     }
@@ -374,6 +375,50 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
         index_file_key,
         true
     );
+}
+
+void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(PartitionSegment* segment) {
+    std::unique_ptr<char> read_batch = std::unique_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
+
+    unsigned long long read_pos = SEGMENT_METADATA_TOTAL_BYTES;
+
+    unsigned long bytes_read = 0;
+
+    unsigned long remaining = 0;
+    unsigned int offset = 0;
+
+    unsigned int message_bytes = 0;
+    unsigned long long message_id = 0;
+    unsigned long long message_timestamp = 0;
+
+    while (true) {
+        bytes_read = this->fh->read_from_file(
+            segment->get_segment_key(),
+            segment->get_segment_path(),
+            READ_MESSAGES_BATCH_SIZE,
+            read_pos,
+            read_batch.get()
+        );
+
+        remaining = bytes_read;
+        offset = 0;
+
+        while (remaining > 0) {
+            memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+            memcpy_s(&message_id, MESSAGE_ID_SIZE, read_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+            memcpy_s(&message_bytes, MESSAGE_TIMESTAMP_SIZE, read_batch.get() + offset + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE);
+
+            offset += message_bytes;
+            remaining -= message_bytes;
+        }
+
+        segment->set_last_message_offset(message_id);
+        segment->set_last_message_timestamp(message_timestamp);
+
+        if(bytes_read < READ_MESSAGES_BATCH_SIZE) break;
+
+        read_pos += bytes_read - remaining;
+    }
 }
 
 // ========================================================

@@ -83,7 +83,7 @@ void Controller::run_controller_quorum_communication() {
 }
 
 void Controller::start_election() {
-	if (this->settings->get_node_id() == 1) {
+	if (this->settings->get_node_id() == 2) {
 		this->step_down_to_follower();
 		return;
 	}
@@ -223,23 +223,30 @@ void Controller::append_entries_to_followers() {
 			this->logger->log_error("Node " + std::to_string(iter.first) + " rejected AppendEntries request");
 
 			if (!res.get()->log_matched && req.get()->prev_log_index > 0) {
-				auto messages_res = this->mh->read_partition_messages(
-					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
-					req.get()->prev_log_index - 1,
-					1
-				);
+				if (req.get()->prev_log_index - 1 > 0) {
+					auto messages_res = this->mh->read_partition_messages(
+						this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+						req.get()->prev_log_index - 1,
+						1
+					);
 
-				if (std::get<4>(messages_res) == 1) {
-					unsigned long long prev_log_index = 0;
-					unsigned long long prev_log_term = 0;
+					if (std::get<4>(messages_res) == 1) {
+						unsigned long long prev_log_index = 0;
+						unsigned long long prev_log_term = 0;
 
-					char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+						char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
 
-					memcpy_s(&prev_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-					memcpy_s(&prev_log_index, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+						memcpy_s(&prev_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+						memcpy_s(&prev_log_term, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
 
+						std::lock_guard<std::mutex> lock(this->follower_indexes_mut);
+						this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(prev_log_term, prev_log_index);
+					}
+					else throw std::exception("Something went wrong while trying to append entries to follower");
+				}
+				else {
 					std::lock_guard<std::mutex> lock(this->follower_indexes_mut);
-					this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(prev_log_term, prev_log_index);
+					this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(0, 0);
 				}
 			}
 
@@ -247,7 +254,29 @@ void Controller::append_entries_to_followers() {
 
 			continue;
 		}
-		else replication_count++;
+		else {
+			replication_count++;
+
+			if (req.get()->total_commands > 0) {
+				unsigned long long last_log_index = 0;
+				unsigned long long last_log_term = 0;
+
+				unsigned int command_bytes = 0;
+
+				unsigned int offset = 0;
+
+				while (offset < req.get()->commands_total_bytes) {
+					memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, (char*)req.get()->commands_data + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+					memcpy_s(&last_log_index, MESSAGE_ID_SIZE, (char*)req.get()->commands_data + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+					memcpy_s(&last_log_term, COMMAND_TERM_SIZE, (char*)req.get()->commands_data + offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+
+					offset += command_bytes;
+				}
+
+				std::lock_guard<std::mutex> lock(this->follower_indexes_mut);
+				this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(last_log_term, last_log_index);
+			}
+		}
 
 		unsigned long long last_message_id = 0;
 

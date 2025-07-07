@@ -147,34 +147,42 @@ int SegmentMessageMap::get_page_segment_offset(void* map_page, unsigned long lon
 
 	if (last_message_id != 0 && message_id > last_message_id) return -2;
 
-	unsigned int start_pos = 1;
-	unsigned int end_pos = MAPPED_SEGMENTS_PER_PAGE - 1;
+	int start_pos = 1;
+	int end_pos = MAPPED_SEGMENTS_PER_PAGE - 1;
 
 	if (last_message_id == 0)
 	{
 		unsigned int offset = MESSAGES_LOC_MAP_PAGE_SIZE - sizeof(unsigned long long);
 
-		while (last_message_id == 0) {
+		while (last_message_id == 0 && offset > 0 && end_pos > start_pos) {
 			offset -= sizeof(unsigned long long);
 			end_pos--;
 
-			memcpy_s(&last_message_id, sizeof(unsigned long long), (char*)map_page + offset, sizeof(unsigned long long));
+			memcpy_s(&last_message_id, sizeof(unsigned long long), (char*)map_page + offset - sizeof(unsigned long long), sizeof(unsigned long long));
 		}
 	}
 
 	if (end_pos == 0 || message_id > last_message_id) return -1;
 
+	if (start_pos == end_pos) return start_pos;
+
 	unsigned long long middle_message_id = 0;
 
-	unsigned int pos = start_pos + (end_pos - start_pos) / 2;
+	int pos = start_pos + (end_pos - start_pos) / 2;
 
-	while (start_pos <= end_pos) {
+	// TODO: Fix this logic
+
+	while (start_pos < end_pos) {
 		memcpy_s(&middle_message_id, sizeof(unsigned long long), (char*)map_page + pos * sizeof(unsigned long long), sizeof(unsigned long long));
 
 		if (middle_message_id == message_id) return pos;
 
-		if (middle_message_id > message_id) start_pos = pos + 1;
+		if (middle_message_id < message_id) start_pos = pos + 1;
 		else end_pos = pos - 1;
+
+		if (start_pos == end_pos) return start_pos;
+
+		if (start_pos > end_pos) break;
 
 		pos = start_pos + (end_pos - start_pos) / 2;
 	}

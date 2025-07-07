@@ -47,7 +47,7 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 	return this->save_messages(partition, messages_data.get(), total_messages_bytes);
 }
 
-// No segment locking is required here since retention will only happen in read only segments
+// No segment locking is required here since retention/compaction will only happen in read only segments
 bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes) {
 	try
 	{
@@ -205,6 +205,11 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 				batch_size,
 				message_pos
 			);
+
+			if (batch_size == 0) {
+				this->lock_manager->release_segment_lock(partition, segment_to_read);
+				return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+			}
 
 			message_offset = this->get_message_offset(read_batch.get(), batch_size, read_from_message_id, &message_found);
 			last_message_offset = this->get_last_message_offset_from_batch(read_batch.get(), batch_size);
