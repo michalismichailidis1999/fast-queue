@@ -371,10 +371,7 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 
 		std::shared_ptr<PartitionSegment> old_segment = this->smm->find_message_segment(partition, message_id, &success);
 
-		if (old_segment == nullptr && !success) {
-			this->lock_manager->release_segment_lock(partition, segment_to_read);
-			return false;
-		}
+		if (old_segment == nullptr && !success) return false;
 
 		PartitionSegment* segment_to_read = old_segment == nullptr
 			? partition->get_active_segment()
@@ -414,6 +411,11 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 
 			message_found = false;
 			message_offset = this->get_message_offset(read_batch.get(), batch_size, message_id, &message_found, true);
+
+			if (message_id == 0) {
+				message_found = true;
+				message_offset = 0;
+			}
 
 			if (message_found) {
 				unsigned int message_bytes = 0;

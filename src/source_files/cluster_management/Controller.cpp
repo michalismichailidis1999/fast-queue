@@ -83,10 +83,10 @@ void Controller::run_controller_quorum_communication() {
 }
 
 void Controller::start_election() {
-	if (this->settings->get_node_id() == 2) {
-		this->step_down_to_follower();
-		return;
-	}
+	//if (this->settings->get_node_id() == 1) {
+	//	this->step_down_to_follower();
+	//	return;
+	//}
 
 	int expected = -1;
 
@@ -382,7 +382,8 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 			if (this->commit_index > message_to_delete_from)
 				throw std::exception("Node has commit index larger than current leader");
 
-			this->mh->remove_messages_after_message_id(partition, request->prev_log_index);
+			if (!this->mh->remove_messages_after_message_id(partition, request->prev_log_index))
+				throw std::exception("Failed to remove uncommited logs");
 
 			auto messages_res = this->mh->read_partition_messages(partition, message_to_delete_from);
 

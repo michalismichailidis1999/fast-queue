@@ -19,14 +19,21 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 	unsigned long bytes_read = this->fh->read_from_file(segment_key, segment_path, READ_MESSAGES_BATCH_SIZE, pos, batch_size.get());
 
 	unsigned int command_total_bytes = 0;
+	bool is_command_active = true;
 
 	while (bytes_read > 0) {
 		unsigned long offset = 0;
 
 		while (offset < bytes_read) {
 			memcpy_s(&command_total_bytes, TOTAL_METADATA_BYTES, batch_size.get() + TOTAL_METADATA_BYTES_OFFSET + offset, TOTAL_METADATA_BYTES);
+			memcpy_s(&is_command_active, MESSAGE_IS_ACTIVE_SIZE, batch_size.get() + MESSAGE_IS_ACTIVE_OFFSET + offset, MESSAGE_IS_ACTIVE_SIZE);
 
 			if (offset + command_total_bytes > bytes_read) break;
+
+			if (!is_command_active) {
+				offset += command_total_bytes;
+				continue;
+			}
 
 			Command command = Command(batch_size.get() + offset);
 
