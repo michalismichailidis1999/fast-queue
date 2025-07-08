@@ -14,6 +14,16 @@ void Helper::add_common_metadata_values(void* metadata, long total_bytes, Object
 	memcpy_s((char*)metadata + CHECKSUM_OFFSET, CHECKSUM_SIZE, &checksum, CHECKSUM_SIZE);
 }
 
+void Helper::update_checksum(void* metadata, long total_bytes) {
+	unsigned long long checksum = crc32(
+		crc32(0L, Z_NULL, 0),
+		reinterpret_cast<const Bytef*>((char*)metadata + COMMON_METADATA_TOTAL_BYTES),
+		total_bytes - COMMON_METADATA_TOTAL_BYTES
+	);
+
+	memcpy_s((char*)metadata + CHECKSUM_OFFSET, CHECKSUM_SIZE, &checksum, CHECKSUM_SIZE);
+}
+
 void Helper::add_message_metadata_values(void* metadata, unsigned long long message_id, unsigned long long timestamp, unsigned int key_size, const char* key) {
 	memcpy_s((char*)metadata + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &message_id, MESSAGE_ID_SIZE);
 	memcpy_s((char*)metadata + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE, &timestamp, MESSAGE_TIMESTAMP_SIZE);

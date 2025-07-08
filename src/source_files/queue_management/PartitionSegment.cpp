@@ -106,10 +106,15 @@ void PartitionSegment::set_last_index_page_offset(unsigned int last_index_page_o
 	this->last_index_page_offset = last_index_page_offset;
 }
 
-unsigned long PartitionSegment::add_written_bytes(unsigned long bytes) {
+unsigned long long PartitionSegment::add_written_bytes(unsigned long bytes) {
 	std::lock_guard<std::mutex> lock(this->mut);
 	this->total_written_bytes += bytes;
 	return this->total_written_bytes;
+}
+
+void PartitionSegment::set_total_written_bytes(unsigned long long total_written_bytes) {
+	std::lock_guard<std::mutex> lock(this->mut);
+	this->total_written_bytes = total_written_bytes;
 }
 
 std::tuple<long, std::shared_ptr<char>> PartitionSegment::get_metadata_bytes() {

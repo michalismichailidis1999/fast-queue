@@ -248,6 +248,7 @@ void BPlusTreeIndexHandler::clear_index_values(PartitionSegment* segment, BTreeN
 		min_key = node_to_remove_rows->get_first_child()->key;
 		node_to_remove_rows->remove_from_key_and_after(prev_min_key);
 		prev_min_key = min_key;
+
 		this->flush_node_to_disk(segment, node_to_remove_rows);
 
 		if (node_to_remove_rows->rows_num == 0 && node_to_remove_rows->prev_page_offset != 0) {

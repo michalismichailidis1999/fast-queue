@@ -20,6 +20,7 @@ private:
 
 	unsigned int max_message_size;
 	unsigned int segment_size;
+	unsigned int index_message_gap_size;
 	unsigned int max_cached_memory;
 	unsigned int flush_to_disk_after_ms;
 
@@ -82,6 +83,7 @@ public:
 
 	unsigned int get_max_message_size();
 	unsigned int get_segment_size();
+	unsigned int get_index_message_gap_size();
 	unsigned int get_max_cached_memory();
 	unsigned int get_flush_to_disk_after_ms();
 

@@ -196,6 +196,11 @@ unsigned int Settings::get_segment_size() {
 	return this->segment_size;
 }
 
+unsigned int Settings::get_index_message_gap_size() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->index_message_gap_size;
+}
+
 unsigned int Settings::get_max_cached_memory() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->max_cached_memory;
@@ -381,6 +386,7 @@ void Settings::update_values_with_new_settings(Settings* new_settings) {
 	// general properties
 	this->max_message_size = new_settings->max_message_size;
 	this->segment_size = new_settings->segment_size;
+	this->index_message_gap_size = new_settings->index_message_gap_size;
 	this->max_cached_memory = new_settings->max_cached_memory;
 	this->flush_to_disk_after_ms = new_settings->flush_to_disk_after_ms;
 	this->request_parallelism = new_settings->request_parallelism;

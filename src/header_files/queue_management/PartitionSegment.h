@@ -26,7 +26,7 @@ private:
 	std::string index_key;
 	std::string index_path;
 
-	unsigned long total_written_bytes;
+	unsigned long long total_written_bytes;
 
 	std::mutex mut;
 public:
@@ -58,7 +58,8 @@ public:
 	unsigned int get_last_index_page_offset(bool increase_before_get = false);
 	void set_last_index_page_offset(unsigned int last_index_page_offset);
 
-	unsigned long add_written_bytes(unsigned long bytes);
+	unsigned long long add_written_bytes(unsigned long bytes);
+	void set_total_written_bytes(unsigned long long total_written_bytes);
 
 	std::tuple<long, std::shared_ptr<char>> get_metadata_bytes();
 };

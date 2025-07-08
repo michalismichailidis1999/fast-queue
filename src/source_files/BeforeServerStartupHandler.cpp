@@ -391,6 +391,8 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
     unsigned long long message_id = 0;
     unsigned long long message_timestamp = 0;
 
+    unsigned long long total_written_bytes = 0;
+
     while (true) {
         bytes_read = this->fh->read_from_file(
             segment->get_segment_key(),
@@ -409,6 +411,7 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
             memcpy_s(&message_bytes, MESSAGE_TIMESTAMP_SIZE, read_batch.get() + offset + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE);
 
             offset += message_bytes;
+            total_written_bytes += message_bytes;
             remaining -= message_bytes;
         }
 
@@ -419,6 +422,8 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
 
         read_pos += bytes_read - remaining;
     }
+
+    segment->set_total_written_bytes(total_written_bytes);
 }
 
 // ========================================================

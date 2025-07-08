@@ -68,12 +68,7 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 
 		unsigned long total_segment_bytes = partition->get_active_segment()->add_written_bytes(total_bytes);
 
-		//if (this->settings->get_segment_size() < total_segment_bytes) {
-		//	this->sa->allocate_new_segment(partition);
-		//	return;
-		//}
-
-		if (100 < total_segment_bytes) {
+		if (this->settings->get_segment_size() < total_segment_bytes) {
 			this->sa->allocate_new_segment(partition);
 			return true;
 		}
@@ -124,7 +119,7 @@ unsigned long MessagesHandler::remove_from_partition_remaining_bytes(const std::
 	unsigned long remaining_bytes = this->remaining_bytes[queue_partition_key];
 
 	if (remaining_bytes == 0) {
-		this->remaining_bytes[queue_partition_key] = 50; // TODO: Add this value to settings or add it in queue creation
+		this->remaining_bytes[queue_partition_key] = this->settings->get_index_message_gap_size();
 		return 0;
 	}
 
@@ -431,6 +426,7 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 					if (is_message_active) {
 						is_message_active = false;
 						memcpy_s(read_batch.get() + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE, &is_message_active, MESSAGE_IS_ACTIVE_SIZE);
+						Helper::update_checksum(read_batch.get() + offset, message_bytes);
 						changed++;
 					}
 
