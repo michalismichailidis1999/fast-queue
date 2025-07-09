@@ -97,35 +97,23 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 
 	nodes_to_flush.emplace_back(new_node.get());
 
-	this->flush_segment_updated_metadata(segment);
-
 	this->flush_nodes_to_disk(segment, &nodes_to_flush);
+
+	this->flush_segment_updated_metadata(segment);
 }
 
 std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> BPlusTreeIndexHandler::find_node_to_insert(PartitionSegment* segment) {
 	std::unique_ptr<char> node_data = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
-	std::shared_ptr<BTreeNode> node_to_insert = nullptr;
-	std::shared_ptr<BTreeNode> prev_node = nullptr;
+
 	std::shared_ptr<BTreeNode> parent_node = nullptr;
 
-	unsigned int page_offset = segment->get_last_index_page_offset();
-	bool node_to_insert_found = false;
+	this->read_index_page_from_disk(segment, node_data.get(), segment->get_last_index_page_offset());
 
-	while (!node_to_insert_found) {
-		this->read_index_page_from_disk(segment, node_data.get(), page_offset);
+	std::shared_ptr<BTreeNode> node_to_insert = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
 
-		prev_node = node_to_insert;
-		std::shared_ptr<BTreeNode> node_to_insert = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
-
-		if (node_to_insert.get()->type == PageType::LEAF) {
-			node_to_insert_found = true;
-			parent_node = prev_node != nullptr && node_to_insert.get()->parent_offset == prev_node.get()->page_offset
-				? node_to_insert
-				: nullptr;
-			continue;
-		}
-
-		page_offset = node_to_insert.get()->rows[node_to_insert.get()->rows_num].val_pos;
+	if (node_to_insert.get()->type == PageType::LEAF && node_to_insert.get()->parent_offset != 0) {
+		this->read_index_page_from_disk(segment, node_data.get(), node_to_insert.get()->parent_offset);
+		parent_node = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
 	}
 
 	return std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>>(node_to_insert, parent_node);
@@ -167,7 +155,7 @@ std::shared_ptr<BTreeNode> BPlusTreeIndexHandler::create_new_node_pointer(Partit
 }
 
 void BPlusTreeIndexHandler::flush_segment_updated_metadata(PartitionSegment* segment) {
-	this->disk_flusher->flush_metadata_updates_to_disk(segment);
+	this->disk_flusher->flush_metadata_updates_to_disk(segment, false);
 }
 
 void BPlusTreeIndexHandler::flush_nodes_to_disk(PartitionSegment* segment, std::vector<BTreeNode*>* nodes) {
@@ -203,8 +191,8 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node,
 	if (node->type == PageType::LEAF && message_id < node->min_key && !reverse_search)
 		return SEGMENT_METADATA_TOTAL_BYTES;
 
-	if (message_id <= node->min_key) return !reverse_search ? node->rows[0].val_pos : node->rows[node->rows_num].val_pos;
-	if (message_id >= node->max_key) return !reverse_search ? node->rows[node->rows_num].val_pos : node->rows[0].val_pos;
+	if (message_id <= node->min_key) return !reverse_search ? node->rows[0].val_pos : node->rows[node->rows_num - 1].val_pos;
+	if (message_id >= node->max_key) return !reverse_search ? node->rows[node->rows_num - 1].val_pos : node->rows[0].val_pos;
 
 	if (node->rows_num <= 2) return node->rows[0].val_pos;
 

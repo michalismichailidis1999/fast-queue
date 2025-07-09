@@ -36,14 +36,14 @@ void DiskFlusher::write_data_to_specific_file_location(const std::string& key, c
 	this->write_data_to_file(key, path, data, total_bytes, pos, flush_immediatelly);
 }
 
-void DiskFlusher::flush_metadata_updates_to_disk(PartitionSegment* segment) {
+void DiskFlusher::flush_metadata_updates_to_disk(PartitionSegment* segment, bool flush_immediatelly) {
 	this->write_data_to_file(
 		segment->get_segment_key(),
 		segment->get_segment_path(),
 		std::get<1>(segment->get_metadata_bytes()).get(),
 		SEGMENT_METADATA_TOTAL_BYTES,
 		0,
-		true
+		flush_immediatelly
 	);
 }
 
@@ -91,7 +91,7 @@ unsigned long long DiskFlusher::write_data_to_file(const std::string& key, const
 		flush_immediatelly
 	);
 
-	if (flush_immediatelly) return 0;
+	if (flush_immediatelly) return begin_written_pos;
 
 	this->bytes_to_flush += total_bytes;
 

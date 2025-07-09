@@ -11,6 +11,7 @@ PartitionSegment::PartitionSegment(unsigned long long id, const std::string& seg
 	this->index_key = "";
 	this->index_path = "";
 	this->total_written_bytes = 0;
+	this->last_index_page_offset = 0;
 }
 
 PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_key, const std::string& segment_path) {

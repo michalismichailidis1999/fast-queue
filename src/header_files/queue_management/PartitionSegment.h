@@ -17,9 +17,6 @@ private:
 	bool is_read_only;
 
 	unsigned int last_index_page_offset;
-
-	unsigned int last_index_non_leaf_offset;
-
 	std::string segment_key;
 	std::string segment_path;
 

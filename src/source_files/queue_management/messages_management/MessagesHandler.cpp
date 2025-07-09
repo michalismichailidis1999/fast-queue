@@ -47,10 +47,10 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 	return this->save_messages(partition, messages_data.get(), total_messages_bytes);
 }
 
-// No segment locking is required here since retention/compaction will only happen in read only segments
 bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes) {
 	try
 	{
+		// TODO: Add specific locking that only blocks threads that try to write to specific segment
 		if (partition->get_active_segment()->get_is_read_only() && !partition->get_active_segment()->is_segment_compacted())
 			this->sa->allocate_new_segment(partition);
 

@@ -339,7 +339,11 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
     segment->set_index(index_file_key, index_file_path);
 
     if (this->fh->check_if_exists(index_file_path)) {
-        this->logger->log_info("Setting up last index page offset for queue's " + queue_name + " partition " + std::to_string(partition) + " segment " + std::to_string(segment->get_id()));
+        std::string partition_info = partition > 0
+            ? " partition " + std::to_string(partition) + " "
+            : " ";
+
+        this->logger->log_info("Setting up last index page offset for queue's " + queue_name + partition_info + "segment " + std::to_string(segment->get_id()));
 
         std::unique_ptr<char> index_page = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
         std::unique_ptr<BTreeNode> node = nullptr;
@@ -408,7 +412,7 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
         while (remaining > 0) {
             memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
             memcpy_s(&message_id, MESSAGE_ID_SIZE, read_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-            memcpy_s(&message_bytes, MESSAGE_TIMESTAMP_SIZE, read_batch.get() + offset + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE);
+            memcpy_s(&message_timestamp, MESSAGE_TIMESTAMP_SIZE, read_batch.get() + offset + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE);
 
             offset += message_bytes;
             total_written_bytes += message_bytes;

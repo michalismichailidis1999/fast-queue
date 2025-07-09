@@ -40,7 +40,7 @@ public:
 
 	void write_data_to_specific_file_location(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly = false);
 
-	void flush_metadata_updates_to_disk(PartitionSegment* segment);
+	void flush_metadata_updates_to_disk(PartitionSegment* segment, bool flush_immediatelly = true);
 
 	void flush_new_metadata_to_disk(PartitionSegment* segment, const std::string& prev_segment_key, const std::string& prev_index_key);
 
