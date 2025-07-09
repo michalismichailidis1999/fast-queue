@@ -409,7 +409,7 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 
 		bool message_found = false;
 
-		while (true) {
+		while (segment_to_read != nullptr) {
 			batch_size = this->disk_reader->read_data_from_disk(
 				segment_to_read->get_segment_key(),
 				segment_to_read->get_segment_path(),
@@ -418,7 +418,11 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 				message_pos
 			);
 
-			if (batch_size == 0) break;
+			if (batch_size == 0) {
+				this->lock_manager->release_segment_lock(partition, segment_to_read.get());
+				segment_to_read = this->get_next_segment_to_remove_messages(partition, segment_to_read.get()->get_id());
+				continue;
+			}
 
 			message_found = false;
 			message_offset = this->get_message_offset(read_batch.get(), batch_size, message_id, &message_found, true);
@@ -462,8 +466,15 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 				message_pos += offset;
 			}
 
-			if (batch_size < READ_MESSAGES_BATCH_SIZE) break;
+			if (batch_size < READ_MESSAGES_BATCH_SIZE) {
+				this->lock_manager->release_segment_lock(partition, segment_to_read.get());
+				segment_to_read = this->get_next_segment_to_remove_messages(partition, segment_to_read.get()->get_id());
+				continue;
+			}
 		}
+
+		if(segment_to_read != nullptr)
+			this->lock_manager->release_segment_lock(partition, segment_to_read.get(), true);
 
 		return true;
 	}
@@ -471,13 +482,50 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 	{
 		// TODO: Mark corruption for fix
 		this->logger->log_error(ex.what());
-		this->lock_manager->release_segment_lock(partition, segment_to_read.get(), true);
+
+		if (segment_to_read != nullptr)
+			this->lock_manager->release_segment_lock(partition, segment_to_read.get(), true);
+
 		return false;
 	}
 	catch (const std::exception& ex)
 	{
 		this->logger->log_error(ex.what());
-		this->lock_manager->release_segment_lock(partition, segment_to_read.get(), true);
+
+		if (segment_to_read != nullptr)
+			this->lock_manager->release_segment_lock(partition, segment_to_read.get(), true);
+
 		return false;
 	}
+}
+
+std::shared_ptr<PartitionSegment> MessagesHandler::get_next_segment_to_remove_messages(Partition* partition, unsigned long long current_segment_id) {
+	unsigned long long next_segment_id = current_segment_id + 1;
+
+	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
+
+	std::string segment_key = this->pm->get_file_key(
+		partition->get_queue_name(),
+		next_segment_id,
+		is_internal_queue ? -1 : partition->get_partition_id()
+	);
+
+	std::string segment_path = this->pm->get_file_path(
+		partition->get_queue_name(),
+		next_segment_id,
+		is_internal_queue ? -1 : partition->get_partition_id()
+	);
+
+	std::shared_ptr<PartitionSegment> next_segment = std::shared_ptr<PartitionSegment>(
+		new PartitionSegment(next_segment_id, segment_key, segment_path)
+	);
+
+	this->lock_manager->lock_segment(partition, next_segment.get(), true);
+
+	if (!this->disk_flusher->path_exists(segment_path)) {
+		this->lock_manager->release_segment_lock(partition, next_segment.get(), true);
+		return nullptr;
+	}
+
+	return next_segment;
 }

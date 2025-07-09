@@ -83,10 +83,10 @@ void Controller::run_controller_quorum_communication() {
 }
 
 void Controller::start_election() {
-	if (this->settings->get_node_id() == 2) {
-		this->step_down_to_follower();
-		return;
-	}
+	//if (this->settings->get_node_id() == 1) {
+	//	this->step_down_to_follower();
+	//	return;
+	//}
 
 	int expected = -1;
 
@@ -385,18 +385,24 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 			if (!this->mh->remove_messages_after_message_id(partition, request->prev_log_index))
 				throw std::exception("Failed to remove uncommited logs");
 
-			auto messages_res = this->mh->read_partition_messages(partition, message_to_delete_from);
+			if (message_to_delete_from > 1) {
+				auto messages_res = this->mh->read_partition_messages(partition, message_to_delete_from);
 
-			if (std::get<4>(messages_res) != 1) {
-				this->logger->log_error("Something went wrong while trying to fix log offset to match the leader");
-				std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-				exit(EXIT_FAILURE);
+				if (std::get<4>(messages_res) != 1) {
+					this->logger->log_error("Something went wrong while trying to fix log offset to match the leader");
+					std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+					exit(EXIT_FAILURE);
+				}
+
+				char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+				memcpy_s(&this->last_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+				memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
 			}
-
-			char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
-
-			memcpy_s(&this->last_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-			memcpy_s(&this->last_log_term, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+			else {
+				this->last_log_index = 0;
+				this->last_log_term = 0;
+			}
 
 			if (request->prev_log_index == this->last_log_index && request->prev_log_term == this->last_log_term);
 				res.get()->log_matched = true;

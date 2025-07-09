@@ -100,3 +100,7 @@ unsigned long long DiskFlusher::write_data_to_file(const std::string& key, const
 
 	return begin_written_pos;
 }
+
+bool DiskFlusher::path_exists(const std::string& path) {
+	return this->fh->check_if_exists(path);
+}

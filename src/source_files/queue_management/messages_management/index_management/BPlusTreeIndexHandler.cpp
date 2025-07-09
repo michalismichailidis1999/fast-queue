@@ -229,6 +229,8 @@ void BPlusTreeIndexHandler::clear_index_values(PartitionSegment* segment, BTreeN
 
 	node->remove_from_key_and_after(message_id);
 
+	this->flush_node_to_disk(segment, node);
+
 	std::shared_ptr<BTreeNode> node_ref = nullptr;
 	BTreeNode* node_to_remove_rows = parent_node;
 

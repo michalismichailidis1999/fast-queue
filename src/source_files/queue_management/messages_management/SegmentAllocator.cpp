@@ -14,16 +14,18 @@ bool SegmentAllocator::allocate_new_segment(Partition* partition) {
 	std::shared_ptr<PartitionSegment> segment = partition->get_active_segment_ref();
 	std::shared_ptr<PartitionSegment> old_active_segment = nullptr;
 
-	this->lock_manager->lock_segment(partition, segment.get(), true);
+	if (segment != nullptr) {
+		this->lock_manager->lock_segment(partition, segment.get(), true);
 
-	if (segment.get()->should_ignore_segment_allocation()) {
-		this->lock_manager->release_segment_lock(partition, segment.get(), true);
-		return false;
+		if (segment.get()->should_ignore_segment_allocation()) {
+			this->lock_manager->release_segment_lock(partition, segment.get(), true);
+			return false;
+		}
 	}
 
 	try
 	{
-		if (segment != NULL) {
+		if (segment != nullptr) {
 			segment->set_to_read_only();
 
 			this->df->flush_metadata_updates_to_disk(segment.get());
@@ -75,14 +77,17 @@ bool SegmentAllocator::allocate_new_segment(Partition* partition) {
 	}
 	catch (const std::exception& ex)
 	{
-		this->lock_manager->release_segment_lock(partition, segment.get(), true);
+		if (segment != nullptr)
+			this->lock_manager->release_segment_lock(partition, segment.get(), true);
 
 		throw ex;
 	}
 
-	segment.get()->set_ignore_segment_allocation_to_true();
+	if (segment != nullptr) {
+		segment.get()->set_ignore_segment_allocation_to_true();
 
-	this->lock_manager->release_segment_lock(partition, segment.get(), true);
+		this->lock_manager->release_segment_lock(partition, segment.get(), true);
+	}
 
 	return true;
 }

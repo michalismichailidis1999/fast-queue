@@ -125,18 +125,27 @@ unsigned int BTreeNode::get_total_rows_count() {
 void BTreeNode::remove_from_key_and_after(unsigned long long key) {
 	unsigned int end_pos = 0;
 
+	unsigned long long new_max = 0;
+	unsigned int new_rows_num = 0;
+
 	for (unsigned int i = 0; i < this->rows_num; i++) {
 		auto& row = this->rows[i];
 
-		if (row.key < key) end_pos = i;
+		if (row.key < key) {
+			end_pos = i;
+			new_max = row.key;
+			new_rows_num++;
+		}
 		else break;
 	}
 	
-	for (unsigned int i = end_pos; i < this->rows_num; i++)
+	for (unsigned int i = end_pos + 1; i < this->rows_num; i++)
 	{
 		this->rows[i].key = 0;
 		this->rows[i].val_pos = 0;
 	}
 
-	this->rows_num = end_pos + 1;
+	this->min_key = new_rows_num > 0 ? this->min_key : 0;
+	this->max_key = new_max;
+	this->rows_num = new_rows_num;
 }

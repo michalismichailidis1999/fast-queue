@@ -47,6 +47,8 @@ private:
 	unsigned int get_last_message_offset_from_batch(void* read_batch, unsigned int batch_size);
 
 	unsigned int get_second_last_message_offset_from_batch(void* read_batch, unsigned int batch_size, unsigned int starting_offset, unsigned int ending_offset);
+
+	std::shared_ptr<PartitionSegment> get_next_segment_to_remove_messages(Partition* partition, unsigned long long current_segment_id);
 public:
 	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Util* util, Settings* settings, Logger* logger);
 

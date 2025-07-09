@@ -45,4 +45,6 @@ public:
 	void flush_new_metadata_to_disk(PartitionSegment* segment, const std::string& prev_segment_key, const std::string& prev_index_key);
 
 	void flush_metadata_updates_to_disk(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, unsigned long pos);
+
+	bool path_exists(const std::string& path);
 };
