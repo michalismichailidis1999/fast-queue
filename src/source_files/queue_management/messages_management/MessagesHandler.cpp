@@ -374,7 +374,7 @@ unsigned int MessagesHandler::get_second_last_message_offset_from_batch(void* re
 }
 
 bool MessagesHandler::remove_messages_after_message_id(Partition* partition, unsigned long long message_id) {
-	PartitionSegment* segment_to_read = NULL;
+	std::shared_ptr<PartitionSegment> segment_to_read = nullptr;
 
 	try
 	{
@@ -384,21 +384,21 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 
 		if (old_segment == nullptr && !success) return false;
 
-		PartitionSegment* segment_to_read = old_segment == nullptr
-			? partition->get_active_segment()
-			: old_segment.get();
+		segment_to_read = old_segment == nullptr
+			? partition->get_active_segment_ref()
+			: old_segment;
 
-		this->lock_manager->lock_segment(partition, segment_to_read, true);
+		this->lock_manager->lock_segment(partition, segment_to_read.get(), true);
 
 		if (segment_to_read->get_id() < partition->get_smallest_segment_id()) {
-			this->lock_manager->release_segment_lock(partition, segment_to_read);
+			this->lock_manager->release_segment_lock(partition, segment_to_read.get());
 			return false;
 		}
 
-		long long message_pos = this->index_handler->find_message_location(segment_to_read, message_id, true);
+		long long message_pos = this->index_handler->find_message_location(segment_to_read.get(), message_id, true);
 
 		if (message_pos <= 0) {
-			this->lock_manager->release_segment_lock(partition, segment_to_read);
+			this->lock_manager->release_segment_lock(partition, segment_to_read.get());
 			return false;
 		}
 
@@ -471,13 +471,13 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 	{
 		// TODO: Mark corruption for fix
 		this->logger->log_error(ex.what());
-		this->lock_manager->release_segment_lock(partition, segment_to_read, true);
+		this->lock_manager->release_segment_lock(partition, segment_to_read.get(), true);
 		return false;
 	}
 	catch (const std::exception& ex)
 	{
 		this->logger->log_error(ex.what());
-		this->lock_manager->release_segment_lock(partition, segment_to_read, true);
+		this->lock_manager->release_segment_lock(partition, segment_to_read.get(), true);
 		return false;
 	}
 }
