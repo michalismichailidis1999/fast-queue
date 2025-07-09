@@ -48,28 +48,34 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 }
 
 bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes) {
+	std::shared_ptr<PartitionSegment> active_segment = nullptr;
+	
 	try
 	{
-		// TODO: Add specific locking that only blocks threads that try to write to specific segment
-		if (partition->get_active_segment()->get_is_read_only() && !partition->get_active_segment()->is_segment_compacted())
-			this->sa->allocate_new_segment(partition);
+		active_segment = partition->get_active_segment_ref();
 
-		PartitionSegment* active_segment = partition->get_active_segment();
+		if (active_segment.get()->get_is_read_only() && !partition->get_active_segment()->is_segment_compacted()) {
+			bool changed = this->sa->allocate_new_segment(partition);
+			if(!changed) active_segment = partition->get_active_segment_ref();
+		}
 
-		this->set_last_message_id_and_timestamp(active_segment, messages, total_bytes);
+		this->lock_manager->lock_segment(partition, active_segment.get(), true);
+
+		this->set_last_message_id_and_timestamp(active_segment.get(), messages, total_bytes);
 
 		unsigned long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
-			active_segment->get_segment_key(),
-			active_segment->get_segment_path(),
+			active_segment.get()->get_segment_key(),
+			active_segment.get()->get_segment_path(),
 			messages,
 			total_bytes,
 			Helper::is_internal_queue(partition->get_queue_name())
 		);
 
-		unsigned long total_segment_bytes = partition->get_active_segment()->add_written_bytes(total_bytes);
+		unsigned long total_segment_bytes = active_segment.get()->add_written_bytes(total_bytes);
 
 		if (this->settings->get_segment_size() < total_segment_bytes) {
 			this->sa->allocate_new_segment(partition);
+			this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
 			return true;
 		}
 
@@ -79,11 +85,21 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 			this->index_handler->add_message_to_index(partition, first_message_id, first_message_pos);
 		}
 
+		this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
+
 		return true;
 	}
 	catch (const CorruptionException& ex)
 	{
 		// TODO: Mark corruption for fix
+		this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
+		this->logger->log_error(ex.what());
+		return false;
+	}
+	catch (const std::exception& ex)
+	{
+		// TODO: Mark corruption for fix
+		this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
 		this->logger->log_error(ex.what());
 		return false;
 	}

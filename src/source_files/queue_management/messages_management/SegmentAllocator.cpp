@@ -8,20 +8,25 @@ SegmentAllocator::SegmentAllocator(SegmentMessageMap* smm, SegmentLockManager* l
 	this->logger = logger;
 }
 
-void SegmentAllocator::allocate_new_segment(Partition* partition) {
+bool SegmentAllocator::allocate_new_segment(Partition* partition) {
 	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
 
-	PartitionSegment* segment = partition->get_active_segment();
+	std::shared_ptr<PartitionSegment> segment = partition->get_active_segment_ref();
 	std::shared_ptr<PartitionSegment> old_active_segment = nullptr;
 
-	this->lock_manager->lock_segment(partition, segment);
+	this->lock_manager->lock_segment(partition, segment.get(), true);
+
+	if (segment.get()->should_ignore_segment_allocation()) {
+		this->lock_manager->release_segment_lock(partition, segment.get(), true);
+		return false;
+	}
 
 	try
 	{
 		if (segment != NULL) {
 			segment->set_to_read_only();
 
-			this->df->flush_metadata_updates_to_disk(segment);
+			this->df->flush_metadata_updates_to_disk(segment.get());
 		}
 
 		unsigned long long new_segment_id = partition->get_current_segment_id() + 1;
@@ -64,16 +69,20 @@ void SegmentAllocator::allocate_new_segment(Partition* partition) {
 		);
 
 		if (new_segment_id > 1)
-			this->smm->add_last_message_info_to_segment_map(partition, segment);
+			this->smm->add_last_message_info_to_segment_map(partition, segment.get());
 
 		old_active_segment = partition->set_active_segment(new_segment);
 	}
 	catch (const std::exception& ex)
 	{
-		this->lock_manager->release_segment_lock(partition, segment);
+		this->lock_manager->release_segment_lock(partition, segment.get(), true);
 
 		throw ex;
 	}
 
-	this->lock_manager->release_segment_lock(partition, segment);
+	segment.get()->set_ignore_segment_allocation_to_true();
+
+	this->lock_manager->release_segment_lock(partition, segment.get(), true);
+
+	return true;
 }

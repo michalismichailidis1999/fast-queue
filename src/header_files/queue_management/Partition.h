@@ -49,6 +49,7 @@ public:
 	const std::string& get_message_map_path();
 
 	PartitionSegment* get_active_segment();
+	std::shared_ptr<PartitionSegment> get_active_segment_ref();
 	std::shared_ptr<PartitionSegment> set_active_segment(std::shared_ptr<PartitionSegment> segment);
 
 	friend class RetentionHandler;

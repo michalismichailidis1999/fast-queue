@@ -16,5 +16,5 @@ private:
 public:
 	SegmentAllocator(SegmentMessageMap* smm, SegmentLockManager* lock_manager, QueueSegmentFilePathMapper* pm, DiskFlusher* df, Logger* logger);
 
-	void allocate_new_segment(Partition* partition);
+	bool allocate_new_segment(Partition* partition);
 };

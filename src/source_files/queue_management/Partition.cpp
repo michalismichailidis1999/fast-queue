@@ -31,6 +31,11 @@ PartitionSegment* Partition::get_active_segment() {
 	return this->active_segment.get();
 }
 
+std::shared_ptr<PartitionSegment> Partition::get_active_segment_ref() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->active_segment;
+}
+
 std::shared_ptr<PartitionSegment> Partition::set_active_segment(std::shared_ptr<PartitionSegment> segment) {
 	std::lock_guard<std::shared_mutex> lock(this->mut);
 	std::shared_ptr<PartitionSegment> old_active_segment = this->active_segment;
