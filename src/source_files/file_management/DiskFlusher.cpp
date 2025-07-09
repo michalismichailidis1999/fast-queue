@@ -22,9 +22,17 @@ void DiskFlusher::flush_to_disk_periodically() {
 
 		if (this->bytes_to_flush == 0) continue;
 
-		this->fh->flush_output_streams();
+		try
+		{
+			this->fh->flush_output_streams();
 
-		this->bytes_to_flush = 0;
+			this->bytes_to_flush = 0;
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while flushing data to disk periodically. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
 	}
 }
 

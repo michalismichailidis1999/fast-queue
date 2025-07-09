@@ -16,12 +16,20 @@ void CompactionHandler::compact_closed_segments(std::atomic_bool* should_termina
 	std::vector<std::string> queue_names;
 
 	while (!(*should_terminate)) {
-		queue_names.clear();
+		try
+		{
+			queue_names.clear();
 
-		this->qm->get_all_queue_names(&queue_names);
+			this->qm->get_all_queue_names(&queue_names);
 
-		for (const std::string& queue_name : queue_names)
-			this->handle_queue_partitions_segment_compaction(queue_name, should_terminate);
+			for (const std::string& queue_name : queue_names)
+				this->handle_queue_partitions_segment_compaction(queue_name, should_terminate);
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured during segment compaction. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_COMPACTION));
 	}

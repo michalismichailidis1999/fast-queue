@@ -19,12 +19,20 @@ void RetentionHandler::remove_expired_segments(std::atomic_bool* should_terminat
 			continue;
 		}
 
-		queue_names.clear();
+		try
+		{
+			queue_names.clear();
 
-		this->qm->get_all_queue_names(&queue_names);
+			this->qm->get_all_queue_names(&queue_names);
 
-		for (const std::string& queue_name : queue_names)
-			this->handle_queue_partitions_segment_retention(queue_name, should_terminate);
+			for (const std::string& queue_name : queue_names)
+				this->handle_queue_partitions_segment_retention(queue_name, should_terminate);
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured during segment retention. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_retention_worker_wait_ms()));
 	}

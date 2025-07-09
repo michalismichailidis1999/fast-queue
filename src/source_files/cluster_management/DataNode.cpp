@@ -10,7 +10,7 @@ DataNode::DataNode(Controller* controller, ConnectionsManager* cm, RequestMapper
 }
 
 void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
-	ConnectionPool* pool = NULL;
+	std::shared_ptr<ConnectionPool> pool = nullptr;
 
 	std::unique_ptr<DataNodeHeartbeatRequest> req = std::make_unique<DataNodeHeartbeatRequest>();
 	req.get()->node_id = this->settings->get_node_id();
@@ -26,21 +26,29 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 			continue;
 		}
 
-		int leader_id = this->controller->get_cluster_metadata()->get_leader_id();
+		try
+		{
+			int leader_id = this->controller->get_cluster_metadata()->get_leader_id();
 
-		if (leader_id == 0)
-			leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
+			if (leader_id == 0)
+				leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
 
-		if (pool == NULL) {
-			std::lock_guard<std::mutex> lock(*this->cm->get_controller_node_connections_mut());
+			if (pool == nullptr) {
+				std::lock_guard<std::mutex> lock(*this->cm->get_controller_node_connections_mut());
 
-			auto controller_node_connections = this->cm->get_controller_node_connections(false);
+				auto controller_node_connections = this->cm->get_controller_node_connections(false);
 
-			pool = (*controller_node_connections)[leader_id].get();
+				pool = (*controller_node_connections)[leader_id];
+			}
+
+			if (!this->send_heartbeat_to_leader(&leader_id, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), pool.get()))
+				pool = nullptr;
 		}
-
-		if (!this->send_heartbeat_to_leader(&leader_id, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), pool))
-			pool = NULL;
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while sending heartbeat to leader. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_heartbeat_to_leader_ms()));
 	}
@@ -126,54 +134,62 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 			continue;
 		}
 
-		prev_leader_id = leader_id;
-		leader_id = this->controller->get_cluster_metadata()->get_leader_id();
-
-		if (leader_id != prev_leader_id && prev_leader_id != 0) index_matched = true;
-
-		if (leader_id == 0) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_cluster_update_receive_ms()));
-			continue;
-		}
-
+		try
 		{
-			std::lock_guard<std::mutex> lock(*this->cm->get_controller_node_connections_mut());
+			prev_leader_id = leader_id;
+			leader_id = this->controller->get_cluster_metadata()->get_leader_id();
 
-			std::shared_ptr<ConnectionPool> pool = this->cm->get_controller_node_connection(leader_id, false);
+			if (leader_id != prev_leader_id && prev_leader_id != 0) index_matched = true;
 
-			if (pool == nullptr) goto end;
-
-			req = std::make_unique<GetClusterMetadataUpdateRequest>();
-			req.get()->node_id = this->settings->get_node_id();
-			req.get()->prev_req_index_matched = index_matched;
-
-			buf_tup = this->transformer->transform(req.get());
-
-			res = this->cm->send_request_to_socket(
-				pool.get(),
-				3,
-				std::get<1>(buf_tup).get(),
-				std::get<0>(buf_tup),
-				"GetClusterMetadataUpdate"
-			);
-
-			if (std::get<1>(res) == -1) {
-				this->logger->log_error("Network issue occured while trying to get cluster metadata updates from leader");
-				goto end;
+			if (leader_id == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_cluster_update_receive_ms()));
+				continue;
 			}
 
-			append_entries_req = this->request_mapper->to_append_entries_request(
-				std::get<0>(res).get(),
-				std::get<1>(res)
-			);
+			{
+				std::lock_guard<std::mutex> lock(*this->cm->get_controller_node_connections_mut());
 
-			if (append_entries_req == nullptr) goto end;
+				std::shared_ptr<ConnectionPool> pool = this->cm->get_controller_node_connection(leader_id, false);
 
-			append_entries_res = this->controller->handle_leader_append_entries(append_entries_req.get(), true);
+				if (pool == nullptr) goto end;
 
-			index_matched = append_entries_res.get()->log_matched;
+				req = std::make_unique<GetClusterMetadataUpdateRequest>();
+				req.get()->node_id = this->settings->get_node_id();
+				req.get()->prev_req_index_matched = index_matched;
 
-		end: {}
+				buf_tup = this->transformer->transform(req.get());
+
+				res = this->cm->send_request_to_socket(
+					pool.get(),
+					3,
+					std::get<1>(buf_tup).get(),
+					std::get<0>(buf_tup),
+					"GetClusterMetadataUpdate"
+				);
+
+				if (std::get<1>(res) == -1) {
+					this->logger->log_error("Network issue occured while trying to get cluster metadata updates from leader");
+					goto end;
+				}
+
+				append_entries_req = this->request_mapper->to_append_entries_request(
+					std::get<0>(res).get(),
+					std::get<1>(res)
+				);
+
+				if (append_entries_req == nullptr) goto end;
+
+				append_entries_res = this->controller->handle_leader_append_entries(append_entries_req.get(), true);
+
+				index_matched = append_entries_res.get()->log_matched;
+
+			end: {}
+			}
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while receiving cluster updates from leader. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
 		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_cluster_update_receive_ms()));

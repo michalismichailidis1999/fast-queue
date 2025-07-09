@@ -65,10 +65,13 @@ void Controller::run_controller_quorum_communication() {
 			continue;
 		}
 
+		// TODO: Remove this after quorum communication is perfect
 		this->logger->log_info("Quorum communication here.....");
 
-		switch (this->get_state())
+		try
 		{
+			switch (this->get_state())
+			{
 			case NodeState::FOLLOWER:
 				this->wait_for_leader_heartbeat();
 				break;
@@ -78,6 +81,12 @@ void Controller::run_controller_quorum_communication() {
 			case NodeState::LEADER:
 				this->append_entries_to_followers();
 				break;
+			}
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured during quorum communication. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
 		}
 	}
 }
@@ -786,53 +795,61 @@ void Controller::check_for_dead_data_nodes() {
 	while (!(*this->should_terminate)) {
 		expired_nodes.clear();
 
+		try
 		{
-			std::lock_guard<std::mutex> lock(this->heartbeats_mut);
+			{
+				std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 
-			for (auto iter : this->data_nodes_heartbeats)
-				if (this->get_state() == NodeState::LEADER) {
-					if (iter.second.count() != 0 
-						&& this->util->has_timeframe_expired(iter.second, this->settings->get_data_node_expire_ms())
-					) {
-						this->data_nodes_heartbeats[iter.first] = std::chrono::milliseconds(0);
-						expired_nodes.emplace_back(iter.first);
+				for (auto iter : this->data_nodes_heartbeats)
+					if (this->get_state() == NodeState::LEADER) {
+						if (iter.second.count() != 0
+							&& this->util->has_timeframe_expired(iter.second, this->settings->get_data_node_expire_ms())
+							) {
+							this->data_nodes_heartbeats[iter.first] = std::chrono::milliseconds(0);
+							expired_nodes.emplace_back(iter.first);
+						}
 					}
-				}
-				else this->data_nodes_heartbeats[iter.first] = this->util->get_current_time_milli();
-		}
-
-		if (!this->settings->get_is_controller_node()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
-			continue;
-		}
-
-		if (this->get_state() != NodeState::LEADER) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_data_node_check_ms()));
-			continue;
-		}
-
-		if (expired_nodes.size() > 0)
-			for (int node_id : expired_nodes) {
-				this->repartition_node_data(node_id);
-
-				this->future_cluster_metadata->remove_node_partitions(node_id);
-				
-				if (!this->is_controller_node(node_id)) {
-					Command command = Command(
-						CommandType::UNREGISTER_DATA_NODE,
-						this->term,
-						this->util->get_current_time_milli().count(),
-						std::make_shared<UnregisterDataNodeCommand>(new UnregisterDataNodeCommand(node_id))
-					);
-
-					std::vector<Command> commands(1);
-					commands[0] = command;
-
-					this->store_commands(&commands);
-				}
-
-				this->logger->log_info("Data node " + std::to_string(node_id) + " heartbeat expired");
+					else this->data_nodes_heartbeats[iter.first] = this->util->get_current_time_milli();
 			}
+
+			if (!this->settings->get_is_controller_node()) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
+				continue;
+			}
+
+			if (this->get_state() != NodeState::LEADER) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_data_node_check_ms()));
+				continue;
+			}
+
+			if (expired_nodes.size() > 0)
+				for (int node_id : expired_nodes) {
+					this->repartition_node_data(node_id);
+
+					this->future_cluster_metadata->remove_node_partitions(node_id);
+
+					if (!this->is_controller_node(node_id)) {
+						Command command = Command(
+							CommandType::UNREGISTER_DATA_NODE,
+							this->term,
+							this->util->get_current_time_milli().count(),
+							std::make_shared<UnregisterDataNodeCommand>(new UnregisterDataNodeCommand(node_id))
+						);
+
+						std::vector<Command> commands(1);
+						commands[0] = command;
+
+						this->store_commands(&commands);
+					}
+
+					this->logger->log_info("Data node " + std::to_string(node_id) + " heartbeat expired");
+				}
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while checking for unresponsive nodes. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_data_node_check_ms()));
 	}
@@ -959,44 +976,52 @@ void Controller::check_for_commit_and_last_applied_diff() {
 			continue;
 		}
 
-		auto& res = this->mh->read_partition_messages(partition, this->last_applied + 1);
-
-		std::shared_ptr<char> commands_batch = std::get<0>(res);
-		unsigned int batch_size = std::get<1>(res);
-		unsigned int read_start = std::get<2>(res);
-		unsigned int read_end = std::get<3>(res);
-		unsigned int total_commands = std::get<4>(res);
-
-		unsigned long long metadata_version = 0;
-		unsigned long long prev_metadata_version = 0;
-		unsigned long long command_bytes = 0;
-
-		unsigned int offset = read_start;
-
 		try
 		{
-			while (offset < read_end) {
-				memcpy_s(&metadata_version, MESSAGE_ID_SIZE, commands_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+			auto& res = this->mh->read_partition_messages(partition, this->last_applied + 1);
 
-				if (metadata_version > commit_index) break;
+			std::shared_ptr<char> commands_batch = std::get<0>(res);
+			unsigned int batch_size = std::get<1>(res);
+			unsigned int read_start = std::get<2>(res);
+			unsigned int read_end = std::get<3>(res);
+			unsigned int total_commands = std::get<4>(res);
 
-				this->execute_command(commands_batch.get() + offset);
-				prev_metadata_version = metadata_version;
+			unsigned long long metadata_version = 0;
+			unsigned long long prev_metadata_version = 0;
+			unsigned long long command_bytes = 0;
 
-				memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, commands_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+			unsigned int offset = read_start;
 
-				offset += command_bytes;
+			try
+			{
+				while (offset < read_end) {
+					memcpy_s(&metadata_version, MESSAGE_ID_SIZE, commands_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+					if (metadata_version > commit_index) break;
+
+					this->execute_command(commands_batch.get() + offset);
+					prev_metadata_version = metadata_version;
+
+					memcpy_s(&command_bytes, TOTAL_METADATA_BYTES, commands_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+					offset += command_bytes;
+				}
 			}
+			catch (const std::exception& ex)
+			{
+				// TODO: Log error
+				if (prev_metadata_version > 0)
+					commit_index = prev_metadata_version;
+			}
+
+			this->mh->update_cluster_metadata_last_applied(commit_index);
+			this->last_applied = commit_index;
 		}
 		catch (const std::exception& ex)
 		{
-			// TODO: Log error
-			if(prev_metadata_version > 0)
-				commit_index = prev_metadata_version;
+			std::string err_msg = "Error occured while executing commited commands. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
 		}
-
-		this->mh->update_cluster_metadata_last_applied(commit_index);
-		this->last_applied = commit_index;
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_UNAPPLIED_COMMANDS));
 	}

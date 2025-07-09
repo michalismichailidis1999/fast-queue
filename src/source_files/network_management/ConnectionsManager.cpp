@@ -347,9 +347,17 @@ bool ConnectionsManager::connect_to_data_node(int node_id, std::shared_ptr<Conne
 
 void ConnectionsManager::keep_pool_connections_to_maximum() {
 	while (!(*this->should_terminate)) {
-		this->add_connections_to_pools(&this->controllers_mut, &this->controller_node_connections);
+		try
+		{
+			this->add_connections_to_pools(&this->controllers_mut, &this->controller_node_connections);
 
-		this->add_connections_to_pools(&this->data_mut, &this->data_node_connections);
+			this->add_connections_to_pools(&this->data_mut, &this->data_node_connections);
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while trying to keep pool connections to maximum. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 	}
@@ -484,10 +492,11 @@ void ConnectionsManager::check_connections_heartbeats() {
 	while (!(*this->should_terminate)) {
 		to_expire.clear();
 
+		try
 		{
 			std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 
-			for(auto iter : this->connections_heartbeats)
+			for (auto iter : this->connections_heartbeats)
 				if (!std::get<0>(iter.second) && this->util->has_timeframe_expired(std::get<1>(iter.second), 60000))
 				{
 					SSL* ssl = this->connections_ssls[iter.first];
@@ -505,6 +514,11 @@ void ConnectionsManager::check_connections_heartbeats() {
 					this->logger->log_info("Socket " + std::to_string(socket) + " expired");
 				}
 		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while checking for dead connections. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		} 
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 	}
