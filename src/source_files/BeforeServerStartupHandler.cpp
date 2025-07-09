@@ -362,6 +362,7 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
             node = std::unique_ptr<BTreeNode>(new BTreeNode(index_page.get()));
 
             if (node.get()->get_next_page_offset() == 0) {
+                if (node.get()->get_page_type() == PageType::NON_LEAF) page_offset = node.get()->get_last_child()->val_pos;
                 break;
             }
 
