@@ -9,6 +9,9 @@ static const std::string FILE_EXTENSION = ".txt";
 
 static const unsigned int MAXIMUM_OPEN_FILE_DESCRIPTORS = 750;
 
+static const unsigned int MAXIMUM_CACHED_MESSAGES = 5000;
+static const unsigned int MAXIMUM_CACHED_INDEX_PAGES = 1000;
+
 static const std::string CLUSTER_METADATA_QUEUE_NAME = "__cluster_metadata";
 
 static const unsigned int HEARTBEAT_SIGNAL_MIN_BOUND = 1500;
