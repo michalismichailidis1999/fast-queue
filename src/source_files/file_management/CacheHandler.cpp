@@ -14,8 +14,12 @@ std::shared_ptr<char> CacheHandler::get_message(const std::string& key) {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 
 	if (this->cache_search_count++ >= LAZY_KEY_EXPIRATION_COUNTER) {
+		lock.unlock();
+
 		this->remove_expired_keys();
 		this->cache_search_count = 0;
+
+		lock.lock();
 	} else if (this->keys_insertion_time.find(key) != this->keys_insertion_time.end()
 		&& this->util->has_timeframe_expired(this->keys_insertion_time[key], CACHE_KEY_TTL_MILLI))
 		return nullptr;
@@ -32,8 +36,12 @@ std::shared_ptr<char> CacheHandler::get_index_page(const std::string& key) {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 
 	if (this->cache_search_count++ >= LAZY_KEY_EXPIRATION_COUNTER) {
+		lock.unlock();
+
 		this->remove_expired_keys();
 		this->cache_search_count = 0;
+
+		lock.lock();
 	}
 	else if (this->keys_insertion_time.find(key) != this->keys_insertion_time.end()
 		&& this->util->has_timeframe_expired(this->keys_insertion_time[key], CACHE_KEY_TTL_MILLI))
@@ -49,11 +57,6 @@ std::shared_ptr<char> CacheHandler::get_index_page(const std::string& key) {
 
 void CacheHandler::cache_messages(std::vector<std::string>* keys, void* messages, unsigned int messages_bytes, bool is_unflushed_data) {
 	std::lock_guard<std::shared_mutex> lock(this->mut);
-
-	if (this->cache_search_count++ >= 5) {
-		this->remove_expired_keys();
-		this->cache_search_count = 0;
-	}
 
 	unsigned int message_bytes = 0;
 
@@ -105,6 +108,8 @@ void CacheHandler::clear_unflushed_data_cache() {
 }
 
 void CacheHandler::remove_expired_keys() {
+	std::lock_guard<std::shared_mutex> lock();
+
 	std::unordered_set<std::string> expired_keys;
 
 	// TODO: Add cache key duration in settings
