@@ -22,23 +22,23 @@ private:
 
 	// returns both node to insert and its parent
 	// tuple( node to insert, parent node )
-	std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> find_node_to_insert(PartitionSegment* segment);
+	std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> find_node_to_insert(Partition* partition, PartitionSegment* segment);
 
 	void flush_segment_updated_metadata(PartitionSegment* segment);
 
-	void flush_nodes_to_disk(PartitionSegment* segment, std::vector<BTreeNode*>* nodes);
+	void flush_nodes_to_disk(Partition* partition, PartitionSegment* segment, std::vector<BTreeNode*>* nodes);
 
-	void flush_node_to_disk(PartitionSegment* segment, BTreeNode* node);
+	void flush_node_to_disk(Partition* partition, PartitionSegment* segment, BTreeNode* node);
 
-	void read_index_page_from_disk(PartitionSegment* segment, void* node_data, unsigned long long page_offset);
+	void read_index_page_from_disk(Partition* partition, PartitionSegment* segment, void* node_data, unsigned long long page_offset);
 
 	unsigned long long find_message_location(BTreeNode* node, unsigned long long message_id, bool reverse_search = false);
 
-	void clear_index_values(PartitionSegment* segment, BTreeNode* parent_node, BTreeNode* node, unsigned long long message_id);
+	void clear_index_values(Partition* partition, PartitionSegment* segment, BTreeNode* parent_node, BTreeNode* node, unsigned long long message_id);
 public:
 	BPlusTreeIndexHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader);
 
-	unsigned long long find_message_location(PartitionSegment* segment, unsigned long long read_from_message_id, bool remove_everything_after_match = false);
+	unsigned long long find_message_location(Partition* partition, PartitionSegment* segment, unsigned long long read_from_message_id, bool remove_everything_after_match = false);
 	
 	void add_message_to_index(Partition* partition, unsigned long long message_id, unsigned long long message_pos);
 };

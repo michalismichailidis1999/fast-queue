@@ -63,12 +63,21 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 
 		this->set_last_message_id_and_timestamp(active_segment.get(), messages, total_bytes);
 
+		CacheKeyInfo cache_key_info = {
+			partition->get_queue_name(), 
+			partition->get_partition_id(), 
+			active_segment.get()->get_id(),
+			0
+		};
+
 		unsigned long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
 			active_segment.get()->get_segment_key(),
 			active_segment.get()->get_segment_path(),
 			messages,
 			total_bytes,
-			Helper::is_internal_queue(partition->get_queue_name())
+			Helper::is_internal_queue(partition->get_queue_name()),
+			true,
+			&cache_key_info
 		);
 
 		unsigned long total_segment_bytes = active_segment.get()->add_written_bytes(total_bytes);
@@ -189,7 +198,16 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 			return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
 		}
 
-		long long message_pos = this->index_handler->find_message_location(segment_to_read, read_from_message_id);
+		std::shared_ptr<char> cached_message = this->disk_reader->read_message_from_cache(partition, segment_to_read, read_from_message_id);
+
+		if (cached_message != nullptr) {
+			this->lock_manager->release_segment_lock(partition, segment_to_read);
+			unsigned int total_bytes = 0;
+			memcpy_s(&total_bytes, TOTAL_METADATA_BYTES, cached_message.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+			return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(cached_message, total_bytes, 0, total_bytes, 1);
+		}
+
+		long long message_pos = this->index_handler->find_message_location(partition, segment_to_read, read_from_message_id);
 
 		if (message_pos <= 0) {
 			this->lock_manager->release_segment_lock(partition, segment_to_read);
@@ -395,7 +413,7 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 			return false;
 		}
 
-		long long message_pos = this->index_handler->find_message_location(segment_to_read.get(), message_id, true);
+		long long message_pos = this->index_handler->find_message_location(partition, segment_to_read.get(), message_id, true);
 
 		if (message_pos <= 0) {
 			this->lock_manager->release_segment_lock(partition, segment_to_read.get());

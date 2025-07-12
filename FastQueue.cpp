@@ -71,8 +71,10 @@ int main(int argc, char* argv[])
     std::unique_ptr<RequestMapper> request_mapper = std::unique_ptr<RequestMapper>(new RequestMapper(server_logger.get()));
     std::unique_ptr<ResponseMapper> response_mapper = std::unique_ptr<ResponseMapper>(new ResponseMapper(server_logger.get()));
 
-    std::unique_ptr<DiskFlusher> df = std::unique_ptr<DiskFlusher>(new DiskFlusher(fh.get(), server_logger.get(), settings.get(), &should_terminate));
-    std::unique_ptr<DiskReader> dr = std::unique_ptr<DiskReader>(new DiskReader(fh.get(), server_logger.get(), settings.get()));
+    std::unique_ptr<CacheHandler> cache_handler = std::unique_ptr<CacheHandler>(new CacheHandler(util.get(), settings.get()));
+
+    std::unique_ptr<DiskFlusher> df = std::unique_ptr<DiskFlusher>(new DiskFlusher(fh.get(), cache_handler.get(), server_logger.get(), settings.get(), &should_terminate));
+    std::unique_ptr<DiskReader> dr = std::unique_ptr<DiskReader>(new DiskReader(fh.get(), cache_handler.get(), server_logger.get(), settings.get()));
 
     std::unique_ptr<BPlusTreeIndexHandler> ih = std::unique_ptr<BPlusTreeIndexHandler>(new BPlusTreeIndexHandler(df.get(), dr.get()));
     std::unique_ptr<SegmentMessageMap> smm = std::unique_ptr<SegmentMessageMap>(new SegmentMessageMap(df.get(), dr.get(), pm.get()));

@@ -1,7 +1,10 @@
 #include "../../header_files/file_management/CacheHandler.h"
 
-CacheHandler::CacheHandler(Settings* settings) {
+CacheHandler::CacheHandler(Util* util, Settings* settings) {
+	this->util = util;
 	this->settings = settings;
+
+	this->cache_search_count = 0;
 
 	this->messages_cache = new Cache<std::string, std::shared_ptr<char>>(MAXIMUM_CACHED_MESSAGES, "", nullptr);
 	this->index_pages_cache = new Cache<std::string, std::shared_ptr<char>>(MAXIMUM_CACHED_INDEX_PAGES, "", nullptr);
@@ -9,6 +12,13 @@ CacheHandler::CacheHandler(Settings* settings) {
 
 std::shared_ptr<char> CacheHandler::get_message(const std::string& key) {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
+
+	if (this->cache_search_count++ >= LAZY_KEY_EXPIRATION_COUNTER) {
+		this->remove_expired_keys();
+		this->cache_search_count = 0;
+	} else if (this->keys_insertion_time.find(key) != this->keys_insertion_time.end()
+		&& this->util->has_timeframe_expired(this->keys_insertion_time[key], CACHE_KEY_TTL_MILLI))
+		return nullptr;
 
 	if (this->unflushed_data_cache.find(key) != this->unflushed_data_cache.end()) 
 		return std::get<0>(this->unflushed_data_cache[key]);
@@ -21,6 +31,14 @@ std::shared_ptr<char> CacheHandler::get_message(const std::string& key) {
 std::shared_ptr<char> CacheHandler::get_index_page(const std::string& key) {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 
+	if (this->cache_search_count++ >= LAZY_KEY_EXPIRATION_COUNTER) {
+		this->remove_expired_keys();
+		this->cache_search_count = 0;
+	}
+	else if (this->keys_insertion_time.find(key) != this->keys_insertion_time.end()
+		&& this->util->has_timeframe_expired(this->keys_insertion_time[key], CACHE_KEY_TTL_MILLI))
+		return nullptr;
+	
 	if (this->unflushed_data_cache.find(key) != this->unflushed_data_cache.end())
 		return std::get<0>(this->unflushed_data_cache[key]);
 
@@ -32,6 +50,11 @@ std::shared_ptr<char> CacheHandler::get_index_page(const std::string& key) {
 void CacheHandler::cache_messages(std::vector<std::string>* keys, void* messages, unsigned int messages_bytes, bool is_unflushed_data) {
 	std::lock_guard<std::shared_mutex> lock(this->mut);
 
+	if (this->cache_search_count++ >= 5) {
+		this->remove_expired_keys();
+		this->cache_search_count = 0;
+	}
+
 	unsigned int message_bytes = 0;
 
 	unsigned int offset = 0;
@@ -42,8 +65,12 @@ void CacheHandler::cache_messages(std::vector<std::string>* keys, void* messages
 
 		std::shared_ptr<char> message = std::shared_ptr<char>(new char[message_bytes]);
 
-		if (is_unflushed_data) this->unflushed_data_cache[(*keys)[i]] = std::tuple<std::shared_ptr<char>, bool>(message, true);
-		else this->messages_cache->put((*keys)[i], message);
+		std::string key = (*keys)[i];
+
+		if (is_unflushed_data) this->unflushed_data_cache[key] = std::tuple<std::shared_ptr<char>, bool>(message, true);
+		else this->messages_cache->put(key, message);
+
+		this->keys_insertion_time[key] = this->util->get_current_time_milli().count();
 
 		offset += messages_bytes;
 		i++;
@@ -59,6 +86,8 @@ void CacheHandler::cache_index_page(const std::string& key, void* page_data, boo
 
 	if (is_unflushed_data) this->unflushed_data_cache[key] = std::tuple<std::shared_ptr<char>, bool>(page, true);
 	else this->index_pages_cache->put(key, page);
+
+	this->keys_insertion_time[key] = this->util->get_current_time_milli().count();
 }
 
 // Transition recently flushed data to LRU cache before clearing it from unflushed_data_cache map
@@ -68,9 +97,27 @@ void CacheHandler::clear_unflushed_data_cache() {
 	for (auto& iter : this->unflushed_data_cache) {
 		if (std::get<1>(iter.second)) this->messages_cache->put(iter.first, std::get<0>(iter.second));
 		else this->index_pages_cache->put(iter.first, std::get<0>(iter.second));
+
+		this->keys_insertion_time[iter.first] = this->util->get_current_time_milli().count();
 	}
 
 	this->unflushed_data_cache.clear();
+}
+
+void CacheHandler::remove_expired_keys() {
+	std::unordered_set<std::string> expired_keys;
+
+	// TODO: Add cache key duration in settings
+
+	for (auto& iter : this->keys_insertion_time)
+		if (this->util->has_timeframe_expired(iter.second, CACHE_KEY_TTL_MILLI))
+			expired_keys.insert(iter.first);
+
+	for (auto& key : expired_keys) {
+		this->keys_insertion_time.erase(key);
+		this->messages_cache->remove(key);
+		this->index_pages_cache->remove(key);
+	}
 }
 
 std::string CacheHandler::get_message_cache_key(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long message_id) {

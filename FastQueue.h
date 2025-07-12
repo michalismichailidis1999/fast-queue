@@ -18,6 +18,7 @@
 #include "./src/header_files/util/ThreadPool.h"
 #include "./src/header_files/util/Util.h"
 #include "./src/header_files/file_management/FileHandler.h"
+#include "./src/header_files/file_management/CacheHandler.h"
 #include "./src/header_files/file_management/QueueSegmentFilePathMapper.h"
 #include "./src/header_files/file_management/DiskFlusher.h"
 #include "./src/header_files/file_management/DiskReader.h"

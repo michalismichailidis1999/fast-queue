@@ -1,7 +1,8 @@
 #include "../../header_files/file_management/DiskFlusher.h"
 
-DiskFlusher::DiskFlusher(FileHandler* fh, Logger* logger, Settings* settings, std::atomic_bool* should_terminate) {
+DiskFlusher::DiskFlusher(FileHandler* fh, CacheHandler* ch, Logger* logger, Settings* settings, std::atomic_bool* should_terminate) {
 	this->fh = fh;
+	this->ch = ch;
 	this->logger = logger;
 	this->settings = settings;
 
@@ -25,6 +26,7 @@ void DiskFlusher::flush_to_disk_periodically() {
 		try
 		{
 			this->fh->flush_output_streams();
+			this->ch->clear_unflushed_data_cache();
 
 			this->bytes_to_flush = 0;
 		}
@@ -36,11 +38,15 @@ void DiskFlusher::flush_to_disk_periodically() {
 	}
 }
 
-unsigned long long DiskFlusher::append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly) {
+unsigned long long DiskFlusher::append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly, bool data_is_messages, CacheKeyInfo* cache_key_info) {
+	if (cache_key_info != NULL) this->cache_data(data, total_bytes, flush_immediatelly, data_is_messages, cache_key_info);
+	
 	return this->write_data_to_file(key, path, data, total_bytes, -1, flush_immediatelly);
 }
 
-void DiskFlusher::write_data_to_specific_file_location(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly) {
+void DiskFlusher::write_data_to_specific_file_location(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly, bool data_is_messages, CacheKeyInfo* cache_key_info) {
+	if (cache_key_info != NULL) this->cache_data(data, total_bytes, flush_immediatelly, data_is_messages, cache_key_info);
+	
 	this->write_data_to_file(key, path, data, total_bytes, pos, flush_immediatelly);
 }
 
@@ -111,4 +117,45 @@ unsigned long long DiskFlusher::write_data_to_file(const std::string& key, const
 
 bool DiskFlusher::path_exists(const std::string& path) {
 	return this->fh->check_if_exists(path);
+}
+
+void DiskFlusher::cache_data(void* data, unsigned long total_bytes, bool flush_immediatelly, bool data_is_messages, CacheKeyInfo* cache_key_info) {
+	if (!data_is_messages) {
+		this->ch->cache_index_page(
+			CacheHandler::get_index_page_cache_key(
+				cache_key_info->queue_name,
+				cache_key_info->partition,
+				cache_key_info->segment_id,
+				cache_key_info->page_offset
+			),
+			data,
+			!flush_immediatelly
+		);
+
+		return;
+	}
+	
+	std::vector<std::string> keys;
+
+	unsigned int message_bytes = 0;
+	unsigned long long message_id = 0;
+	unsigned long offset = 0;
+
+	while (offset < total_bytes) {
+		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)data + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+		memcpy_s(&message_id, MESSAGE_ID_SIZE, (char*)data + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+		keys.emplace_back(
+			CacheHandler::get_message_cache_key(
+				cache_key_info->queue_name,
+				cache_key_info->partition,
+				cache_key_info->segment_id,
+				message_id
+			)
+		);
+
+		offset += message_bytes;
+	}
+
+	this->ch->cache_messages(&keys, data, total_bytes, !flush_immediatelly);
 }

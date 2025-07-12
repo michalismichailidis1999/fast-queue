@@ -8,19 +8,34 @@
 #include "../Settings.h"
 #include "../Constants.h"
 #include "../util/Cache.h"
+#include "../util/Util.h"
+
+struct CacheKeyInfo {
+	std::string queue_name;
+	int partition;
+	unsigned long long segment_id;
+	unsigned long long page_offset;
+};
 
 class CacheHandler {
 private:
+	Util* util;
 	Settings* settings;
+
+	std::atomic_uint cache_search_count;
 
 	std::unordered_map<std::string, std::tuple<std::shared_ptr<char>, bool>> unflushed_data_cache;
 
 	Cache<std::string, std::shared_ptr<char>>* messages_cache;
 	Cache<std::string, std::shared_ptr<char>>* index_pages_cache;
 
+	std::unordered_map<std::string, long long> keys_insertion_time;
+
 	std::shared_mutex mut;
+
+	void remove_expired_keys();
 public:
-	CacheHandler(Settings* settings);
+	CacheHandler(Util* util, Settings* settings);
 
 	std::shared_ptr<char> get_message(const std::string& key);
 

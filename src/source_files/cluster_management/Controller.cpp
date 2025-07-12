@@ -768,6 +768,8 @@ ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<Queue
 	this->store_commands(&commands);
 
 	queue_metadata.get()->set_status(Status::ACTIVE);
+
+	return ErrorCode::NONE;
 }
 
 void Controller::assign_queue_for_deletion(std::string& queue_name) {
