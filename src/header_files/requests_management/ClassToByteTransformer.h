@@ -10,7 +10,7 @@ public:
     ClassToByteTransformer();
 
     // Requests
-    std::tuple<long, std::shared_ptr<char>> transform(AppendEntriesRequest* obj);
+    std::tuple<long, std::shared_ptr<char>> transform(AppendEntriesRequest* obj, bool used_as_response = false);
 
     std::tuple<long, std::shared_ptr<char>> transform(RequestVoteRequest* obj);
 

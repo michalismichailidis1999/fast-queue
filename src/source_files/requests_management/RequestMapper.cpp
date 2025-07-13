@@ -140,8 +140,8 @@ std::unique_ptr<GetQueuePartitionsInfoRequest> RequestMapper::to_get_queue_parti
 	return req;
 }
 
-std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
+std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(char* recvbuf, long recvbuflen, bool used_as_response) {
+	long offset = sizeof(RequestType) + (used_as_response ? sizeof(ErrorCode) : 0); // skip request type 
 
 	std::unique_ptr<AppendEntriesRequest> req = std::make_unique<AppendEntriesRequest>();
 

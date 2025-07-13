@@ -1084,7 +1084,9 @@ int Controller::get_partition_leader(const std::string& queue, int partition) {
 }
 
 std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(GetClusterMetadataUpdateRequest* request) {
-	return this->prepare_append_entries_request(request->node_id);
+	auto res = this->prepare_append_entries_request(request->node_id);
+	res.get()->leader_id = this->cluster_metadata->get_leader_id();
+	return res;
 }
 
 unsigned long long Controller::get_last_comamnd_applied() {

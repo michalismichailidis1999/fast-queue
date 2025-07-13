@@ -67,7 +67,7 @@ void InternalRequestExecutor::handle_get_cluster_metadata_update_request(SOCKET_
 
 	std::shared_ptr<AppendEntriesRequest> res = this->controller->get_cluster_metadata_updates(request);
 
-	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get(), true);
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }

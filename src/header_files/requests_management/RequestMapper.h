@@ -12,7 +12,7 @@ public:
 
 	// Internal Requests
 
-	std::unique_ptr<AppendEntriesRequest> to_append_entries_request(char* recvbuf, long recvbuflen);
+	std::unique_ptr<AppendEntriesRequest> to_append_entries_request(char* recvbuf, long recvbuflen, bool used_as_response = false);
 
 	std::unique_ptr<RequestVoteRequest> to_request_vote_request(char* recvbuf, long recvbuflen);
 

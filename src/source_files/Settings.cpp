@@ -32,6 +32,14 @@ Settings::Settings(char* conf, long total_conf_chars) {
 		std::string err_msg = "Segment cannot be larger than " + std::to_string(MAX_SEGMENT_SIZE) + " bytes";
 		throw std::exception(err_msg.c_str());
 	}
+
+	this->is_controller_node = false;
+
+	for(auto& controller_tup : this->controller_nodes)
+		if (std::get<0>(controller_tup) == this->node_id) {
+			this->is_controller_node = true;
+			break;
+		}
 }
 
 void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_pos, int equal_pos) {
@@ -156,15 +164,13 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 				throw std::exception();
 		}
 		else if (
-			lhs == "is_controller_node" 
-			|| lhs == "internal_ssl_enabled"
+			lhs == "internal_ssl_enabled"
 			|| lhs == "internal_mutual_tls_enabled"
 			|| lhs == "external_ssl_enabled"
 			|| lhs == "external_mutual_tls_enabled"
 			|| lhs == "external_user_authentication_enabled"
 		) {
-			bool* val = lhs == "is_controller_node" ? &this->is_controller_node
-				: lhs == "internal_ssl_enabled" ? &this->internal_ssl_enabled
+			bool* val = lhs == "internal_ssl_enabled" ? &this->internal_ssl_enabled
 				: lhs == "internal_mutual_tls_enabled" ? &this->internal_mutual_tls_enabled
 				: lhs == "external_ssl_enabled" ? &this->external_ssl_enabled
 				: lhs == "external_mutual_tls_enabled" ? &this->external_mutual_tls_enabled
@@ -403,7 +409,6 @@ void Settings::update_values_with_new_settings(Settings* new_settings) {
 	
 	// TODO: Uncomment the lines below and fix SettingsUpdateHandler to notify other nodes about those changes
 
-	//this->is_controller_node = new_settings->is_controller_node;
 	//this->controller_nodes = new_settings->controller_nodes;
 	
 	// -------------------------------------------

@@ -34,7 +34,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 				leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
 
 			if (pool == nullptr) {
-				std::lock_guard<std::mutex> lock(*this->cm->get_controller_node_connections_mut());
+				std::lock_guard<std::mutex> lock(*(this->cm->get_controller_node_connections_mut()));
 
 				auto controller_node_connections = this->cm->get_controller_node_connections(false);
 
@@ -118,13 +118,15 @@ int DataNode::get_next_leader_id(int leader_id) {
 }
 
 void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_terminate) {
-	int leader_id = 0;
-	int prev_leader_id = 0;
+	int leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
+
 	std::unique_ptr<GetClusterMetadataUpdateRequest> req = nullptr;
 	std::shared_ptr<AppendEntriesRequest> append_entries_req = nullptr;
 	std::tuple<long, std::shared_ptr<char>> buf_tup = std::tuple<long, std::shared_ptr<char>>(0, nullptr);
 	std::tuple<std::shared_ptr<char>, long, bool> res = std::tuple<std::shared_ptr<char>, long, bool>(nullptr, 0, false);
 	std::shared_ptr<AppendEntriesResponse> append_entries_res = nullptr;
+
+	std::shared_ptr<ConnectionPool> pool = nullptr;
 
 	bool index_matched = true;
 
@@ -136,22 +138,17 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 
 		try
 		{
-			prev_leader_id = leader_id;
-			leader_id = this->controller->get_cluster_metadata()->get_leader_id();
-
-			if (leader_id != prev_leader_id && prev_leader_id != 0) index_matched = true;
-
-			if (leader_id == 0) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_cluster_update_receive_ms()));
-				continue;
-			}
-
 			{
-				std::lock_guard<std::mutex> lock(*this->cm->get_controller_node_connections_mut());
+				std::lock_guard<std::mutex> lock(*(this->cm->get_controller_node_connections_mut()));
 
-				std::shared_ptr<ConnectionPool> pool = this->cm->get_controller_node_connection(leader_id, false);
+				pool = pool != nullptr 
+					? pool 
+					: this->cm->get_controller_node_connection(leader_id, false);
 
-				if (pool == nullptr) goto end;
+				if (pool == nullptr) {
+					this->logger->log_error("Something went wrong. Could not retrieve leader connection pool for cluster metadata updates fetching");
+					goto end;
+				}
 
 				req = std::make_unique<GetClusterMetadataUpdateRequest>();
 				req.get()->node_id = this->settings->get_node_id();
@@ -174,7 +171,8 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 
 				append_entries_req = this->request_mapper->to_append_entries_request(
 					std::get<0>(res).get(),
-					std::get<1>(res)
+					std::get<1>(res),
+					true
 				);
 
 				if (append_entries_req == nullptr) goto end;
@@ -182,6 +180,12 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 				append_entries_res = this->controller->handle_leader_append_entries(append_entries_req.get(), true);
 
 				index_matched = append_entries_res.get()->log_matched;
+
+				if (leader_id != append_entries_req.get()->leader_id) {
+					index_matched = true;
+					leader_id = append_entries_req.get()->leader_id;
+					pool = nullptr;
+				}
 
 			end: {}
 			}

@@ -2,8 +2,11 @@
 
 ClassToByteTransformer::ClassToByteTransformer() {}
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesRequest* obj) {
+std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesRequest* obj, bool used_as_response) {
 	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(long) + 2 * sizeof(int) + 4 * sizeof(unsigned long long) + 6 * sizeof(RequestValueKey) + obj->commands_total_bytes;
+	
+	if (used_as_response) buf_size += sizeof(ErrorCode);
+
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	RequestType req_type = RequestType::APPEND_ENTRIES;
@@ -15,10 +18,17 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	RequestValueKey leader_commit_type = RequestValueKey::LEADER_COMMIT;
 	RequestValueKey commands_type = RequestValueKey::COMMANDS;
 
+	ErrorCode error = ErrorCode::NONE;
+
 	long offset = 0;
 
 	memcpy_s(buf.get() + offset, sizeof(long), &buf_size, sizeof(long));
 	offset += sizeof(long);
+
+	if (used_as_response) {
+		memcpy_s(buf.get() + offset, sizeof(ErrorCode), &error, sizeof(ErrorCode));
+		offset += sizeof(ErrorCode);
+	}
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
 	offset += sizeof(RequestType);
@@ -146,7 +156,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 	offset += sizeof(int);
 
 	memcpy_s(buf.get() + offset, obj->address_length, obj->address, obj->address_length);
-	offset += (long)obj->address_length;
+	offset += (int)obj->address_length;
 
 	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &port_type, sizeof(RequestValueKey));
 	offset += sizeof(RequestValueKey);
@@ -159,7 +169,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClusterMetadataUpdateRequest* obj) {
 	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(unsigned long long) + sizeof(RequestValueKey);
 
-	RequestType req_type = RequestType::DATA_NODE_HEARTBEAT;
+	RequestType req_type = RequestType::GET_CLUSTER_METADATA_UPDATES;
 
 	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
 	RequestValueKey index_matched_type = RequestValueKey::INDEX_MATCHED;
