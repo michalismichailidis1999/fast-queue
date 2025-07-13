@@ -25,7 +25,7 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 		total_controllers++;
 	}
 
-	this->is_the_only_controller_node = total_controllers == 1;
+	this->is_the_only_controller_node = this->settings->get_is_controller_node() && total_controllers == 1;
 
 	this->vote_for = -1;
 
@@ -92,10 +92,10 @@ void Controller::run_controller_quorum_communication() {
 }
 
 void Controller::start_election() {
-	if (this->settings->get_node_id() == 2) {
-		this->step_down_to_follower();
-		return;
-	}
+	//if (this->settings->get_node_id() == 2) {
+	//	this->step_down_to_follower();
+	//	return;
+	//}
 
 	int expected = -1;
 
@@ -499,7 +499,7 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info, b
 			CommandType::REGISTER_DATA_NODE,
 			this->term,
 			this->util->get_current_time_milli().count(),
-			std::make_shared<RegisterDataNodeCommand>(new RegisterDataNodeCommand(node_id, info->address, info->port))
+			std::shared_ptr<RegisterDataNodeCommand>(new RegisterDataNodeCommand(node_id, info->address, info->port))
 		);
 
 		std::vector<Command> commands(1);
@@ -835,7 +835,7 @@ void Controller::check_for_dead_data_nodes() {
 							CommandType::UNREGISTER_DATA_NODE,
 							this->term,
 							this->util->get_current_time_milli().count(),
-							std::make_shared<UnregisterDataNodeCommand>(new UnregisterDataNodeCommand(node_id))
+							std::shared_ptr<UnregisterDataNodeCommand>(new UnregisterDataNodeCommand(node_id))
 						);
 
 						std::vector<Command> commands(1);
@@ -951,12 +951,12 @@ void Controller::execute_command(void* command_metadata) {
 
 	if (command.get_command_type() == CommandType::REGISTER_DATA_NODE) {
 		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
+
 		RegisterDataNodeCommand* command_info = (RegisterDataNodeCommand*)command.get_command_info();
+
+		if (this->settings->get_node_id() == command_info->get_node_id()) return;
+
 		this->data_nodes_heartbeats[command_info->get_node_id()] = this->util->get_current_time_milli();
-	}
-	else if (command.get_command_type() == CommandType::UNREGISTER_DATA_NODE) {
-		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
-		UnregisterDataNodeCommand* command_info = (UnregisterDataNodeCommand*)command.get_command_info();
 	}
 }
 

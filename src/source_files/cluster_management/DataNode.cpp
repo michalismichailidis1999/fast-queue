@@ -41,7 +41,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 				pool = (*controller_node_connections)[leader_id];
 			}
 
-			if (!this->send_heartbeat_to_leader(&leader_id, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), pool.get()))
+			if (pool != nullptr && !this->send_heartbeat_to_leader(&leader_id, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), pool.get()))
 				pool = nullptr;
 		}
 		catch (const std::exception& ex)

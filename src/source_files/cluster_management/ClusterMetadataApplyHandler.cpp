@@ -150,14 +150,20 @@ void ClusterMetadataApplyHandler::apply_delete_queue_command(ClusterMetadata* cl
 void ClusterMetadataApplyHandler::apply_register_data_node_command(ClusterMetadata* cluster_metadata, RegisterDataNodeCommand* command) {
 	cluster_metadata->init_node_partitions(command->get_node_id());
 
+	if (this->settings->get_node_id() == command->get_node_id()) return;
+
 	std::shared_ptr<ConnectionInfo> info = std::make_shared<ConnectionInfo>();
 	info.get()->address = command->get_address();
 	info.get()->port = command->get_port();
 
-	this->cm->initialize_data_node_connection_pool(command->get_node_id(), info);
+	if (!this->cm->initialize_data_node_connection_pool(command->get_node_id(), info))
+		throw std::exception("Error occured while trying to register data node connection pool");
 }
 
 void ClusterMetadataApplyHandler::apply_unregister_data_node_command(ClusterMetadata* cluster_metadata, UnregisterDataNodeCommand* command) {
 	cluster_metadata->remove_node_partitions(command->get_node_id());
+
+	if (this->settings->get_node_id() == command->get_node_id()) return;
+
 	this->cm->remove_data_node_connections(command->get_node_id());
 }
