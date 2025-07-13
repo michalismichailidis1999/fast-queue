@@ -63,10 +63,12 @@ void CacheHandler::cache_messages(std::vector<std::string>* keys, void* messages
 	unsigned int offset = 0;
 	unsigned int i = 0;
 
-	while (offset != messages_bytes) {
+	while (offset < messages_bytes) {
 		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)messages + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 
 		std::shared_ptr<char> message = std::shared_ptr<char>(new char[message_bytes]);
+
+		memcpy_s(message.get(), message_bytes, (char*)messages + offset, message_bytes);
 
 		std::string key = (*keys)[i];
 
@@ -75,7 +77,7 @@ void CacheHandler::cache_messages(std::vector<std::string>* keys, void* messages
 
 		this->keys_insertion_time[key] = this->util->get_current_time_milli().count();
 
-		offset += messages_bytes;
+		offset += message_bytes;
 		i++;
 	}
 }
@@ -87,7 +89,7 @@ void CacheHandler::cache_index_page(const std::string& key, void* page_data, boo
 
 	memcpy_s(page.get(), INDEX_PAGE_SIZE, page_data, INDEX_PAGE_SIZE);
 
-	if (is_unflushed_data) this->unflushed_data_cache[key] = std::tuple<std::shared_ptr<char>, bool>(page, true);
+	if (is_unflushed_data) this->unflushed_data_cache[key] = std::tuple<std::shared_ptr<char>, bool>(page, false);
 	else this->index_pages_cache->put(key, page);
 
 	this->keys_insertion_time[key] = this->util->get_current_time_milli().count();
@@ -108,7 +110,7 @@ void CacheHandler::clear_unflushed_data_cache() {
 }
 
 void CacheHandler::remove_expired_keys() {
-	std::lock_guard<std::shared_mutex> lock();
+	std::lock_guard<std::shared_mutex> lock(this->mut);
 
 	std::unordered_set<std::string> expired_keys;
 

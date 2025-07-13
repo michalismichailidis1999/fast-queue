@@ -177,7 +177,7 @@ void BPlusTreeIndexHandler::flush_node_to_disk(Partition* partition, PartitionSe
 		std::get<0>(node->get_page_bytes()).get(),
 		INDEX_PAGE_SIZE,
 		node->page_offset * INDEX_PAGE_SIZE,
-		false,
+		Helper::is_internal_queue(partition->get_queue_name()),
 		false,
 		&cache_key_info
 	);

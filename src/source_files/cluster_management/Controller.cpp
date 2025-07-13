@@ -92,10 +92,10 @@ void Controller::run_controller_quorum_communication() {
 }
 
 void Controller::start_election() {
-	//if (this->settings->get_node_id() == 1) {
-	//	this->step_down_to_follower();
-	//	return;
-	//}
+	if (this->settings->get_node_id() == 2) {
+		this->step_down_to_follower();
+		return;
+	}
 
 	int expected = -1;
 
