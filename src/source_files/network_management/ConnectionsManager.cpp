@@ -213,12 +213,12 @@ void ConnectionsManager::initialize_controller_nodes_connections() {
 	this->logger->log_info(log_msg);
 }
 
-bool ConnectionsManager::setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections) {
+bool ConnectionsManager::setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections) {
 	std::shared_ptr<ConnectionPool> connection_pool = std::shared_ptr<ConnectionPool>(new ConnectionPool(3, info));
 
 	bool failed = this->create_node_connection_pool(node_id, connection_pool.get(), 3000);
 	
-	std::lock_guard<std::mutex> lock(*connections_mut);
+	std::lock_guard<std::shared_mutex> lock(*connections_mut);
 	(*connections)[node_id] = connection_pool;
 
 	return failed;
@@ -288,7 +288,7 @@ void ConnectionsManager::terminate_connections() {
 	this->logger->log_info("Terminating connections...");
 
 	{
-		std::lock_guard<std::mutex> lock(this->controllers_mut);
+		std::lock_guard<std::shared_mutex> lock(this->controllers_mut);
 
 		for (auto iter : this->controller_node_connections) {
 			std::shared_ptr<ConnectionPool> connection_pool = iter.second;
@@ -310,7 +310,7 @@ void ConnectionsManager::terminate_connections() {
 	}
 
 	{
-		std::lock_guard<std::mutex> lock(this->data_mut);
+		std::lock_guard<std::shared_mutex> lock(this->data_mut);
 
 		for (auto iter : this->data_node_connections) {
 			std::shared_ptr<ConnectionPool> connection_pool = iter.second;
@@ -339,7 +339,7 @@ bool ConnectionsManager::connect_to_data_node(int node_id, std::shared_ptr<Conne
 
 	if (!this->create_node_connection_pool(node_id, connection_pool.get(), fail_wait_milli)) return false;
 	
-	std::lock_guard<std::mutex> lock(this->data_mut);
+	std::lock_guard<std::shared_mutex> lock(this->data_mut);
 	this->data_node_connections[node_id] = connection_pool;
 
 	return true;
@@ -363,8 +363,8 @@ void ConnectionsManager::keep_pool_connections_to_maximum() {
 	}
 }
 
-void ConnectionsManager::add_connections_to_pools(std::mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections) {
-	std::lock_guard<std::mutex> lock(*connections_mut);
+void ConnectionsManager::add_connections_to_pools(std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections) {
+	std::shared_lock<std::shared_mutex> lock(*connections_mut);
 
 	for (auto iter : (*connections)) {
 		if (iter.second.get()->get_connections_missing_count() == 0) continue;
@@ -386,29 +386,21 @@ void ConnectionsManager::add_connections_to_pools(std::mutex* connections_mut, s
 	}
 }
 
-std::mutex* ConnectionsManager::get_controller_node_connections_mut() {
+std::shared_mutex* ConnectionsManager::get_controller_node_connections_mut() {
 	return &this->controllers_mut;
 }
 
-std::mutex* ConnectionsManager::get_data_node_connections_mut() {
+std::shared_mutex* ConnectionsManager::get_data_node_connections_mut() {
 	return &this->data_mut;
 }
 
-std::map<int, std::shared_ptr<ConnectionPool>>* ConnectionsManager::get_controller_node_connections(bool with_lock) {
-	if (with_lock) {
-		std::lock_guard<std::mutex> lock(this->controllers_mut);
-		return &this->controller_node_connections;
-	}
-
+// will be called after mutex locking, no lock required here
+std::map<int, std::shared_ptr<ConnectionPool>>* ConnectionsManager::get_controller_node_connections() {
 	return &this->controller_node_connections;
 }
 
-std::shared_ptr<ConnectionPool> ConnectionsManager::get_controller_node_connection(int node_id, bool with_lock) {
-	if (with_lock) {
-		std::lock_guard<std::mutex> lock(this->controllers_mut);
-		return this->controller_node_connections[node_id];
-	}
-
+// will be called after mutex locking, no lock required here
+std::shared_ptr<ConnectionPool> ConnectionsManager::get_controller_node_connection(int node_id) {
 	return this->controller_node_connections[node_id];
 }
 
@@ -425,7 +417,7 @@ void ConnectionsManager::remove_socket_lock(SOCKET_ID socket) {
 }
 
 void ConnectionsManager::remove_data_node_connections(int node_id) {
-	std::lock_guard<std::mutex> lock(this->data_mut);
+	std::lock_guard<std::shared_mutex> lock(this->data_mut);
 
 	if (this->data_node_connections.find(node_id) == this->data_node_connections.end()) return;
 
@@ -435,7 +427,7 @@ void ConnectionsManager::remove_data_node_connections(int node_id) {
 }
 
 void ConnectionsManager::remove_controller_node_connections(int node_id) {
-	std::lock_guard<std::mutex> lock(this->controllers_mut);
+	std::lock_guard<std::shared_mutex> lock(this->controllers_mut);
 
 	if (this->controller_node_connections.find(node_id) == this->controller_node_connections.end()) return;
 
@@ -534,13 +526,13 @@ bool ConnectionsManager::initialize_controller_node_connection_pool(int node_id,
 
 std::shared_ptr<ConnectionPool> ConnectionsManager::get_node_connection_pool(int node_id) {
 	{
-		std::lock_guard<std::mutex> lock(this->controllers_mut);
+		std::shared_lock<std::shared_mutex> lock(this->controllers_mut);
 		if (this->controller_node_connections.find(node_id) != this->controller_node_connections.end())
 			return this->controller_node_connections[node_id];
 	}
 
 	{
-		std::lock_guard<std::mutex> lock(this->data_mut);
+		std::shared_lock<std::shared_mutex> lock(this->data_mut);
 		if (this->data_node_connections.find(node_id) != this->data_node_connections.end())
 			return this->data_node_connections[node_id];
 	}

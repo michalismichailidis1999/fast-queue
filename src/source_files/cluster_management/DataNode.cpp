@@ -34,9 +34,9 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 				leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
 
 			if (pool == nullptr) {
-				std::lock_guard<std::mutex> lock(*(this->cm->get_controller_node_connections_mut()));
+				std::shared_lock<std::shared_mutex> lock(*(this->cm->get_controller_node_connections_mut()));
 
-				auto controller_node_connections = this->cm->get_controller_node_connections(false);
+				auto controller_node_connections = this->cm->get_controller_node_connections();
 
 				pool = (*controller_node_connections)[leader_id];
 			}
@@ -139,11 +139,11 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 		try
 		{
 			{
-				std::lock_guard<std::mutex> lock(*(this->cm->get_controller_node_connections_mut()));
+				std::shared_lock<std::shared_mutex> lock(*(this->cm->get_controller_node_connections_mut()));
 
 				pool = pool != nullptr 
 					? pool 
-					: this->cm->get_controller_node_connection(leader_id, false);
+					: this->cm->get_controller_node_connection(leader_id);
 
 				if (pool == nullptr) {
 					this->logger->log_error("Something went wrong. Could not retrieve leader connection pool for cluster metadata updates fetching");

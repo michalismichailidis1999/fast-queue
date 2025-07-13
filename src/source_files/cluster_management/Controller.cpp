@@ -105,9 +105,9 @@ void Controller::start_election() {
 		return;
 	}
 
-	std::lock_guard<std::mutex> lock(*this->cm->get_controller_node_connections_mut());
+	std::shared_lock<std::shared_mutex> lock(*this->cm->get_controller_node_connections_mut());
 
-	auto controller_node_connections = this->cm->get_controller_node_connections(false);
+	auto controller_node_connections = this->cm->get_controller_node_connections();
 
 	this->term++;
 
@@ -187,9 +187,9 @@ void Controller::start_election() {
 void Controller::append_entries_to_followers() {
 	std::lock_guard<std::mutex> lock(this->append_enties_mut);
 
-	std::unique_lock<std::mutex> connections_lock(*this->cm->get_controller_node_connections_mut());
+	std::shared_lock<std::shared_mutex> connections_lock(*this->cm->get_controller_node_connections_mut());
 
-	auto controller_node_connections = this->cm->get_controller_node_connections(false);
+	auto controller_node_connections = this->cm->get_controller_node_connections();
 
 	std::vector<unsigned long long> largest_versions_sent(controller_node_connections->size());
 	unsigned int version_sent_index = 0;
@@ -966,11 +966,6 @@ void Controller::check_for_commit_and_last_applied_diff() {
 	queue.reset();
 
 	while (!(*this->should_terminate)) {
-		if(!this->settings->get_is_controller_node()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
-			continue;
-		}
-
 		unsigned long long commit_index = this->commit_index;
 
 		if (commit_index <= this->last_applied) {

@@ -2,6 +2,7 @@
 #include <map>
 #include <set>
 #include <mutex>
+#include <shared_mutex>
 #include <queue>
 #include <tuple>
 #include <functional>
@@ -41,17 +42,17 @@ private:
 	std::shared_ptr<SSL_CTX> ssl_context;
 	bool failed_to_create_ssl_context;
 
-	std::mutex controllers_mut;
-	std::mutex data_mut;
+	std::shared_mutex controllers_mut;
+	std::shared_mutex data_mut;
 	std::mutex socket_locks_mut;
 
 	std::atomic_bool* should_terminate;
 
 	bool create_node_connection_pool(int node_id, ConnectionPool* pool, long milliseconds_to_wait = 1000);
 	
-	void add_connections_to_pools(std::mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
+	void add_connections_to_pools(std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
 
-	bool setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
+	bool setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
 
 	bool should_wait_for_response(RequestType request_type);
 
@@ -73,8 +74,8 @@ public:
 
 	void keep_pool_connections_to_maximum();
 
-	std::mutex* get_controller_node_connections_mut();
-	std::mutex* get_data_node_connections_mut();
+	std::shared_mutex* get_controller_node_connections_mut();
+	std::shared_mutex* get_data_node_connections_mut();
 
 	bool add_socket_lock(SOCKET_ID socket);
 	void remove_socket_lock(SOCKET_ID socket);
@@ -94,9 +95,9 @@ public:
 	bool initialize_data_node_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info);
 	bool initialize_controller_node_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info);
 
-	std::map<int, std::shared_ptr<ConnectionPool>>* get_controller_node_connections(bool with_lock = true);
+	std::map<int, std::shared_ptr<ConnectionPool>>* get_controller_node_connections();
 
-	std::shared_ptr<ConnectionPool> get_controller_node_connection(int node_id, bool with_lock = true);
+	std::shared_ptr<ConnectionPool> get_controller_node_connection(int node_id);
 
 	std::shared_ptr<ConnectionPool> get_node_connection_pool(int node_id);
 }; 
