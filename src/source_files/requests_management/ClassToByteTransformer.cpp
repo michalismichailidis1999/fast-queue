@@ -167,7 +167,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 }
 
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClusterMetadataUpdateRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(unsigned long long) + sizeof(RequestValueKey);
+	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(unsigned long long) + sizeof(RequestValueKey) + sizeof(bool);
 
 	RequestType req_type = RequestType::GET_CLUSTER_METADATA_UPDATES;
 
@@ -194,7 +194,6 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClu
 	offset += sizeof(RequestValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->prev_req_index_matched, sizeof(bool));
-	offset += sizeof(bool);
 
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }

@@ -176,7 +176,7 @@ void Controller::start_election() {
 	this->cluster_metadata->set_leader_id(this->settings->get_node_id());
 	this->logger->log_info("Elected as leader");
 
-	std::lock_guard<std::mutex> lag_lock(this->follower_indexes_mut);
+	std::lock_guard<std::shared_mutex> lag_lock(this->follower_indexes_mut);
 
 	for (auto iter : *controller_node_connections) {
 		this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(this->last_log_term, this->last_log_index);
@@ -248,13 +248,13 @@ void Controller::append_entries_to_followers() {
 						memcpy_s(&prev_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 						memcpy_s(&prev_log_term, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
 
-						std::lock_guard<std::mutex> lock(this->follower_indexes_mut);
+						std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
 						this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(prev_log_term, prev_log_index);
 					}
 					else throw std::exception("Something went wrong while trying to append entries to follower");
 				}
 				else {
-					std::lock_guard<std::mutex> lock(this->follower_indexes_mut);
+					std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
 					this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(0, 0);
 				}
 			}
@@ -282,7 +282,7 @@ void Controller::append_entries_to_followers() {
 					offset += command_bytes;
 				}
 
-				std::lock_guard<std::mutex> lock(this->follower_indexes_mut);
+				std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
 				this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(last_log_term, last_log_index);
 			}
 		}
@@ -354,8 +354,6 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 	res.get()->success = false;
 	res.get()->term = this->term;
 	res.get()->log_matched = true;
-
-	NodeState state = this->get_state();
 
 	if (!from_data_node) {
 		if (this->get_state() == NodeState::LEADER) this->step_down_to_follower();
@@ -493,6 +491,15 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info, b
 		this->logger->log_info("Node " + std::to_string(node_id) + " heartbeat updated");
 	}
 
+	if (!is_controller_node && this->get_state() == NodeState::LEADER) {
+		std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
+
+		if(this->follower_indexes.find(node_id) == this->follower_indexes.end())
+			this->follower_indexes[node_id] = std::tuple<unsigned long long, unsigned long long>(
+				this->last_log_term, 
+				this->last_log_index
+			);
+	}
 
 	if (!is_controller_node && this->get_state() == NodeState::LEADER && info != NULL && !this->future_cluster_metadata.get()->has_node_partitions(node_id)) {
 		Command command = Command(
@@ -951,12 +958,26 @@ void Controller::execute_command(void* command_metadata) {
 
 	if (command.get_command_type() == CommandType::REGISTER_DATA_NODE) {
 		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
+		std::lock_guard<std::shared_mutex> followers_lock(this->follower_indexes_mut);
 
 		RegisterDataNodeCommand* command_info = (RegisterDataNodeCommand*)command.get_command_info();
 
 		if (this->settings->get_node_id() == command_info->get_node_id()) return;
 
 		this->data_nodes_heartbeats[command_info->get_node_id()] = this->util->get_current_time_milli();
+
+		if (this->follower_indexes.find(command_info->get_node_id()) == this->follower_indexes.end())
+			this->follower_indexes[command_info->get_node_id()] = std::tuple<unsigned long long, unsigned long long>(
+				this->last_log_term,
+				this->last_log_index
+			);
+	}
+	else if (command.get_command_type() == CommandType::UNREGISTER_DATA_NODE) {
+		std::lock_guard<std::shared_mutex> followers_lock(this->follower_indexes_mut);
+
+		UnregisterDataNodeCommand* command_info = (UnregisterDataNodeCommand*)command.get_command_info();
+
+		this->follower_indexes.erase(command_info->get_node_id());
 	}
 }
 
@@ -977,11 +998,17 @@ void Controller::check_for_commit_and_last_applied_diff() {
 		{
 			auto& res = this->mh->read_partition_messages(partition, this->last_applied + 1);
 
+			unsigned int total_commands = std::get<4>(res);
+
+			if (total_commands == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_UNAPPLIED_COMMANDS));
+				continue;
+			}
+
 			std::shared_ptr<char> commands_batch = std::get<0>(res);
 			unsigned int batch_size = std::get<1>(res);
 			unsigned int read_start = std::get<2>(res);
 			unsigned int read_end = std::get<3>(res);
-			unsigned int total_commands = std::get<4>(res);
 
 			unsigned long long metadata_version = 0;
 			unsigned long long prev_metadata_version = 0;
@@ -1006,9 +1033,11 @@ void Controller::check_for_commit_and_last_applied_diff() {
 			}
 			catch (const std::exception& ex)
 			{
-				// TODO: Log error
 				if (prev_metadata_version > 0)
 					commit_index = prev_metadata_version;
+
+				std::string err_msg = "Error occured while executing commited commands. Reason: " + std::string(ex.what());
+				this->logger->log_error(err_msg);
 			}
 
 			this->mh->update_cluster_metadata_last_applied(commit_index);
@@ -1037,12 +1066,16 @@ ClusterMetadata* Controller::get_future_cluster_metadata() {
 }
 
 std::shared_ptr<AppendEntriesRequest> Controller::prepare_append_entries_request(int follower_id) {
+	std::shared_lock<std::shared_mutex> lock(this->follower_indexes_mut);
+
+	bool follower_is_registered = this->follower_indexes.find(follower_id) != this->follower_indexes.end();
+
 	std::shared_ptr<AppendEntriesRequest> req = std::make_shared<AppendEntriesRequest>();
 	req.get()->leader_id = this->settings->get_node_id();
 	req.get()->term = this->term;
 	req.get()->leader_commit = this->commit_index;
-	req.get()->prev_log_term = follower_id > 0 ? std::get<0>(this->follower_indexes[follower_id]) : this->last_log_term;
-	req.get()->prev_log_index = follower_id > 0 ? std::get<1>(this->follower_indexes[follower_id]) : this->last_log_index;
+	req.get()->prev_log_term = follower_is_registered ? std::get<0>(this->follower_indexes[follower_id]) : this->last_log_term;
+	req.get()->prev_log_index = follower_is_registered ? std::get<1>(this->follower_indexes[follower_id]) : this->last_log_index;
 
 	unsigned long long index_to_send = req.get()->prev_log_index + 1;
 
@@ -1079,8 +1112,22 @@ int Controller::get_partition_leader(const std::string& queue, int partition) {
 }
 
 std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(GetClusterMetadataUpdateRequest* request) {
+	{
+		std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
+
+		if (this->follower_indexes.find(request->node_id) == this->follower_indexes.end()) return nullptr;
+
+		if (!request->prev_req_index_matched) {
+			// TODO: Set follower's index to current - 1
+		}
+		else {
+			// TODO: Update follower last log index and last log term here
+		}
+	}
+
 	auto res = this->prepare_append_entries_request(request->node_id);
 	res.get()->leader_id = this->cluster_metadata->get_leader_id();
+
 	return res;
 }
 

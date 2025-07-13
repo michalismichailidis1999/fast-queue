@@ -67,6 +67,12 @@ void InternalRequestExecutor::handle_get_cluster_metadata_update_request(SOCKET_
 
 	std::shared_ptr<AppendEntriesRequest> res = this->controller->get_cluster_metadata_updates(request);
 
+	if (res == nullptr) {
+		// TODO: Fix this
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INTERNAL_SERVER_ERROR, "No data node registration yet");
+		return;
+	}
+
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get(), true);
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));

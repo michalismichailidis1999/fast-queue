@@ -66,7 +66,7 @@ private:
 	std::atomic<unsigned long long> last_log_term;
 
 	std::unordered_map<int, std::tuple<unsigned long long, unsigned long long>> follower_indexes;
-	std::mutex follower_indexes_mut;
+	std::shared_mutex follower_indexes_mut;
 
 	std::map<int, std::chrono::milliseconds> data_nodes_heartbeats;
 	std::mutex heartbeats_mut;
