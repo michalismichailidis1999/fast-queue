@@ -34,6 +34,9 @@ struct RequestVoteRequest {
 struct GetClusterMetadataUpdateRequest {
 	int node_id;
 	bool prev_req_index_matched;
+	unsigned long long prev_log_index;
+	unsigned long long prev_log_term;
+	bool is_first_request;
 };
 
 // ======================================================================

@@ -129,6 +129,7 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 	std::shared_ptr<ConnectionPool> pool = nullptr;
 
 	bool index_matched = true;
+	bool is_first_request = true;
 
 	while (!(*should_terminate)) {
 		if (this->settings->get_is_controller_node()) {
@@ -153,6 +154,9 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 				req = std::make_unique<GetClusterMetadataUpdateRequest>();
 				req.get()->node_id = this->settings->get_node_id();
 				req.get()->prev_req_index_matched = index_matched;
+				req.get()->prev_log_index = this->controller->get_last_log_index();
+				req.get()->prev_log_term = this->controller->get_last_log_term();
+				req.get()->is_first_request = is_first_request;
 
 				buf_tup = this->transformer->transform(req.get());
 
@@ -164,8 +168,13 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 					"GetClusterMetadataUpdate"
 				);
 
-				if (std::get<1>(res) == -1) {
+				if (std::get<1>(res) == -1 && std::get<2>(res)) {
 					this->logger->log_error("Network issue occured while trying to get cluster metadata updates from leader");
+					goto end;
+				}
+
+				if (std::get<1>(res) == -1 && !std::get<2>(res)) {
+					this->logger->log_error("Error occured while trying to get cluster metadata updates from leader");
 					goto end;
 				}
 
@@ -177,6 +186,8 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 
 				if (append_entries_req == nullptr) goto end;
 
+				is_first_request = false;
+
 				append_entries_res = this->controller->handle_leader_append_entries(append_entries_req.get(), true);
 
 				index_matched = append_entries_res.get()->log_matched;
@@ -185,6 +196,7 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 					index_matched = true;
 					leader_id = append_entries_req.get()->leader_id;
 					pool = nullptr;
+					is_first_request = true;
 				}
 
 			end: {}

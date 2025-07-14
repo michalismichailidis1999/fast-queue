@@ -66,7 +66,8 @@ enum class RequestValueKey {
 	PREV_LOG_TERM,
 	LEADER_COMMIT,
 	COMMANDS,
-	INDEX_MATCHED
+	INDEX_MATCHED,
+	IS_FIRST_REQUEST
 	// =====================================================
 };
 

@@ -56,7 +56,7 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
         this->cmah->apply_commands_from_segment(
             this->controller->get_cluster_metadata(), 
             smallest_segment_id, 
-            this->controller->get_last_comamnd_applied(),
+            this->controller->get_last_command_applied(),
             false,
             &registered_nodes,
             this->controller->get_future_cluster_metadata()

@@ -138,5 +138,9 @@ public:
 
 	std::shared_ptr<AppendEntriesRequest> get_cluster_metadata_updates(GetClusterMetadataUpdateRequest* request);
 
-	unsigned long long get_last_comamnd_applied();
+	unsigned long long get_last_command_applied();
+
+	unsigned long long get_last_log_index();
+
+	unsigned long long get_last_log_term();
 };

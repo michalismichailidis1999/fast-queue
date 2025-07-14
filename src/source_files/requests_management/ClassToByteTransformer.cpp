@@ -167,12 +167,15 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 }
 
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClusterMetadataUpdateRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(unsigned long long) + sizeof(RequestValueKey) + sizeof(bool);
+	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(int) + 2 * sizeof(bool) + 2 * sizeof(unsigned long long) + 5 * sizeof(RequestValueKey);
 
 	RequestType req_type = RequestType::GET_CLUSTER_METADATA_UPDATES;
 
 	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
 	RequestValueKey index_matched_type = RequestValueKey::INDEX_MATCHED;
+	RequestValueKey prev_log_index_type = RequestValueKey::PREV_LOG_INDEX;
+	RequestValueKey prev_log_term_type = RequestValueKey::PREV_LOG_TERM;
+	RequestValueKey is_first_request_type = RequestValueKey::IS_FIRST_REQUEST;
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -194,6 +197,24 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClu
 	offset += sizeof(RequestValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->prev_req_index_matched, sizeof(bool));
+	offset += sizeof(bool);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &prev_log_index_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->prev_log_index, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &prev_log_term_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->prev_log_term, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &is_first_request_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->is_first_request, sizeof(bool));
 
 	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
 }

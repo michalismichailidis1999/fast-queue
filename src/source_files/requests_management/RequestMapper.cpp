@@ -265,6 +265,18 @@ std::unique_ptr<GetClusterMetadataUpdateRequest> RequestMapper::to_get_cluster_m
 			req.get()->prev_req_index_matched = *(bool*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(bool);
 		}
+		else if (*key == RequestValueKey::PREV_LOG_INDEX) {
+			req.get()->prev_log_index = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::PREV_LOG_TERM) {
+			req.get()->prev_log_term = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::IS_FIRST_REQUEST) {
+			req.get()->is_first_request = *(bool*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(bool);
+		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type DataNodeHeartbeatRequest");
 			throw std::exception("Invalid request value");

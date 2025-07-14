@@ -48,6 +48,12 @@ void Controller::update_quorum_communication_values() {
 	this->term = this->future_cluster_metadata.get()->get_current_term();
 	this->last_log_term = this->future_cluster_metadata.get()->get_current_term();
 	this->last_log_index = this->future_cluster_metadata.get()->get_current_version();
+
+	for(auto& iter : this->settings->get_controller_nodes())
+		if(std::get<0>(iter) != this->settings->get_node_id())
+			this->follower_indexes[std::get<0>(iter)] = std::tuple<unsigned long long, unsigned long long>(
+				this->last_log_term, this->last_log_index
+			);
 }
 
 void Controller::init_commit_index_and_last_applied() {
@@ -178,7 +184,7 @@ void Controller::start_election() {
 
 	std::lock_guard<std::shared_mutex> lag_lock(this->follower_indexes_mut);
 
-	for (auto iter : *controller_node_connections) {
+	for (auto& iter : this->follower_indexes) {
 		this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(this->last_log_term, this->last_log_index);
 		this->update_data_node_heartbeat(iter.first, NULL, true);
 	}
@@ -491,7 +497,7 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info, b
 		this->logger->log_info("Node " + std::to_string(node_id) + " heartbeat updated");
 	}
 
-	if (!is_controller_node && this->get_state() == NodeState::LEADER) {
+	if (!is_controller_node) {
 		std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
 
 		if(this->follower_indexes.find(node_id) == this->follower_indexes.end())
@@ -973,10 +979,12 @@ void Controller::execute_command(void* command_metadata) {
 			);
 	}
 	else if (command.get_command_type() == CommandType::UNREGISTER_DATA_NODE) {
+		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 		std::lock_guard<std::shared_mutex> followers_lock(this->follower_indexes_mut);
 
 		UnregisterDataNodeCommand* command_info = (UnregisterDataNodeCommand*)command.get_command_info();
 
+		this->data_nodes_heartbeats.erase(command_info->get_node_id());
 		this->follower_indexes.erase(command_info->get_node_id());
 	}
 }
@@ -1117,12 +1125,38 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 
 		if (this->follower_indexes.find(request->node_id) == this->follower_indexes.end()) return nullptr;
 
-		if (!request->prev_req_index_matched) {
-			// TODO: Set follower's index to current - 1
+		unsigned long long prev_log_index = std::get<1>(this->follower_indexes[request->node_id]);
+
+		if (!request->is_first_request && !request->prev_req_index_matched) {
+			if (prev_log_index - 1 > 0) {
+				auto messages_res = this->mh->read_partition_messages(
+					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+					prev_log_index - 1,
+					1
+				);
+
+				if (std::get<4>(messages_res) == 1) {
+					unsigned long long prev_log_index = 0;
+					unsigned long long prev_log_term = 0;
+
+					char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+					memcpy_s(&prev_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+					memcpy_s(&prev_log_term, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+
+					std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
+					this->follower_indexes[request->node_id] = std::tuple<unsigned long long, unsigned long long>(
+						prev_log_term, prev_log_index
+					);
+				}
+				else throw std::exception("Something went wrong while trying to send cluster metadata updates to data node");
+			}
+			else this->follower_indexes[request->node_id] = std::tuple<unsigned long long, unsigned long long>(0, 0);
 		}
-		else {
-			// TODO: Update follower last log index and last log term here
-		}
+		else if(!request->is_first_request && request->prev_log_index > 0)
+			this->follower_indexes[request->node_id] = std::tuple<unsigned long long, unsigned long long>(
+				request->prev_log_term, request->prev_log_index
+			);
 	}
 
 	auto res = this->prepare_append_entries_request(request->node_id);
@@ -1131,10 +1165,18 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 	return res;
 }
 
-unsigned long long Controller::get_last_comamnd_applied() {
+unsigned long long Controller::get_last_command_applied() {
 	return this->last_applied;
 }
 
 bool Controller::is_controller_node(int node_id) {
 	return this->controller_nodes_ids.find(node_id) != this->controller_nodes_ids.end();
+}
+
+unsigned long long Controller::get_last_log_index() {
+	return this->last_log_index;
+}
+
+unsigned long long Controller::get_last_log_term() {
+	return this->last_log_term;
 }
