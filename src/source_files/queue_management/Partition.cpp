@@ -6,6 +6,7 @@ Partition::Partition(unsigned int partition_id, const std::string& queue_name) {
 	this->current_segment_id = 0;
 	this->smallest_segment_id = 0;
 	this->smallest_uncompacted_segment_id = 0;
+	this->last_message_offset = 0;
 }
 
 const std::string& Partition::get_queue_name() {

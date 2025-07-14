@@ -324,7 +324,7 @@ void BeforeServerStartupHandler::set_partition_active_segment(Partition* partiti
 
         if (!segment.get()->get_is_read_only()) {
             this->set_segment_index(partition->get_queue_name(), segment.get(), is_cluster_metadata_queue ? -1 : partition->get_partition_id());
-            this->set_segment_last_message_offset_and_timestamp(segment.get());
+            this->set_segment_last_message_offset_and_timestamp(partition, segment.get());
             return;
         }
     }
@@ -384,7 +384,7 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
     );
 }
 
-void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(PartitionSegment* segment) {
+void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(Partition* partition, PartitionSegment* segment) {
     std::unique_ptr<char> read_batch = std::unique_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
 
     unsigned long long read_pos = SEGMENT_METADATA_TOTAL_BYTES;
@@ -431,6 +431,7 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
     }
 
     segment->set_total_written_bytes(total_written_bytes);
+    partition->set_last_message_offset(segment->get_last_message_offset());
 }
 
 // ========================================================

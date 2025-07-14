@@ -728,8 +728,6 @@ void Controller::repartition_node_data(int node_id) {
 
 		this->logger->log_info("Reassignment of node's " + std::to_string(node_id) + " partitions completed");
 	}
-
-	this->data_nodes_heartbeats.erase(node_id);
 }
 
 ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata) {
@@ -839,7 +837,8 @@ void Controller::check_for_dead_data_nodes() {
 
 			if (expired_nodes.size() > 0)
 				for (int node_id : expired_nodes) {
-					this->repartition_node_data(node_id);
+					if (this->get_state() != NodeState::LEADER)
+						break;
 
 					this->future_cluster_metadata->remove_node_partitions(node_id);
 

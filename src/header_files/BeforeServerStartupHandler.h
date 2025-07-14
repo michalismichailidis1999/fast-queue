@@ -43,7 +43,7 @@ private:
 
 	void set_segment_index(const std::string& queue_name, PartitionSegment* segment, int partition = -1);
 
-	void set_segment_last_message_offset_and_timestamp(PartitionSegment* segment);
+	void set_segment_last_message_offset_and_timestamp(Partition* partition, PartitionSegment* segment);
 public:
 	BeforeServerStartupHandler(Controller* controller, ClusterMetadataApplyHandler* cmah, QueueManager* qm, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings);
 
