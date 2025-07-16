@@ -694,7 +694,6 @@ void Controller::repartition_node_data(int node_id) {
 
 		for (auto& queue_partitions_pair : *(this->future_cluster_metadata->nodes_partitions[node_id].get())) {
 			QueueMetadata* metadata = this->future_cluster_metadata->get_queue_metadata(queue_partitions_pair.first);
-			unsigned int replication_factor = metadata->get_replication_factor();
 			bool skip_partitions_reassignment = metadata->get_replication_factor() > this->data_nodes_heartbeats.size() + 1;
 
 			for (int partition : *(queue_partitions_pair.second.get())) {
