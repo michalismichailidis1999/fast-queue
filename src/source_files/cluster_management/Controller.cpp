@@ -734,6 +734,9 @@ ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<Queue
 	std::lock_guard<std::mutex> heatbeats_lock(this->heartbeats_mut);
 	std::lock_guard<std::mutex> partitions_lock(this->future_cluster_metadata->nodes_partitions_mut);
 
+	if (this->future_cluster_metadata->get_queue_metadata(queue_metadata.get()->get_name()) != NULL)
+		return ErrorCode::NONE;
+
 	if (queue_metadata.get()->get_replication_factor() > this->data_nodes_heartbeats.size() + 1)
 		return ErrorCode::TOO_FEW_AVAILABLE_NODES;
 
@@ -783,6 +786,8 @@ ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<Queue
 }
 
 void Controller::assign_queue_for_deletion(std::string& queue_name) {
+	if (this->future_cluster_metadata->get_queue_metadata(queue_name) == NULL) return;
+
 	this->future_cluster_metadata->remove_queue_metadata(queue_name);
 
 	QueueMetadata* metadata = this->cluster_metadata->get_queue_metadata(queue_name);
@@ -1046,8 +1051,8 @@ void Controller::check_for_commit_and_last_applied_diff() {
 				this->logger->log_error(err_msg);
 			}
 
-			this->mh->update_cluster_metadata_last_applied(commit_index);
-			this->last_applied = commit_index;
+			this->mh->update_cluster_metadata_last_applied(prev_metadata_version);
+			this->last_applied = prev_metadata_version;
 		}
 		catch (const std::exception& ex)
 		{

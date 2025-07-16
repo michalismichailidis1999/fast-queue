@@ -470,7 +470,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Produc
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetQueuePartitionsInfoResponse* obj) {
 	int count = obj->connection_infos.size();
 
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey) + count * (3 * sizeof(int) + sizeof(ResponseValueKey));
+	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey) + count * (4 * sizeof(int) + sizeof(ResponseValueKey));
 
 	for (auto& info : obj->connection_infos)
 		buf_size += std::get<2>(info)->address.size();

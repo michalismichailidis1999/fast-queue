@@ -104,15 +104,10 @@ void ClientRequestExecutor::handle_delete_queue_request(SOCKET_ID socket, SSL* s
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
-	if (queue == nullptr) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue " + queue_name + " does not exist");
-		return;
-	}
-
 	std::unique_ptr<DeleteQueueResponse> res = std::make_unique<DeleteQueueResponse>();
 	res->ok = true;
 
-	if (queue.get()->get_metadata()->get_status() != Status::PENDING_DELETION) {
+	if (queue != nullptr && queue.get()->get_metadata()->get_status() != Status::PENDING_DELETION) {
 		this->controller->assign_queue_for_deletion(queue_name);
 		queue.get()->get_metadata()->set_status(Status::PENDING_DELETION);
 	}
@@ -224,9 +219,18 @@ void ClientRequestExecutor::handle_get_queue_partitions_info_request(SOCKET_ID s
 		return;
 	}
 
+	std::unique_ptr<ConnectionInfo> node_conn_info = std::make_unique<ConnectionInfo>();
+	node_conn_info.get()->address = this->settings->get_external_ip();
+	node_conn_info.get()->port = this->settings->get_external_port();
+
 	std::vector<std::shared_ptr<ConnectionPool>> pools_ref;
 
 	for (auto& iter : *(queue_partitions_leaders.get())) {
+		if (iter.second == this->settings->get_node_id()) {
+			res.get()->connection_infos.emplace_back(iter.first, iter.second, node_conn_info.get());
+			continue;
+		}
+
 		std::shared_ptr<ConnectionPool> pool = this->cm->get_node_connection_pool(iter.second);
 
 		if (pool != nullptr) {
