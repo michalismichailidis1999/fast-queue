@@ -52,7 +52,7 @@ private:
 public:
 	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Util* util, Settings* settings, Logger* logger);
 
-	bool save_messages(Partition* partition, void* messages, unsigned int total_bytes);
+	bool save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write = nullptr);
 
 	bool save_messages(Partition* partition, ProduceMessagesRequest* request);
 

@@ -47,12 +47,12 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 	return this->save_messages(partition, messages_data.get(), total_messages_bytes);
 }
 
-bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes) {
-	std::shared_ptr<PartitionSegment> active_segment = nullptr;
+bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write) {
+	std::shared_ptr<PartitionSegment> active_segment = segment_to_write;
 	
 	try
 	{
-		active_segment = partition->get_active_segment_ref();
+		active_segment = active_segment == nullptr ? partition->get_active_segment_ref() : active_segment;
 
 		if (active_segment.get()->get_is_read_only() && !partition->get_active_segment()->is_segment_compacted()) {
 			bool changed = this->sa->allocate_new_segment(partition);
