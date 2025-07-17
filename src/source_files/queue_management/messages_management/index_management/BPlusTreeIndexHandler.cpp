@@ -41,7 +41,7 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(Partition* parti
 
 	if (node.get()->type == PageType::NON_LEAF) {
 		parent_node = node;
-		page_offset = this->find_message_location(node.get(), read_from_message_id, segment->is_segment_compacted());
+		page_offset = this->find_message_location(node.get(), read_from_message_id);
 		this->read_index_page_from_disk(partition, segment, node_data.get(), page_offset);
 		node = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
 	}
@@ -49,7 +49,7 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(Partition* parti
 	if (remove_everything_after_match)
 		this->clear_index_values(partition, segment, parent_node != nullptr ? parent_node.get() : NULL, node.get(), read_from_message_id);
 
-	return this->find_message_location(node.get(), read_from_message_id, segment->is_segment_compacted());
+	return this->find_message_location(node.get(), read_from_message_id);
 }
 
 void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned long long message_id, unsigned long long message_pos) {
@@ -209,13 +209,13 @@ void BPlusTreeIndexHandler::read_index_page_from_disk(Partition* partition, Part
 		throw CorruptionException("Index page was corrupted");
 }
 
-unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node, unsigned long long message_id, bool reverse_search) {
+unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node, unsigned long long message_id) {
 	// This will only be true for first index node
-	if (node->type == PageType::LEAF && message_id < node->min_key && !reverse_search)
+	if (node->type == PageType::LEAF && message_id < node->min_key)
 		return SEGMENT_METADATA_TOTAL_BYTES;
 
-	if (message_id <= node->min_key) return !reverse_search ? node->rows[0].val_pos : node->rows[node->rows_num - 1].val_pos;
-	if (message_id >= node->max_key) return !reverse_search ? node->rows[node->rows_num - 1].val_pos : node->rows[0].val_pos;
+	if (message_id <= node->min_key) return node->rows[0].val_pos;
+	if (message_id >= node->max_key) return node->rows[node->rows_num - 1].val_pos;
 
 	if (node->rows_num <= 2) return node->rows[0].val_pos;
 
@@ -229,14 +229,8 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node,
 	while (start_pos <= end_pos) {
 		if (message_id == node->rows[pos].key) return node->rows[pos].val_pos;
 
-		if (!reverse_search) {
-			if (message_id > node->rows[pos].key) start_pos = pos + 1;
-			else end_pos = pos - 1;
-		}
-		else {
-			if (message_id < node->rows[pos].key) start_pos = pos + 1;
-			else end_pos = pos - 1;
-		}
+		if (message_id > node->rows[pos].key) start_pos = pos + 1;
+		else end_pos = pos - 1;
 
 		pos = start_pos + (end_pos - start_pos) / 2;
 	}

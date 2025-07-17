@@ -16,7 +16,6 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 
 	this->cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 	this->future_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
-	this->compacetd_cluster_metadata = std::unique_ptr<ClusterMetadata>(new ClusterMetadata());
 
 	unsigned int total_controllers = 0;
 
@@ -1062,10 +1061,6 @@ void Controller::check_for_commit_and_last_applied_diff() {
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_UNAPPLIED_COMMANDS));
 	}
-}
-
-ClusterMetadata* Controller::get_compacted_cluster_metadata() {
-	return this->compacetd_cluster_metadata.get();
 }
 
 ClusterMetadata* Controller::get_cluster_metadata() {

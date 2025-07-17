@@ -32,17 +32,6 @@ void BeforeServerStartupHandler::initialize_required_folders_and_queues() {
 void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     this->logger->log_info("Rebuilding cluster metadata...");
 
-    if (this->fh->check_if_exists(this->pm->get_cluster_metadata_compaction_path())) {
-        std::tuple<long, std::shared_ptr<char>> config_res = this->fh->get_complete_file_content(this->pm->get_cluster_metadata_compaction_path());
-
-        this->controller->get_compacted_cluster_metadata()->fill_from_metadata(std::get<1>(config_res).get());
-
-        std::get<1>(config_res).reset();
-
-        this->controller->get_cluster_metadata()->copy_from(this->controller->get_compacted_cluster_metadata());
-        this->controller->get_future_cluster_metadata()->copy_from(this->controller->get_compacted_cluster_metadata());
-    }
-
     std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
 
     Partition* partition = queue.get()->get_partition(0);
@@ -76,10 +65,16 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
 
 // Private Methods
 
+void BeforeServerStartupHandler::handle_compacted_segment(const std::string& queue_name, int partition_id, unsigned long long segment_id, bool is_internal_queue) {
+    // TODO: Complete method
+}
+
 void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues() {
     std::regex get_queue_name_rgx("((__|)[a-zA-Z][a-zA-Z0-9_-]*)$", std::regex_constants::icase);
     std::regex get_segment_num_rgx("0*([1-9][0-9]*)\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex get_compacted_segment_num_rgx("0*([1-9][0-9]*)_compacted\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
     std::regex is_segment_index("index_0*([1-9][0-9]*)\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_compacted_segment_index("index_0*([1-9][0-9]*)_compacted\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
     std::regex partition_match_rgx("partition-([0-9]|[1-9][0-9]+)$", std::regex_constants::icase);
     std::regex is_metadat_file_rgx("metadata\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
 
@@ -92,20 +87,38 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
     std::unordered_map<unsigned int, std::shared_ptr<Partition>> partitions;
     std::shared_ptr<PartitionSegment> segment = nullptr;
 
+    bool compacted_segment = false;
+    unsigned long long segment_id = 0;
+
+    std::vector<std::tuple<std::string, int, unsigned long long, bool>> compacted_segments_to_handle;
+
     auto queue_partition_segment_func = [&](const std::filesystem::directory_entry& dir_entry) {
         const std::string& path = this->fh->get_dir_entry_path(dir_entry);
+
+        compacted_segment = false;
 
         std::smatch match;
 
         if (std::regex_search(path, match, is_metadat_file_rgx)) return;
 
-        if (std::regex_search(path, match, is_segment_index)) return;
+        if (std::regex_search(path, match, is_segment_index))  return;
 
-        if (!std::regex_search(path, match, get_segment_num_rgx)) return;
+        if (std::regex_search(path, match, is_compacted_segment_index)) {
+            segment_id = std::stoull(match[1]);
+            compacted_segments_to_handle.emplace_back(queue_name, partition_id, segment_id, is_cluster_metadata_queue);
+            return;
+        }
+
+        if (!std::regex_search(path, match, get_segment_num_rgx)) {
+            if (!std::regex_search(path, match, get_compacted_segment_num_rgx)) return;
+            compacted_segment = true;
+        }
 
         if (match.size() < 1) return;
 
-        unsigned long long segment_id = std::stoull(match[1]);
+        segment_id = std::stoull(match[1]);
+
+        compacted_segments_to_handle.emplace_back(queue_name, partition_id, segment_id, is_cluster_metadata_queue);
 
         Partition* partition = partitions[partition_id].get();
 
@@ -229,6 +242,14 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
     };
 
     this->fh->execute_action_to_dir_subfiles(settings->get_log_path(), queue_func);
+
+    for (auto& compacted_segment : compacted_segments_to_handle)
+        this->handle_compacted_segment(
+            std::get<0>(compacted_segment),
+            std::get<1>(compacted_segment),
+            std::get<2>(compacted_segment),
+            std::get<3>(compacted_segment)
+        );
 }
 
 std::shared_ptr<QueueMetadata> BeforeServerStartupHandler::get_queue_metadata(const std::string& queue_metadata_file_path, const std::string& queue_name, bool must_exist) {

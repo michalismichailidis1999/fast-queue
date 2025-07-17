@@ -35,21 +35,15 @@ private:
 
 	bool handle_partition_oldest_segment_compaction(Partition* partition);
 
-	std::shared_ptr<PartitionSegment> compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment = nullptr, std::shared_ptr<BTreeNode> write_node = nullptr);
+	std::shared_ptr<PartitionSegment> compact_segment(Partition* partition, PartitionSegment* segment);
 
-	void compact_internal_segment(PartitionSegment* segment);
+	void compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment);
 
 	bool continue_compaction(Queue* queue);
 
-	std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<BTreeNode>> initialize_compacted_segment_write_locations(Partition* partition, PartitionSegment* segment);
+	std::shared_ptr<PartitionSegment> initialize_compacted_segment_write_locations(Partition* partition, PartitionSegment* segment);
 
 	std::shared_ptr<PartitionSegment> get_prev_compacted_segment(Partition* partition, unsigned long long prev_segment_id);
-
-	std::shared_ptr<BTreeNode> find_index_node_with_last_message(PartitionSegment* segment, void* page_data);
-
-	std::shared_ptr<BTreeNode> find_index_node_with_last_message(PartitionSegment* segment, void* page_data, BTreeNode* current_last_node);
-
-	void parse_index_node_rows(Partition* partition, PartitionSegment* read_segment, std::shared_ptr<PartitionSegment> write_segment, BTreeNode* node, bool reverse_order);
 public:
 	CompactionHandler(Controller* controller, QueueManager* qm, MessagesHandler* mh, SegmentLockManager* lock_manager, ClusterMetadataApplyHandler* cmah, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings);
 

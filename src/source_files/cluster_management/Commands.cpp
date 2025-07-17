@@ -71,30 +71,38 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 	long total_bytes = 0;
 	int size_dif = COMMAND_TOTAL_BYTES;
 
+	std::string key = "";
+
 	switch (this->type) {
 	case CommandType::CREATE_QUEUE:
 		total_bytes = CQ_COMMAND_TOTAL_BYTES;
 		size_dif = CQ_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key = ((CreateQueueCommand*)(this->command_info.get()))->get_metadata_bytes().get();
 		break;
 	case CommandType::ALTER_PARTITION_ASSIGNMENT:
 		total_bytes = PA_COMMAND_TOTAL_BYTES;
 		size_dif = PA_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key = ((PartitionAssignmentCommand*)(this->command_info.get()))->get_metadata_bytes().get();
 		break;
 	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
 		total_bytes = PLA_COMMAND_TOTAL_BYTES;
 		size_dif = PLA_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key = ((PartitionLeaderAssignmentCommand*)(this->command_info.get()))->get_metadata_bytes().get();
 		break;
 	case CommandType::DELETE_QUEUE:
 		total_bytes = DQ_COMMAND_TOTAL_BYTES;
 		size_dif = DQ_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key = ((DeleteQueueCommand*)(this->command_info.get()))->get_metadata_bytes().get();
 		break;
 	case CommandType::REGISTER_DATA_NODE:
 		total_bytes = RDN_COMMAND_TOTAL_BYTES;
 		size_dif = RDN_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key = ((RegisterDataNodeCommand*)(this->command_info.get()))->get_metadata_bytes().get();
 		break;
 	case CommandType::UNREGISTER_DATA_NODE:
 		total_bytes = UDN_COMMAND_TOTAL_BYTES;
 		size_dif = UDN_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key = ((UnregisterDataNodeCommand*)(this->command_info.get()))->get_metadata_bytes().get();
 		break;
 	default:
 		return std::tuple<long, std::shared_ptr<char>>(0, nullptr);
@@ -102,7 +110,7 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[total_bytes]);
 	
-	Helper::add_message_metadata_values(bytes.get(), this->metadata_version, this->timestamp, 0, NULL);
+	Helper::add_message_metadata_values(bytes.get(), this->metadata_version, this->timestamp, key.size(), key.c_str());
 
 	memcpy_s(bytes.get() + COMMAND_TYPE_OFFSET, COMMAND_TYPE_SIZE, &this->type, COMMAND_TYPE_SIZE);
 	memcpy_s(bytes.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE, &this->term, COMMAND_TERM_SIZE);
@@ -209,6 +217,10 @@ std::shared_ptr<char> CreateQueueCommand::get_metadata_bytes() {
 	return bytes;
 }
 
+std::string CreateQueueCommand::get_command_key() {
+	return "cq_" + this->queue_name;
+}
+
 // ================================================================
 
 // Partition Assignment Command
@@ -260,6 +272,10 @@ std::shared_ptr<char> PartitionAssignmentCommand::get_metadata_bytes() {
 	memcpy_s(bytes.get() + PA_COMMAND_FROM_NODE_OFFSET - COMMAND_TOTAL_BYTES, PA_COMMAND_FROM_NODE_SIZE, &this->from_node, PA_COMMAND_FROM_NODE_SIZE);
 
 	return bytes;
+}
+
+std::string PartitionAssignmentCommand::get_command_key() {
+	return "pa_" + this->queue_name + "_" + std::to_string(this->partition);
 }
 
 // ================================================================
@@ -315,6 +331,10 @@ std::shared_ptr<char> PartitionLeaderAssignmentCommand::get_metadata_bytes() {
 	return bytes;
 }
 
+std::string PartitionLeaderAssignmentCommand::get_command_key() {
+	return "pla_" + this->queue_name + "_" + std::to_string(this->partition);
+}
+
 // ================================================================
 
 // Delete Queue Command
@@ -344,6 +364,10 @@ std::shared_ptr<char> DeleteQueueCommand::get_metadata_bytes() {
 	memcpy_s(bytes.get() + DQ_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_size, this->queue_name.c_str(), queue_name_size);
 
 	return bytes;
+}
+
+std::string DeleteQueueCommand::get_command_key() {
+	return "dq_" + this->queue_name;
 }
 
 // ================================================================
@@ -393,6 +417,10 @@ std::shared_ptr<char> RegisterDataNodeCommand::get_metadata_bytes() {
 	return bytes;
 }
 
+std::string RegisterDataNodeCommand::get_command_key() {
+	return "rn_" + std::to_string(this->node_id);
+}
+
 // ================================================================
 
 // Unregister Data Node Command
@@ -415,6 +443,10 @@ std::shared_ptr<char> UnregisterDataNodeCommand::get_metadata_bytes() {
 	memcpy_s(bytes.get() + UDN_COMMAND_NODE_ID_OFFSET - COMMAND_TOTAL_BYTES, UDN_COMMAND_NODE_ID_SIZE, &this->node_id, UDN_COMMAND_NODE_ID_SIZE);
 
 	return bytes;
+}
+
+std::string UnregisterDataNodeCommand::get_command_key() {
+	return ""; 
 }
 
 // ================================================================

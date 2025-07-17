@@ -40,7 +40,6 @@ private:
 
 	std::unique_ptr<ClusterMetadata> cluster_metadata;
 	std::unique_ptr<ClusterMetadata> future_cluster_metadata;
-	std::unique_ptr<ClusterMetadata> compacetd_cluster_metadata;
 
 	bool is_the_only_controller_node;
 	int half_quorum_nodes_count;
@@ -129,8 +128,6 @@ public:
 	void check_for_commit_and_last_applied_diff();
 
 	int get_partition_leader(const std::string& queue, int partition);
-
-	ClusterMetadata* get_compacted_cluster_metadata();
 
 	ClusterMetadata* get_cluster_metadata();
 

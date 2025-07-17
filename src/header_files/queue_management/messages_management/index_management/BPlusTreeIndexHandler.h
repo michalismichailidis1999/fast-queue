@@ -32,7 +32,7 @@ private:
 
 	void read_index_page_from_disk(Partition* partition, PartitionSegment* segment, void* node_data, unsigned long long page_offset);
 
-	unsigned long long find_message_location(BTreeNode* node, unsigned long long message_id, bool reverse_search = false);
+	unsigned long long find_message_location(BTreeNode* node, unsigned long long message_id);
 
 	void clear_index_values(Partition* partition, PartitionSegment* segment, BTreeNode* parent_node, BTreeNode* node, unsigned long long message_id);
 public:

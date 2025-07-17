@@ -52,6 +52,8 @@ public:
 
 	std::shared_ptr<char> get_metadata_bytes();
 
+	std::string get_command_key();
+
 	friend class Command;
 };
 
@@ -75,6 +77,8 @@ public:
 	int get_from_node();
 
 	std::shared_ptr<char> get_metadata_bytes();
+
+	std::string get_command_key();
 
 	friend class Command;
 };
@@ -101,6 +105,8 @@ public:
 
 	std::shared_ptr<char> get_metadata_bytes();
 
+	std::string get_command_key();
+
 	friend class Command;
 };
 
@@ -115,6 +121,8 @@ public:
 	const std::string& get_queue_name();
 
 	std::shared_ptr<char> get_metadata_bytes();
+
+	std::string get_command_key();
 
 	friend class Command;
 };
@@ -137,6 +145,8 @@ public:
 
 	std::shared_ptr<char> get_metadata_bytes();
 
+	std::string get_command_key();
+
 	friend class Command;
 };
 
@@ -151,6 +161,8 @@ public:
 	int get_node_id();
 
 	std::shared_ptr<char> get_metadata_bytes();
+
+	std::string get_command_key();
 
 	friend class Command;
 };

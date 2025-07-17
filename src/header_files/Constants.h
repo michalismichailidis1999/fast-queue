@@ -25,7 +25,7 @@ static const unsigned int CHECK_FOR_SETTINGS_UPDATE = 5000;
 static const unsigned int CHECK_FOR_COMPACTION = 5000;
 
 static const unsigned int MAX_QUEUE_NAME_CHARS = 100;
-static const unsigned int MAX_MESSAGE_KEY_CHARS = 40;
+static const unsigned int MAX_MESSAGE_KEY_CHARS = 140;
 
 static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 

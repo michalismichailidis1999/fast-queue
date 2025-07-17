@@ -3,13 +3,6 @@
 QueueSegmentFilePathMapper::QueueSegmentFilePathMapper(Util* util, Settings* settings) {
 	this->util = util;
 	this->settings = settings;
-
-	this->cluster_metadata_compaction_key = "cm_comp";
-	this->cluster_metadata_compaction_path = this->settings->get_log_path()
-		+ "/"
-		+ CLUSTER_METADATA_QUEUE_NAME
-		+ "/snapshot"
-		+ FILE_EXTENSION;
 }
 
 std::string QueueSegmentFilePathMapper::get_queue_folder_path(const std::string& queue_name) {
@@ -56,14 +49,6 @@ std::string QueueSegmentFilePathMapper::get_metadata_file_path(const std::string
 		+ queue_name
 		+ "/metadata"
 		+ FILE_EXTENSION;
-}
-
-const std::string& QueueSegmentFilePathMapper::get_cluster_metadata_compaction_key() {
-	return this->cluster_metadata_compaction_key;
-}
-
-const std::string& QueueSegmentFilePathMapper::get_cluster_metadata_compaction_path() {
-	return this->cluster_metadata_compaction_path;
 }
 
 std::string QueueSegmentFilePathMapper::get_segment_message_map_key(const std::string& queue_name, int partition) {
