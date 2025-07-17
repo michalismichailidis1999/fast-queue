@@ -219,7 +219,24 @@ std::shared_ptr<PartitionSegment> CompactionHandler::compact_segment(Partition* 
 }
 
 void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment) {
+	unsigned int batch_size = READ_MESSAGES_BATCH_SIZE;
+	unsigned int prev_batch_size = READ_MESSAGES_BATCH_SIZE;
 
+	unsigned long long read_pos = SEGMENT_METADATA_TOTAL_BYTES;
+
+	std::unique_ptr<char> read_batch = std::unique_ptr<char>(new char[batch_size]);
+
+	for (unsigned int i = 0; i < 2; i++) {
+		while (true) {
+			// TODO: Complete logic here
+		}
+
+		batch_size = READ_MESSAGES_BATCH_SIZE;
+		read_pos = SEGMENT_METADATA_TOTAL_BYTES;
+
+		if(batch_size != prev_batch_size)
+			read_batch = std::unique_ptr<char>(new char[batch_size]);
+	}
 }
 
 bool CompactionHandler::continue_compaction(Queue* queue) {
