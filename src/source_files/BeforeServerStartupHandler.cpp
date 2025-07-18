@@ -154,7 +154,8 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 
         segment_id = std::stoull(match[1]);
 
-        compacted_segments_to_handle.emplace_back(queue_name, partition_id, segment_id, is_cluster_metadata_queue);
+        if(compacted_segment)
+            compacted_segments_to_handle.emplace_back(queue_name, partition_id, segment_id, is_cluster_metadata_queue);
 
         Partition* partition = partitions[partition_id].get();
 
@@ -250,22 +251,6 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
             this->fh->execute_action_to_dir_subfiles(path, queue_partition_func);
         else
             this->fh->execute_action_to_dir_subfiles(path, queue_partition_segment_func);
-
-        if (partitions.size() < metadata.get()->get_partitions()) {
-            this->logger->log_error(
-                "Found "
-                + std::to_string(partitions.size())
-                + " partitions in queue's "
-                + metadata.get()->get_name()
-                + " folder, but queue has total "
-                + std::to_string(metadata.get()->get_partitions())
-                + " partitions"
-            );
-
-            this->fh->delete_dir_or_file(path);
-
-            return;
-        }
 
         queue = std::shared_ptr<Queue>(new Queue(metadata));
 

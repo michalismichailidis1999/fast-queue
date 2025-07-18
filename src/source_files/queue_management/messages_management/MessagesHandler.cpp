@@ -202,9 +202,43 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 
 		if (cached_message != nullptr) {
 			this->lock_manager->release_segment_lock(partition, segment_to_read);
-			unsigned int total_bytes = 0;
-			memcpy_s(&total_bytes, TOTAL_METADATA_BYTES, cached_message.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
-			return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(cached_message, total_bytes, 0, total_bytes, 1);
+			
+			unsigned int message_bytes = 0;
+
+			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, cached_message.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+			if(message_bytes > READ_MESSAGES_BATCH_SIZE || maximum_messages_to_read == 1)
+				return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(cached_message, message_bytes, 0, message_bytes, 1);
+
+			std::shared_ptr<char> cached_messages_batch = std::shared_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
+
+			memcpy_s(cached_messages_batch.get(), message_bytes, cached_message.get(), message_bytes);
+
+			unsigned int total_bytes = message_bytes;
+			unsigned int total_messages = 1;
+
+			read_from_message_id++;
+
+			while (
+				total_bytes < READ_MESSAGES_BATCH_SIZE 
+				&& (maximum_messages_to_read == 0 ? true : total_messages < maximum_messages_to_read)
+			) {
+				cached_message = this->disk_reader->read_message_from_cache(partition, segment_to_read, read_from_message_id);
+
+				if (cached_message == nullptr) break;
+
+				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, cached_message.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+				if (total_bytes + message_bytes > READ_MESSAGES_BATCH_SIZE) break;
+
+				memcpy_s(cached_messages_batch.get() + total_bytes, message_bytes, cached_message.get(), message_bytes);
+
+				total_bytes += message_bytes;
+				total_messages++;
+				read_from_message_id++;
+			}
+
+			return std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(cached_messages_batch, total_bytes, 0, total_bytes, total_messages);
 		}
 
 		long long message_pos = this->index_handler->find_message_location(partition, segment_to_read, read_from_message_id);

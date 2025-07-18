@@ -21,6 +21,8 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 
 	for (auto& controller : this->settings->get_controller_nodes()) {
 		this->controller_nodes_ids.insert(std::get<0>(controller));
+		this->cluster_metadata->init_node_partitions(std::get<0>(controller));
+		this->future_cluster_metadata->init_node_partitions(std::get<0>(controller));
 		total_controllers++;
 	}
 
@@ -523,13 +525,32 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info, b
 	}
 }
 
-void Controller::assign_partition_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int owner_node) {
+bool Controller::assign_partition_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int owner_node) {
 	std::vector<std::tuple<int, int>> to_insert_back;
 
 	std::tuple<int, int> min_partitions_tup = this->future_cluster_metadata->nodes_partition_counts->extractTopElement();
 	int node_id = std::get<1>(min_partitions_tup);
 
-	if (node_id <= 0) node_id = this->settings->get_node_id();
+	while (
+		node_id != this->settings->get_node_id()
+		&& this->data_nodes_heartbeats.find(node_id) != this->data_nodes_heartbeats.end()
+		&& this->data_nodes_heartbeats[node_id].count() > 1
+	) {
+		to_insert_back.emplace_back(min_partitions_tup);
+
+		min_partitions_tup = this->future_cluster_metadata->nodes_partition_counts->extractTopElement();
+
+		node_id = std::get<1>(min_partitions_tup);
+
+		if (node_id <= 0) break;
+	}
+
+	if (node_id <= 0) {
+		for (auto& tup : to_insert_back)
+			this->future_cluster_metadata->nodes_partition_counts->insert(std::get<1>(tup), std::get<0>(tup));
+
+		return false;
+	}
 
 	auto node_queues = this->future_cluster_metadata->nodes_partitions[node_id];
 	auto owned_partitions = this->future_cluster_metadata->owned_partitions[queue_name];
@@ -551,9 +572,7 @@ void Controller::assign_partition_to_node(const std::string& queue_name, int par
 		(*(owned_partitions.get()))[partition] = partition_owners;
 	}
 
-	bool continue_looping = !this->future_cluster_metadata->nodes_partition_counts->is_null_index(node_id);
-
-	while (continue_looping) {
+	while (true) {
 		bool node_has_queue = node_queues->find(queue_name) != node_queues->end();
 
 		if (!node_has_queue) {
@@ -585,13 +604,11 @@ void Controller::assign_partition_to_node(const std::string& queue_name, int par
 		min_partitions_tup = this->future_cluster_metadata->nodes_partition_counts->extractTopElement();
 		node_id = std::get<1>(min_partitions_tup);
 
-		continue_looping = !this->future_cluster_metadata->nodes_partition_counts->is_null_index(node_id);
-
-		if (!continue_looping) break;
+		if (node_id <= 0) break;
 
 		node_queues = this->future_cluster_metadata->nodes_partitions[node_id];
 
-		if (node_queues == NULL) {
+		if (node_queues == nullptr) {
 			node_queues = std::make_shared<std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>>>();
 			this->future_cluster_metadata->nodes_partitions[node_id] = node_queues;
 		}
@@ -599,6 +616,8 @@ void Controller::assign_partition_to_node(const std::string& queue_name, int par
 
 	for (auto& tup : to_insert_back)
 		this->future_cluster_metadata->nodes_partition_counts->insert(std::get<1>(tup), std::get<0>(tup));
+
+	if (node_id <= 0) return false;
 
 	std::shared_ptr<PartitionAssignmentCommand> change = std::shared_ptr<PartitionAssignmentCommand>(
 		new PartitionAssignmentCommand(
@@ -611,7 +630,7 @@ void Controller::assign_partition_to_node(const std::string& queue_name, int par
 
 	cluster_changes->emplace_back(CommandType::ALTER_PARTITION_ASSIGNMENT, change);
 
-	if (owner_node == -1) return;
+	if (owner_node == -1) return true;
 
 	auto owner_node_queues = this->future_cluster_metadata->nodes_partitions[node_id].get();
 	auto owner_node_queue_partitions = (*owner_node_queues)[queue_name].get();
@@ -622,9 +641,11 @@ void Controller::assign_partition_to_node(const std::string& queue_name, int par
 	int current_partitions_count = this->future_cluster_metadata->nodes_partition_counts->remove(owner_node);
 	this->future_cluster_metadata->nodes_partition_counts->insert(owner_node, current_partitions_count - 1);
 	partition_owners.get()->erase(owner_node);
+
+	return true;
 }
 
-void Controller::assign_partition_leader_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int leader_node) {
+bool Controller::assign_partition_leader_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int leader_node) {
 	auto owned_partitions = this->future_cluster_metadata->owned_partitions[queue_name];
 	auto partition_owners = (*(owned_partitions.get()))[partition];
 
@@ -638,20 +659,22 @@ void Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 	int node_id = -1;
 	int min_leader_count = MAX_QUEUE_PARTITIONS + 1;
 
-	int this_node_id = this->settings->get_node_id(); // server's assigned id
-
 	for (auto owner_node : *(partition_owners.get())) {
 		if (leader_node == owner_node) continue;
 
 		int leader_count = this->future_cluster_metadata->nodes_leader_partition_counts->get(owner_node);
 
-		if (leader_count < min_leader_count) {
+		if (
+			leader_count < min_leader_count 
+			&& this->data_nodes_heartbeats.find(owner_node) != this->data_nodes_heartbeats.end()
+			&& this->data_nodes_heartbeats[owner_node].count() > 1
+		) {
 			min_leader_count = leader_count;
 			node_id = owner_node;
 		}
 	}
 
-	if (node_id == -1) return;
+	if (node_id == -1) return false;
 
 	(*(partitions_leaders.get()))[partition] = node_id;
 	this->future_cluster_metadata->nodes_leader_partition_counts->update(node_id, min_leader_count + 1);
@@ -667,10 +690,12 @@ void Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 
 	cluster_changes->emplace_back(CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT, change);
 
-	if (leader_node == -1) return;
+	if (leader_node == -1) return true;
 
 	int current_leader_partitions = this->future_cluster_metadata->nodes_leader_partition_counts->remove(leader_node);
 	this->future_cluster_metadata->nodes_leader_partition_counts->insert(leader_node, current_leader_partitions - 1);
+
+	return true;
 }
 
 void Controller::repartition_node_data(int node_id) {
@@ -684,6 +709,8 @@ void Controller::repartition_node_data(int node_id) {
 
 	int partitions_count = this->future_cluster_metadata->nodes_partition_counts->remove(node_id);
 
+	bool needs_repartition_again = false;
+
 	if (partitions_count > 0) {
 		this->logger->log_info("Reassigning node's " + std::to_string(node_id) + " partitions...");
 
@@ -693,7 +720,13 @@ void Controller::repartition_node_data(int node_id) {
 
 		for (auto& queue_partitions_pair : *(this->future_cluster_metadata->nodes_partitions[node_id].get())) {
 			QueueMetadata* metadata = this->future_cluster_metadata->get_queue_metadata(queue_partitions_pair.first);
-			bool skip_partitions_reassignment = metadata->get_replication_factor() > this->data_nodes_heartbeats.size() + 1;
+
+			int alive_nodes = 1;
+
+			for (auto& iter : this->data_nodes_heartbeats)
+				if (iter.second.count() > 1) alive_nodes++;
+
+			bool skip_partitions_reassignment = metadata->get_replication_factor() > alive_nodes;
 
 			for (int partition : *(queue_partitions_pair.second.get())) {
 				if (this->get_state() != NodeState::LEADER) {
@@ -706,9 +739,14 @@ void Controller::repartition_node_data(int node_id) {
 				this->assign_partition_leader_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id);
 
 				if (!skip_partitions_reassignment)
-					this->assign_partition_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id);
+					needs_repartition_again = needs_repartition_again 
+						|| this->assign_partition_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id);
+				else needs_repartition_again = true;
 			}
 		}
+
+		if(needs_repartition_again)
+			this->data_nodes_heartbeats[node_id] = std::chrono::milliseconds(1);
 
 		unsigned long long timestamp = this->util->get_current_time_milli().count();
 
@@ -843,7 +881,7 @@ void Controller::check_for_dead_data_nodes() {
 					if (this->get_state() != NodeState::LEADER)
 						break;
 
-					this->future_cluster_metadata->remove_node_partitions(node_id);
+					this->repartition_node_data(node_id);
 
 					if (!this->is_controller_node(node_id)) {
 						Command command = Command(

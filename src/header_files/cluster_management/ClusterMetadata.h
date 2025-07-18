@@ -43,7 +43,6 @@ public:
 	ClusterMetadata(void* metadata);
 
 	void init_node_partitions(int node_id);
-	void remove_node_partitions(int node_id);
 	bool has_node_partitions(int node_id);
 
 	void set_leader_id(int leader_id);
@@ -60,11 +59,7 @@ public:
 
 	void copy_from(ClusterMetadata* obj);
 
-	void fill_from_metadata(void* metadata);
-
 	int get_partition_leader(const std::string& queue, int partition);
-
-	std::tuple<unsigned int, std::shared_ptr<char>> get_metadata_bytes();
 
 	std::mutex* get_partitions_mut();
 

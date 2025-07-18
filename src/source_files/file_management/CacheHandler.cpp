@@ -17,7 +17,6 @@ std::shared_ptr<char> CacheHandler::get_message(const std::string& key) {
 		lock.unlock();
 
 		this->remove_expired_keys();
-		this->cache_search_count = 0;
 
 		lock.lock();
 	} else if (this->keys_insertion_time.find(key) != this->keys_insertion_time.end()
@@ -39,7 +38,6 @@ std::shared_ptr<char> CacheHandler::get_index_page(const std::string& key) {
 		lock.unlock();
 
 		this->remove_expired_keys();
-		this->cache_search_count = 0;
 
 		lock.lock();
 	}
@@ -125,6 +123,8 @@ void CacheHandler::remove_expired_keys() {
 		this->messages_cache->remove(key);
 		this->index_pages_cache->remove(key);
 	}
+
+	this->cache_search_count = 0;
 }
 
 std::string CacheHandler::get_message_cache_key(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long message_id) {

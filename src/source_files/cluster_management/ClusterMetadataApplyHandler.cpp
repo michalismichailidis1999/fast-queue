@@ -161,8 +161,6 @@ void ClusterMetadataApplyHandler::apply_register_data_node_command(ClusterMetada
 }
 
 void ClusterMetadataApplyHandler::apply_unregister_data_node_command(ClusterMetadata* cluster_metadata, UnregisterDataNodeCommand* command) {
-	cluster_metadata->remove_node_partitions(command->get_node_id());
-
 	if (this->settings->get_node_id() == command->get_node_id()) return;
 
 	this->cm->remove_data_node_connections(command->get_node_id());
