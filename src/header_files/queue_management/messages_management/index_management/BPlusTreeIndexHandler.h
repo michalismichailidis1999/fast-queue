@@ -26,9 +26,9 @@ private:
 
 	void flush_segment_updated_metadata(PartitionSegment* segment);
 
-	void flush_nodes_to_disk(Partition* partition, PartitionSegment* segment, std::vector<BTreeNode*>* nodes);
+	void flush_nodes_to_disk(Partition* partition, PartitionSegment* segment, std::vector<BTreeNode*>* nodes, bool cache_pages);
 
-	void flush_node_to_disk(Partition* partition, PartitionSegment* segment, BTreeNode* node);
+	void flush_node_to_disk(Partition* partition, PartitionSegment* segment, BTreeNode* node, bool cache_page);
 
 	void read_index_page_from_disk(Partition* partition, PartitionSegment* segment, void* node_data, unsigned long long page_offset);
 
@@ -40,5 +40,5 @@ public:
 
 	unsigned long long find_message_location(Partition* partition, PartitionSegment* segment, unsigned long long read_from_message_id, bool remove_everything_after_match = false);
 	
-	void add_message_to_index(Partition* partition, unsigned long long message_id, unsigned long long message_pos);
+	void add_message_to_index(Partition* partition, unsigned long long message_id, unsigned long long message_pos, bool cache_pages = true);
 };

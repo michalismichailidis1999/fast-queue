@@ -16,7 +16,7 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 	this->cluster_metadata_file_path = this->pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
 }
 
-bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest* request) {
+bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest* request, bool cache_messages) {
 	unsigned int total_messages_bytes = 0;
 
 	for(auto& s : *(request->messages_sizes.get()))
@@ -44,10 +44,10 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 		offset += MESSAGE_TOTAL_BYTES + message_size;
 	}
 
-	return this->save_messages(partition, messages_data.get(), total_messages_bytes);
+	return this->save_messages(partition, messages_data.get(), total_messages_bytes, nullptr, cache_messages);
 }
 
-bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write) {
+bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write, bool cache_messages) {
 	std::shared_ptr<PartitionSegment> active_segment = segment_to_write;
 	
 	try
@@ -77,7 +77,7 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 			total_bytes,
 			Helper::is_internal_queue(partition->get_queue_name()),
 			true,
-			&cache_key_info
+			cache_messages ? &cache_key_info : NULL
 		);
 
 		unsigned long total_segment_bytes = active_segment.get()->add_written_bytes(total_bytes);
@@ -91,7 +91,7 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 		if (this->remove_from_partition_remaining_bytes(this->get_queue_partition_key(partition), total_bytes) == 0) {
 			unsigned long long first_message_id = 0;
 			memcpy_s(&first_message_id, MESSAGE_ID_SIZE, (char*)messages + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-			this->index_handler->add_message_to_index(partition, first_message_id, first_message_pos);
+			this->index_handler->add_message_to_index(partition, first_message_id, first_message_pos, cache_messages);
 		}
 
 		this->lock_manager->release_segment_lock(partition, active_segment.get(), true);

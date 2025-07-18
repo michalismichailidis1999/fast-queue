@@ -215,27 +215,101 @@ std::shared_ptr<PartitionSegment> CompactionHandler::compact_segment(Partition* 
 		this->lock_manager->release_segment_lock(partition, prev_compacted_segment.get(), true);
 	}
 
+	this->existing_keys.clear();
+
 	return write_segment;
 }
 
 void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment) {
 	unsigned int batch_size = READ_MESSAGES_BATCH_SIZE;
-	unsigned int prev_batch_size = READ_MESSAGES_BATCH_SIZE;
 
 	unsigned long long read_pos = SEGMENT_METADATA_TOTAL_BYTES;
 
 	std::unique_ptr<char> read_batch = std::unique_ptr<char>(new char[batch_size]);
+	
+	unsigned int offset = 0;
+	unsigned int message_bytes = 0;
+
+	std::string key = "";
+	unsigned int key_size = 0;
+
+	unsigned int count = 0;
 
 	for (unsigned int i = 0; i < 2; i++) {
 		while (true) {
-			// TODO: Complete logic here
+			unsigned long bytes_read = this->fh->read_from_file(
+				segment->get_segment_key(),
+				segment->get_segment_path(),
+				batch_size,
+				read_pos,
+				read_batch.get()
+			);
+
+			if (bytes_read == 0) break;
+
+			while (offset < bytes_read - MESSAGE_TOTAL_BYTES) {
+				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+				if (offset + message_bytes > bytes_read) break;
+
+				memcpy_s(&key_size, MESSAGE_KEY_LENGTH_SIZE, read_batch.get() + offset + MESSAGE_KEY_LENGTH_OFFSET, MESSAGE_KEY_LENGTH_SIZE);
+
+				if (i == 0 && key_size == 0) {
+					offset += message_bytes;
+					continue;
+				}
+
+				if (i == 0) {
+					key = std::string(read_batch.get() + offset + MESSAGE_KEY_OFFSET, key_size);
+
+					bool key_exists = this->existing_keys.find(key) != this->existing_keys.end();
+					count = this->existing_keys[key];
+
+					if (!key_exists)
+						this->existing_keys[key] = 1;
+					else if (count > 0)
+						this->existing_keys[key]++;
+
+					offset += message_bytes;
+					continue;
+				}
+
+				if (key_size == 0) {
+					this->mh->save_messages(partition, read_batch.get() + offset, message_bytes, write_segment);
+					offset += message_bytes;
+					continue;
+				}
+
+				count = this->existing_keys[key];
+
+				if(count > 0) this->existing_keys[key]--;
+
+				if(count == 1)
+					this->mh->save_messages(partition, read_batch.get() + offset, message_bytes, write_segment);
+
+				offset += message_bytes;
+			}
+
+			if (bytes_read < batch_size) break;
+
+			if (message_bytes > batch_size) {
+				batch_size = message_bytes;
+				read_batch = std::unique_ptr<char>(new char[batch_size]);
+			}
+			else if(batch_size != READ_MESSAGES_BATCH_SIZE && message_bytes != batch_size){
+				batch_size = READ_MESSAGES_BATCH_SIZE;
+				read_batch = std::unique_ptr<char>(new char[batch_size]);
+			}
+
+			read_pos += offset;
 		}
 
-		batch_size = READ_MESSAGES_BATCH_SIZE;
 		read_pos = SEGMENT_METADATA_TOTAL_BYTES;
 
-		if(batch_size != prev_batch_size)
+		if (batch_size != READ_MESSAGES_BATCH_SIZE) {
+			batch_size = READ_MESSAGES_BATCH_SIZE;
 			read_batch = std::unique_ptr<char>(new char[batch_size]);
+		}
 	}
 }
 

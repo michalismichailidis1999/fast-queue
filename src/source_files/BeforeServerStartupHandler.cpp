@@ -66,7 +66,43 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
 // Private Methods
 
 void BeforeServerStartupHandler::handle_compacted_segment(const std::string& queue_name, int partition_id, unsigned long long segment_id, bool is_internal_queue) {
-    // TODO: Complete method
+    std::string segment_path = this->pm->get_file_path(
+        queue_name, 
+        segment_id,
+        is_internal_queue ? -1 : partition_id
+    );
+
+    std::string index_path = this->pm->get_file_path(
+        queue_name,
+        segment_id,
+        is_internal_queue ? -1 : partition_id,
+        true
+    );
+
+    std::string compacted_segment_path = this->pm->get_compacted_file_path(
+        queue_name,
+        segment_id,
+        is_internal_queue ? -1 : partition_id
+    );
+
+    std::string compacted_index_path = this->pm->get_compacted_file_path(
+        queue_name,
+        segment_id,
+        is_internal_queue ? -1 : partition_id,
+        true
+    );
+
+    if (!this->fh->check_if_exists(compacted_segment_path) || !this->fh->check_if_exists(compacted_index_path)) {
+        this->fh->delete_dir_or_file(compacted_segment_path);
+        this->fh->delete_dir_or_file(compacted_index_path);
+        return;
+    }
+
+    this->fh->delete_dir_or_file(segment_path);
+    this->fh->delete_dir_or_file(index_path);
+
+    this->fh->rename_file("", compacted_segment_path, segment_path);
+    this->fh->rename_file("", compacted_index_path, index_path);
 }
 
 void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues() {

@@ -29,7 +29,7 @@ private:
 	Logger* logger;
 	Settings* settings;
 
-	std::unordered_set<std::string> existing_keys;
+	std::unordered_map<std::string, unsigned int> existing_keys;
 
 	void handle_queue_partitions_segment_compaction(const std::string& queue_name, std::atomic_bool* should_terminate);
 
