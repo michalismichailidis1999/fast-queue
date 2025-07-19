@@ -134,8 +134,4 @@ public:
 	bool get_external_mutual_tls_enabled();
 	bool get_external_user_authentication_enabled();
 	// -------------------------------------------
-
-	void update_values_with_new_settings(Settings* new_settings);
-
-	bool should_stop_server(Settings* new_settings);
 };

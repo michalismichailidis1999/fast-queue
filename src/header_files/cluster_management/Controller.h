@@ -88,9 +88,9 @@ private:
 	void set_received_heartbeat(bool received_heartbeat);
 
 	bool assign_partition_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int owner_node = -1);
-	bool assign_partition_leader_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int leader_node = -1);
+	bool assign_partition_leader_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int leader_node = -1, bool* needs_partition_assignement_first = NULL);
 
-	void repartition_node_data(int node_id);
+	bool repartition_node_data(int node_id);
 
 	void store_commands(std::vector<Command>* commands);
 	bool store_commands(void* commands, int total_commands, long commands_total_bytes);

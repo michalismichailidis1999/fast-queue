@@ -10,6 +10,8 @@ DataNode::DataNode(Controller* controller, ConnectionsManager* cm, RequestMapper
 }
 
 void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
+	if (this->settings->get_is_controller_node()) return;
+
 	std::shared_ptr<ConnectionPool> pool = nullptr;
 
 	std::unique_ptr<DataNodeHeartbeatRequest> req = std::make_unique<DataNodeHeartbeatRequest>();
@@ -21,11 +23,6 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
 
 	while (!(*should_terminate)) {
-		if (this->settings->get_is_controller_node()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
-			continue;
-		}
-
 		try
 		{
 			int leader_id = this->controller->get_cluster_metadata()->get_leader_id();
@@ -118,6 +115,8 @@ int DataNode::get_next_leader_id(int leader_id) {
 }
 
 void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_terminate) {
+	if (this->settings->get_is_controller_node()) return;
+
 	int leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
 
 	std::unique_ptr<GetClusterMetadataUpdateRequest> req = nullptr;
@@ -132,11 +131,6 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 	bool is_first_request = true;
 
 	while (!(*should_terminate)) {
-		if (this->settings->get_is_controller_node()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
-			continue;
-		}
-
 		try
 		{
 			{

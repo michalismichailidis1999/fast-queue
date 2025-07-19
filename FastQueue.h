@@ -13,7 +13,6 @@
 #include "./src/header_files/Constants.h"
 #include "./src/header_files/logging/Logger.h"
 #include "./src/header_files/Settings.h"
-#include "./src/header_files/SettingsUpdateHandler.h"
 #include "./src/header_files/BeforeServerStartupHandler.h"
 #include "./src/header_files/util/ThreadPool.h"
 #include "./src/header_files/util/Util.h"

@@ -140,14 +140,6 @@ int main(int argc, char* argv[])
         )
     );
 
-    std::unique_ptr<SettingsUpdateHandler> suh = std::unique_ptr<SettingsUpdateHandler>(new SettingsUpdateHandler(
-        cm.get(),
-        config_path,
-        fh.get(),
-        settings.get(),
-        server_logger.get()
-    ));
-
     server_logger->log_info("Server starting...");
 
     try
@@ -194,10 +186,6 @@ int main(int argc, char* argv[])
             rh.get()->remove_expired_segments(&should_terminate);
         };
 
-        auto check_for_settings_update = [&]() {
-            suh.get()->check_if_settings_updated(&should_terminate);
-        };
-
         auto retrieve_cluster_metadata_updates = [&]() {
             data_node.get()->retrieve_cluster_metadata_updates(&should_terminate);
         };
@@ -216,7 +204,6 @@ int main(int argc, char* argv[])
         std::thread send_heartbeats_to_leader_thread = std::thread(send_heartbeats_to_leader);
         //std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
         //std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
-        //std::thread check_for_settings_update_thread = std::thread(check_for_settings_update);
         std::thread retrieve_cluster_metadata_updates_thread = std::thread(retrieve_cluster_metadata_updates);
 
         internal_listener_thread.join();
@@ -230,7 +217,6 @@ int main(int argc, char* argv[])
         send_heartbeats_to_leader_thread.join();
         //compact_closed_segments_thread.join();
         //remove_expired_segments_thread.join();
-        //check_for_settings_update_thread.join();
         retrieve_cluster_metadata_updates_thread.join();
     }
     catch (const std::exception&) {

@@ -65,16 +65,9 @@ void Controller::init_commit_index_and_last_applied() {
 }
 
 void Controller::run_controller_quorum_communication() {
+	if (!this->settings->get_is_controller_node()) return;
+
 	while (!(*this->should_terminate)) {
-		if (!this->settings->get_is_controller_node())
-		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
-			continue;
-		}
-
-		// TODO: Remove this after quorum communication is perfect
-		this->logger->log_info("Quorum communication here.....");
-
 		try
 		{
 			switch (this->get_state())
@@ -534,7 +527,7 @@ bool Controller::assign_partition_to_node(const std::string& queue_name, int par
 	while (
 		node_id != this->settings->get_node_id()
 		&& this->data_nodes_heartbeats.find(node_id) != this->data_nodes_heartbeats.end()
-		&& this->data_nodes_heartbeats[node_id].count() > 1
+		&& this->data_nodes_heartbeats[node_id].count() <= 1
 	) {
 		to_insert_back.emplace_back(min_partitions_tup);
 
@@ -604,6 +597,21 @@ bool Controller::assign_partition_to_node(const std::string& queue_name, int par
 		min_partitions_tup = this->future_cluster_metadata->nodes_partition_counts->extractTopElement();
 		node_id = std::get<1>(min_partitions_tup);
 
+		while (
+			node_id > 0
+			&& node_id != this->settings->get_node_id()
+			&& this->data_nodes_heartbeats.find(node_id) != this->data_nodes_heartbeats.end()
+			&& this->data_nodes_heartbeats[node_id].count() <= 1
+		) {
+			to_insert_back.emplace_back(min_partitions_tup);
+
+			min_partitions_tup = this->future_cluster_metadata->nodes_partition_counts->extractTopElement();
+
+			node_id = std::get<1>(min_partitions_tup);
+
+			if (node_id <= 0) break;
+		}
+
 		if (node_id <= 0) break;
 
 		node_queues = this->future_cluster_metadata->nodes_partitions[node_id];
@@ -645,7 +653,7 @@ bool Controller::assign_partition_to_node(const std::string& queue_name, int par
 	return true;
 }
 
-bool Controller::assign_partition_leader_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int leader_node) {
+bool Controller::assign_partition_leader_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int leader_node, bool* needs_partition_assignement_first) {
 	auto owned_partitions = this->future_cluster_metadata->owned_partitions[queue_name];
 	auto partition_owners = (*(owned_partitions.get()))[partition];
 
@@ -665,16 +673,26 @@ bool Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 		int leader_count = this->future_cluster_metadata->nodes_leader_partition_counts->get(owner_node);
 
 		if (
-			leader_count < min_leader_count 
-			&& this->data_nodes_heartbeats.find(owner_node) != this->data_nodes_heartbeats.end()
-			&& this->data_nodes_heartbeats[owner_node].count() > 1
+			leader_count < min_leader_count
+			&& (owner_node == this->settings->get_node_id()
+				||
+				(
+					this->data_nodes_heartbeats.find(owner_node) != this->data_nodes_heartbeats.end()
+					&& this->data_nodes_heartbeats[owner_node].count() > 1
+				)
+			)
 		) {
 			min_leader_count = leader_count;
 			node_id = owner_node;
 		}
 	}
 
-	if (node_id == -1) return false;
+	if (node_id == -1) {
+		if (partition_owners.get()->size() == 1 && needs_partition_assignement_first != NULL)
+			*needs_partition_assignement_first = true;
+
+		return false;
+	}
 
 	(*(partitions_leaders.get()))[partition] = node_id;
 	this->future_cluster_metadata->nodes_leader_partition_counts->update(node_id, min_leader_count + 1);
@@ -692,22 +710,32 @@ bool Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 
 	if (leader_node == -1) return true;
 
-	int current_leader_partitions = this->future_cluster_metadata->nodes_leader_partition_counts->remove(leader_node);
-	this->future_cluster_metadata->nodes_leader_partition_counts->insert(leader_node, current_leader_partitions - 1);
+	this->future_cluster_metadata->nodes_leader_partition_counts->insert(
+		leader_node, 
+		this->future_cluster_metadata->nodes_leader_partition_counts->remove(leader_node) - 1
+	);
 
 	return true;
 }
 
-void Controller::repartition_node_data(int node_id) {
+
+bool Controller::repartition_node_data(int node_id) {
 	if (this->get_state() != NodeState::LEADER) {
 		this->logger->log_warning("Stopping node's " + std::to_string(node_id) + " repartitions. Current node is not leader anymore.");
-		return;
+		return false;
 	}
 
 	std::lock_guard<std::mutex> partition_assignment_lock(this->partition_assignment_mut);
 	std::lock_guard<std::mutex> heartbeats_lock(this->heartbeats_mut);
 
-	int partitions_count = this->future_cluster_metadata->nodes_partition_counts->remove(node_id);
+	if (this->data_nodes_heartbeats.find(node_id) != this->data_nodes_heartbeats.end()
+		&& this->data_nodes_heartbeats[node_id].count() > 1)
+	{
+		this->logger->log_info("Skipping node's " + std::to_string(node_id) + " data repartitioning because its heartbeat updated");
+		return false;
+	}
+
+	int partitions_count = this->future_cluster_metadata->nodes_partition_counts->get(node_id);
 
 	bool needs_repartition_again = false;
 
@@ -724,24 +752,36 @@ void Controller::repartition_node_data(int node_id) {
 			int alive_nodes = 1;
 
 			for (auto& iter : this->data_nodes_heartbeats)
-				if (iter.second.count() > 1) alive_nodes++;
+				if (iter.first != node_id && iter.second.count() > 1) alive_nodes++;
 
 			bool skip_partitions_reassignment = metadata->get_replication_factor() > alive_nodes;
+
+			bool successful_partition_assignement = false;
+			bool needs_partition_assignment_first = false;
 
 			for (int partition : *(queue_partitions_pair.second.get())) {
 				if (this->get_state() != NodeState::LEADER) {
 					this->logger->log_warning(
 						"Stopping node's " + std::to_string(node_id) + " repartitions. Node " + std::to_string(this->settings->get_node_id()) + " is not leader anymore."
 					);
-					return;
+					return false;
 				}
 
-				this->assign_partition_leader_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id);
+				if (!this->assign_partition_leader_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id, &needs_partition_assignment_first)) {
+					needs_repartition_again = !needs_partition_assignment_first;
+					if(needs_repartition_again) continue;
+				}
 
-				if (!skip_partitions_reassignment)
-					needs_repartition_again = needs_repartition_again 
-						|| this->assign_partition_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id);
+				if (!skip_partitions_reassignment) {
+					successful_partition_assignement = this->assign_partition_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id);
+				
+					needs_repartition_again = needs_repartition_again
+						|| successful_partition_assignement;
+				}
 				else needs_repartition_again = true;
+				
+				if (needs_partition_assignment_first && successful_partition_assignement && !this->assign_partition_leader_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id))
+					needs_repartition_again = true;
 			}
 		}
 
@@ -764,7 +804,10 @@ void Controller::repartition_node_data(int node_id) {
 
 		this->logger->log_info("Reassignment of node's " + std::to_string(node_id) + " partitions completed");
 	}
+
+	return true;
 }
+
 
 ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata) {
 	std::lock_guard<std::mutex> partition_assignment_lock(this->partition_assignment_mut);
@@ -843,8 +886,9 @@ void Controller::assign_queue_for_deletion(std::string& queue_name) {
 }
 
 void Controller::check_for_dead_data_nodes() {
+	if (!this->settings->get_is_controller_node()) return;
+
 	std::vector<int> expired_nodes;
-	NodeState state = NodeState::LEADER;
 
 	while (!(*this->should_terminate)) {
 		expired_nodes.clear();
@@ -861,14 +905,10 @@ void Controller::check_for_dead_data_nodes() {
 							) {
 							this->data_nodes_heartbeats[iter.first] = std::chrono::milliseconds(0);
 							expired_nodes.emplace_back(iter.first);
+							this->logger->log_info("Data node " + std::to_string(iter.first) + " heartbeat expired");
 						}
 					}
 					else this->data_nodes_heartbeats[iter.first] = this->util->get_current_time_milli();
-			}
-
-			if (!this->settings->get_is_controller_node()) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_SETTINGS_UPDATE));
-				continue;
 			}
 
 			if (this->get_state() != NodeState::LEADER) {
@@ -881,9 +921,7 @@ void Controller::check_for_dead_data_nodes() {
 					if (this->get_state() != NodeState::LEADER)
 						break;
 
-					this->repartition_node_data(node_id);
-
-					if (!this->is_controller_node(node_id)) {
+					if (this->repartition_node_data(node_id) && !this->is_controller_node(node_id)) {
 						Command command = Command(
 							CommandType::UNREGISTER_DATA_NODE,
 							this->term,
@@ -896,8 +934,6 @@ void Controller::check_for_dead_data_nodes() {
 
 						this->store_commands(&commands);
 					}
-
-					this->logger->log_info("Data node " + std::to_string(node_id) + " heartbeat expired");
 				}
 		}
 		catch (const std::exception& ex)
