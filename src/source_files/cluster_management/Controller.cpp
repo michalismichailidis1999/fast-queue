@@ -501,7 +501,7 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info, b
 			);
 	}
 
-	if (!is_controller_node && this->get_state() == NodeState::LEADER && info != NULL && !this->future_cluster_metadata.get()->has_node_partitions(node_id)) {
+	if (!is_controller_node && this->get_state() == NodeState::LEADER && info != NULL) {
 		Command command = Command(
 			CommandType::REGISTER_DATA_NODE,
 			this->term,
@@ -1212,8 +1212,32 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 		if (this->follower_indexes.find(request->node_id) == this->follower_indexes.end()) return nullptr;
 
 		unsigned long long prev_log_index = std::get<1>(this->follower_indexes[request->node_id]);
+		unsigned long long prev_log_term = 0;
 
-		if (!request->is_first_request && !request->prev_req_index_matched) {
+		if (request->is_first_request && prev_log_index > request->prev_log_index) {
+			prev_log_index = request->prev_log_index;
+
+			if (prev_log_index == 0) 
+				this->follower_indexes[request->node_id] = std::tuple<unsigned long long, unsigned long long>(0, 0);
+			else {
+				auto messages_res = this->mh->read_partition_messages(
+					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+					prev_log_index,
+					1
+				);
+
+				if (std::get<4>(messages_res) == 1) {
+					char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+					memcpy_s(&prev_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+					memcpy_s(&prev_log_term, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
+
+					this->follower_indexes[request->node_id] = std::tuple<unsigned long long, unsigned long long>(
+						prev_log_term, prev_log_index
+					);
+				}
+			}
+		} else if (!request->is_first_request && !request->prev_req_index_matched) {
 			if (prev_log_index - 1 > 0) {
 				auto messages_res = this->mh->read_partition_messages(
 					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
@@ -1222,15 +1246,11 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 				);
 
 				if (std::get<4>(messages_res) == 1) {
-					unsigned long long prev_log_index = 0;
-					unsigned long long prev_log_term = 0;
-
 					char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
 
 					memcpy_s(&prev_log_index, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 					memcpy_s(&prev_log_term, COMMAND_TERM_SIZE, message_offset + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE);
 
-					std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
 					this->follower_indexes[request->node_id] = std::tuple<unsigned long long, unsigned long long>(
 						prev_log_term, prev_log_index
 					);

@@ -7,6 +7,7 @@
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../queue_management/QueueManager.h"
 #include "../Settings.h"
+#include "../logging/Logger.h"
 
 class ClusterMetadataApplyHandler {
 private:
@@ -15,6 +16,7 @@ private:
 	FileHandler* fh;
 	QueueSegmentFilePathMapper* pm;
 	Settings* settings;
+	Logger* logger;
 
 	void apply_create_queue_command(ClusterMetadata* cluster_metadata, CreateQueueCommand* command);
 	void apply_partition_assignment_command(PartitionAssignmentCommand* command);
@@ -23,7 +25,7 @@ private:
 	void apply_register_data_node_command(ClusterMetadata* cluster_metadata, RegisterDataNodeCommand* command);
 	void apply_unregister_data_node_command(ClusterMetadata* cluster_metadata, UnregisterDataNodeCommand* command);
 public:
-	ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings);
+	ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings, Logger* logger);
 
 	void apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction = false, std::unordered_map<int, Command>* registered_nodes = NULL, ClusterMetadata* future_cluster_metadata = NULL);
 

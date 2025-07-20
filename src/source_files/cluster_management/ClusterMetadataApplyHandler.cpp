@@ -1,11 +1,12 @@
 #include "../../header_files/cluster_management/ClusterMetadataApplyHandler.h"
 
-ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings) {
+ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings, Logger* logger) {
 	this->qm = qm;
 	this->cm = cm;
 	this->fh = fh;
 	this->pm = pm;
 	this->settings = settings;
+	this->logger = logger;
 }
 
 void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction, std::unordered_map<int, Command>* registered_nodes, ClusterMetadata* future_cluster_metadata) {
@@ -157,7 +158,9 @@ void ClusterMetadataApplyHandler::apply_register_data_node_command(ClusterMetada
 	info.get()->port = command->get_port();
 
 	if (!this->cm->initialize_data_node_connection_pool(command->get_node_id(), info))
-		throw std::exception("Error occured while trying to register data node connection pool");
+	{
+		this->logger->log_error("Error occured while trying to register data node connection pool");
+	}
 }
 
 void ClusterMetadataApplyHandler::apply_unregister_data_node_command(ClusterMetadata* cluster_metadata, UnregisterDataNodeCommand* command) {

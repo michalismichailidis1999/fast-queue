@@ -240,6 +240,10 @@ std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_
 			req.get()->port = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
 		}
+		else if (*key == RequestValueKey::REGISTER_NODE) {
+			req.get()->register_node = *(bool*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(bool);
+		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type DataNodeHeartbeatRequest");
 			throw std::exception("Invalid request value");

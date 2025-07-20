@@ -19,6 +19,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 	req.get()->address = this->settings->get_internal_ip().c_str();
 	req.get()->address_length = this->settings->get_internal_ip().size();
 	req.get()->port = this->settings->get_internal_port();
+	req.get()->register_node = true;
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
 
@@ -39,7 +40,18 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 			}
 
 			if (pool != nullptr && !this->send_heartbeat_to_leader(&leader_id, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), pool.get()))
+			{
 				pool = nullptr;
+
+				if (!req.get()->register_node) {
+					req.get()->register_node = true;
+					buf_tup = this->transformer->transform(req.get());
+				}
+			}
+			else if (req.get()->register_node) {
+				req.get()->register_node = false;
+				buf_tup = this->transformer->transform(req.get());
+			}
 		}
 		catch (const std::exception& ex)
 		{

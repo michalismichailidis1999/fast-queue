@@ -55,6 +55,7 @@ enum class RequestValueKey {
 	NODE_ADDRESS,
 	NODE_PORT,
 	COMMAND_ID,
+	REGISTER_NODE,
 
 	// Raft
 	LEADER_ID,

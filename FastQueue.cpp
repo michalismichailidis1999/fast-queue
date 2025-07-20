@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
 
     std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), ssl_context_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
 
-    std::unique_ptr<ClusterMetadataApplyHandler> cmah = std::unique_ptr<ClusterMetadataApplyHandler>(new ClusterMetadataApplyHandler(qm.get(), cm.get(), fh.get(), pm.get(), settings.get()));
+    std::unique_ptr<ClusterMetadataApplyHandler> cmah = std::unique_ptr<ClusterMetadataApplyHandler>(new ClusterMetadataApplyHandler(qm.get(), cm.get(), fh.get(), pm.get(), settings.get(), server_logger.get()));
     
     std::unique_ptr<Controller> controller = std::unique_ptr<Controller>(new Controller(cm.get(), qm.get(), mh.get(), cmah.get(), response_mapper.get(), transformer.get(), util.get(), server_logger.get(), settings.get(), &should_terminate));
 

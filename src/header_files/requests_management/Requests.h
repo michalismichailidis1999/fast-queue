@@ -22,6 +22,7 @@ struct DataNodeHeartbeatRequest {
 	int address_length;
 	const char* address;
 	int port;
+	bool register_node;
 };
 
 struct RequestVoteRequest {
