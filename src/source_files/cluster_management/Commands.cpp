@@ -446,7 +446,7 @@ std::shared_ptr<char> UnregisterDataNodeCommand::get_metadata_bytes() {
 }
 
 std::string UnregisterDataNodeCommand::get_command_key() {
-	return ""; 
+	return "un_" + std::to_string(this->node_id);
 }
 
 // ================================================================

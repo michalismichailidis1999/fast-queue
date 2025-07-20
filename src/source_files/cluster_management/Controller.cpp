@@ -640,14 +640,17 @@ bool Controller::assign_partition_to_node(const std::string& queue_name, int par
 
 	if (owner_node == -1) return true;
 
-	auto owner_node_queues = this->future_cluster_metadata->nodes_partitions[node_id].get();
+	auto owner_node_queues = this->future_cluster_metadata->nodes_partitions[owner_node].get();
 	auto owner_node_queue_partitions = (*owner_node_queues)[queue_name].get();
 	owner_node_queue_partitions->erase(partition);
 
 	if (owner_node_queue_partitions->size() == 0) owner_node_queues->erase(queue_name);
 
-	int current_partitions_count = this->future_cluster_metadata->nodes_partition_counts->remove(owner_node);
-	this->future_cluster_metadata->nodes_partition_counts->insert(owner_node, current_partitions_count - 1);
+	this->future_cluster_metadata->nodes_partition_counts->insert(
+		owner_node, 
+		this->future_cluster_metadata->nodes_partition_counts->remove(owner_node) - 1
+	);
+
 	partition_owners.get()->erase(owner_node);
 
 	return true;
@@ -746,7 +749,18 @@ bool Controller::repartition_node_data(int node_id) {
 
 		std::vector<std::tuple<CommandType, std::shared_ptr<void>>> cluster_changes;
 
+		std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>> queue_partitions;
+
 		for (auto& queue_partitions_pair : *(this->future_cluster_metadata->nodes_partitions[node_id].get())) {
+			auto partitions = std::make_shared<std::unordered_set<int>>();
+
+			for (int partition : *(queue_partitions_pair.second.get()))
+				partitions.get()->insert(partition);
+
+			queue_partitions[queue_partitions_pair.first] = partitions;
+		}
+
+		for (auto& queue_partitions_pair : queue_partitions) {
 			QueueMetadata* metadata = this->future_cluster_metadata->get_queue_metadata(queue_partitions_pair.first);
 
 			int alive_nodes = 1;
@@ -776,7 +790,7 @@ bool Controller::repartition_node_data(int node_id) {
 					successful_partition_assignement = this->assign_partition_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id);
 				
 					needs_repartition_again = needs_repartition_again
-						|| successful_partition_assignement;
+						|| !successful_partition_assignement;
 				}
 				else needs_repartition_again = true;
 				
