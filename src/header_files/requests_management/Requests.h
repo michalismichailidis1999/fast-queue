@@ -19,9 +19,17 @@ struct AppendEntriesRequest {
 
 struct DataNodeHeartbeatRequest {
 	int node_id;
+
+	// for internal communication
 	int address_length;
 	const char* address;
 	int port;
+
+	// for external communication
+	int external_address_length;
+	const char* external_address;
+	int external_port;
+
 	bool register_node;
 };
 

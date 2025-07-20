@@ -132,10 +132,22 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 
 			std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>>* nodes = &this->controller_nodes;
 
+			int node_id = 0;
+			bool parsing_external_part = true;
+
+			int external_url_ending_pos = -1;
+
+			std::shared_ptr<ConnectionInfo> info = nullptr;
+
 			for (int i = 0; i < rhs_size; i++) {
-				if (rhs[i] == ',' || i == rhs_size - 1) {
-					int node_id = std::atoi(std::string(rhs.c_str() + starting_pos, id_server_seperator_pos - starting_pos).c_str());
-					std::string server_url = std::string(rhs.c_str() + id_server_seperator_pos + 1, i - id_server_seperator_pos);
+				if (rhs[i] == ',' || rhs[i] == '&' || i == rhs_size - 1) {
+
+					if(parsing_external_part)
+						node_id = std::atoi(std::string(rhs.c_str() + starting_pos, id_server_seperator_pos - starting_pos).c_str());
+
+					std::string server_url = parsing_external_part
+						? std::string(rhs.c_str() + id_server_seperator_pos + 1, i - id_server_seperator_pos)
+						: std::string(rhs.c_str() + external_url_ending_pos + 1, i - external_url_ending_pos);
 
 					int j = 0;
 					for (j = 0; j < server_url.size(); j++)
@@ -146,18 +158,33 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 						throw std::exception();
 
 					std::string address = server_url.substr(0, j);
-					int port = std::atoi(server_url.substr(j + 1, server_url.size() - address.size() - 1 - (rhs[i] == ',' ? 1 : 0)).c_str());
+					int port = std::atoi(server_url.substr(j + 1, server_url.size() - address.size() - 1 - (rhs[i] == ',' || rhs[i] == '&' ? 1 : 0)).c_str());
 
-					std::shared_ptr<ConnectionInfo> info = std::make_shared<ConnectionInfo>();
-					info.get()->port = port;
-					info.get()->address = address == "localhost" ? "127.0.0.1" : address;
+					if (parsing_external_part) {
+						info = std::make_shared<ConnectionInfo>();
+						info.get()->external_port = port;
+						info.get()->external_address = address == "localhost" ? "127.0.0.1" : address;
 
-					nodes->emplace_back(std::tuple<int, std::shared_ptr<ConnectionInfo>>(node_id, info));
+						nodes->emplace_back(std::tuple<int, std::shared_ptr<ConnectionInfo>>(node_id, info));
+					}
+					else {
+						info.get()->port = port;
+						info.get()->address = address == "localhost" ? "127.0.0.1" : address;
+					}
 
-					id_server_seperator_pos = -1;
-					starting_pos = i + 1;
+					if (!parsing_external_part) {
+						id_server_seperator_pos = -1;
+						starting_pos = i + 1;
+					}
+					else {
+						external_url_ending_pos = i;
+						parsing_external_part = false;
+					}
 				}
-				else if (rhs[i] == '@') id_server_seperator_pos = i;
+				else if (rhs[i] == '@') {
+					id_server_seperator_pos = i;
+					parsing_external_part = true;
+				}
 			}
 
 			if(nodes->size() == 0)
@@ -254,8 +281,8 @@ unsigned int Settings::get_dead_data_node_check_ms() {
 
 unsigned int Settings::get_data_node_expire_ms() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
-	//return this->data_node_expire_ms;
-	return 100000000;
+	return this->data_node_expire_ms;
+	//return 100000000;
 }
 
 unsigned int Settings::get_heartbeat_to_leader_ms() {

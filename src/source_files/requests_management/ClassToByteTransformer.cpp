@@ -125,13 +125,15 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Reques
 }
 
 std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNodeHeartbeatRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + 3 * sizeof(int) + sizeof(bool) + 4 * sizeof(RequestValueKey) + obj->address_length;
+	long buf_size = sizeof(long) + sizeof(RequestType) + 5 * sizeof(int) + sizeof(bool) + 6 * sizeof(RequestValueKey) + obj->address_length + obj->external_address_length;
 
 	RequestType req_type = RequestType::DATA_NODE_HEARTBEAT;
 
 	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
 	RequestValueKey address_type = RequestValueKey::NODE_ADDRESS;
 	RequestValueKey port_type = RequestValueKey::NODE_PORT;
+	RequestValueKey external_address_type = RequestValueKey::NODE_ADDRESS;
+	RequestValueKey external_port_type = RequestValueKey::NODE_PORT;
 	RequestValueKey register_node_type = RequestValueKey::REGISTER_NODE;
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
@@ -157,12 +159,27 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 	offset += sizeof(int);
 
 	memcpy_s(buf.get() + offset, obj->address_length, obj->address, obj->address_length);
-	offset += (int)obj->address_length;
+	offset += obj->address_length;
 
 	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &port_type, sizeof(RequestValueKey));
 	offset += sizeof(RequestValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(int), &obj->port, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &external_address_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->external_address_length, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, obj->address_length, obj->external_address, obj->address_length);
+	offset += obj->address_length;
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &external_port_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->external_port, sizeof(int));
 	offset += sizeof(int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &register_node_type, sizeof(RequestValueKey));
@@ -406,7 +423,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetCon
 	for (auto& info : obj->connection_infos) {
 		int node_id = std::get<0>(info);
 		ConnectionInfo* conn_info = std::get<1>(info);
-		int address_size = conn_info->address.size();
+		int address_size = conn_info->external_address.size();
 
 		memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &connection_info_type, sizeof(ResponseValueKey));
 		offset += sizeof(ResponseValueKey);
@@ -417,10 +434,10 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetCon
 		memcpy_s(buf.get() + offset, sizeof(int), &address_size, sizeof(int));
 		offset += sizeof(int);
 
-		memcpy_s(buf.get() + offset, address_size, conn_info->address.c_str(), address_size);
+		memcpy_s(buf.get() + offset, address_size, conn_info->external_address.c_str(), address_size);
 		offset += address_size;
 
-		memcpy_s(buf.get() + offset, sizeof(int), &conn_info->port, sizeof(int));
+		memcpy_s(buf.get() + offset, sizeof(int), &conn_info->external_port, sizeof(int));
 		offset += sizeof(int);
 	}
 
@@ -521,10 +538,10 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetQue
 		memcpy_s(buf.get() + offset, sizeof(int), &address_size, sizeof(int));
 		offset += sizeof(int);
 
-		memcpy_s(buf.get() + offset, address_size, conn_info->address.c_str(), address_size);
+		memcpy_s(buf.get() + offset, address_size, conn_info->external_address.c_str(), address_size);
 		offset += address_size;
 
-		memcpy_s(buf.get() + offset, sizeof(int), &conn_info->port, sizeof(int));
+		memcpy_s(buf.get() + offset, sizeof(int), &conn_info->external_port, sizeof(int));
 		offset += sizeof(int);
 	}
 

@@ -188,6 +188,7 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
 
+// TODO: Needs fixing
 void ClientRequestExecutor::handle_get_queue_partitions_info_request(SOCKET_ID socket, SSL* ssl, GetQueuePartitionsInfoRequest* request) {
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
@@ -220,8 +221,8 @@ void ClientRequestExecutor::handle_get_queue_partitions_info_request(SOCKET_ID s
 	}
 
 	std::unique_ptr<ConnectionInfo> node_conn_info = std::make_unique<ConnectionInfo>();
-	node_conn_info.get()->address = this->settings->get_external_ip();
-	node_conn_info.get()->port = this->settings->get_external_port();
+	node_conn_info.get()->external_address = this->settings->get_external_ip();
+	node_conn_info.get()->external_port = this->settings->get_external_port();
 
 	std::vector<std::shared_ptr<ConnectionPool>> pools_ref;
 

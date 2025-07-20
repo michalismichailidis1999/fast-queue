@@ -16,9 +16,15 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 
 	std::unique_ptr<DataNodeHeartbeatRequest> req = std::make_unique<DataNodeHeartbeatRequest>();
 	req.get()->node_id = this->settings->get_node_id();
+
 	req.get()->address = this->settings->get_internal_ip().c_str();
 	req.get()->address_length = this->settings->get_internal_ip().size();
 	req.get()->port = this->settings->get_internal_port();
+
+	req.get()->external_address = this->settings->get_external_ip().c_str();
+	req.get()->external_address_length = this->settings->get_external_ip().size();
+	req.get()->external_port = this->settings->get_external_port();
+
 	req.get()->register_node = true;
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());

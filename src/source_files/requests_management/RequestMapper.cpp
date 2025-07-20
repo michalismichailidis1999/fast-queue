@@ -240,6 +240,15 @@ std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_
 			req.get()->port = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
 		}
+		else if (*key == RequestValueKey::NODE_EXTERNAL_ADDRESS) {
+			req.get()->external_address_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->external_address = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->external_address_length;
+		}
+		else if (*key == RequestValueKey::NODE_EXTERNAL_PORT) {
+			req.get()->external_port = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
 		else if (*key == RequestValueKey::REGISTER_NODE) {
 			req.get()->register_node = *(bool*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(bool);

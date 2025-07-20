@@ -11,4 +11,6 @@ struct Connection {
 struct ConnectionInfo {
 	std::string address;
 	int port;
+	std::string external_address;
+	int external_port;
 };

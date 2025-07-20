@@ -130,10 +130,14 @@ public:
 class RegisterDataNodeCommand {
 private:
 	int node_id;
+
 	std::string address;
 	int port;
+
+	std::string external_address;
+	int external_port;
 public:
-	RegisterDataNodeCommand(int node_id, const std::string& address, int port);
+	RegisterDataNodeCommand(int node_id, const std::string& address, int port, const std::string& external_address, int external_port);
 
 	RegisterDataNodeCommand(void* metadata);
 
@@ -142,6 +146,10 @@ public:
 	const std::string& get_address();
 
 	int get_port();
+
+	const std::string& get_external_address();
+
+	int get_external_port();
 
 	std::shared_ptr<char> get_metadata_bytes();
 

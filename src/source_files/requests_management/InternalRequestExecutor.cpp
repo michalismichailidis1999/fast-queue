@@ -49,6 +49,9 @@ void InternalRequestExecutor::handle_data_node_heartbeat_request(SOCKET_ID socke
 	info.get()->address = std::string(request->address, request->address_length);
 	info.get()->port = request->port;
 
+	info.get()->external_address = std::string(request->external_address, request->external_address_length);
+	info.get()->port = request->external_port;
+
 	this->controller->update_data_node_heartbeat(request->node_id, request->register_node ? info.get() : NULL);
 
 	res.get()->leader_id = this->controller->get_leader_id();

@@ -506,7 +506,7 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info, b
 			CommandType::REGISTER_DATA_NODE,
 			this->term,
 			this->util->get_current_time_milli().count(),
-			std::shared_ptr<RegisterDataNodeCommand>(new RegisterDataNodeCommand(node_id, info->address, info->port))
+			std::shared_ptr<RegisterDataNodeCommand>(new RegisterDataNodeCommand(node_id, info->address, info->port, info->external_address, info->external_port))
 		);
 
 		std::vector<Command> commands(1);
@@ -824,7 +824,7 @@ bool Controller::repartition_node_data(int node_id) {
 		this->logger->log_info("Reassignment of node's " + std::to_string(node_id) + " partitions completed");
 	}
 
-	return true;
+	return !needs_repartition_again;
 }
 
 

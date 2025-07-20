@@ -56,7 +56,10 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     }
 
     for (auto& iter : registered_nodes)
+    {
         this->cmah->apply_command(this->controller->get_cluster_metadata(), &iter.second);
+        this->controller->update_data_node_heartbeat(iter.first, NULL, true);
+    }
 
     this->logger->log_info("Cluster metadata rebuilt successfully");
 }
