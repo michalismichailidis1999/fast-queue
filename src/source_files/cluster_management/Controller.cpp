@@ -667,6 +667,11 @@ bool Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 		this->future_cluster_metadata->partition_leader_nodes[queue_name] = partitions_leaders;
 	}
 
+	if (leader_node != -1
+		&& partitions_leaders.get()->find(partition) != partitions_leaders.get()->end()
+		&& (*(partitions_leaders.get()))[partition] != leader_node
+		) return true;
+
 	int node_id = -1;
 	int min_leader_count = MAX_QUEUE_PARTITIONS + 1;
 
@@ -962,7 +967,13 @@ void Controller::check_for_dead_data_nodes() {
 
 int Controller::get_active_nodes_count() {
 	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
-	return this->data_nodes_heartbeats.size() + 1; // +1 is for current node running
+
+	int active_nodes = 1;
+
+	for (auto& pair : this->data_nodes_heartbeats)
+		if (pair.second.count() > 1) active_nodes++;
+
+	return active_nodes;
 }
 
 void Controller::store_commands(std::vector<Command>* commands) {
