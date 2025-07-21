@@ -132,8 +132,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
 	RequestValueKey address_type = RequestValueKey::NODE_ADDRESS;
 	RequestValueKey port_type = RequestValueKey::NODE_PORT;
-	RequestValueKey external_address_type = RequestValueKey::NODE_ADDRESS;
-	RequestValueKey external_port_type = RequestValueKey::NODE_PORT;
+	RequestValueKey external_address_type = RequestValueKey::NODE_EXTERNAL_ADDRESS;
+	RequestValueKey external_port_type = RequestValueKey::NODE_EXTERNAL_PORT;
 	RequestValueKey register_node_type = RequestValueKey::REGISTER_NODE;
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
@@ -173,7 +173,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 	memcpy_s(buf.get() + offset, sizeof(int), &obj->external_address_length, sizeof(int));
 	offset += sizeof(int);
 
-	memcpy_s(buf.get() + offset, obj->address_length, obj->external_address, obj->address_length);
+	memcpy_s(buf.get() + offset, obj->external_address_length, obj->external_address, obj->external_address_length);
 	offset += obj->address_length;
 
 	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &external_port_type, sizeof(RequestValueKey));
@@ -498,7 +498,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetQue
 	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey) + count * (4 * sizeof(int) + sizeof(ResponseValueKey));
 
 	for (auto& info : obj->connection_infos)
-		buf_size += std::get<2>(info)->address.size();
+		buf_size += std::get<2>(info)->external_address.size();
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -524,7 +524,7 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetQue
 		int partition_id = std::get<0>(info);
 		int node_id = std::get<1>(info);
 		ConnectionInfo* conn_info = std::get<2>(info);
-		int address_size = conn_info->address.size();
+		int address_size = conn_info->external_address.size();
 
 		memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &connection_info_type, sizeof(ResponseValueKey));
 		offset += sizeof(ResponseValueKey);

@@ -156,6 +156,8 @@ void ClusterMetadataApplyHandler::apply_register_data_node_command(ClusterMetada
 	std::shared_ptr<ConnectionInfo> info = std::make_shared<ConnectionInfo>();
 	info.get()->address = command->get_address();
 	info.get()->port = command->get_port();
+	info.get()->external_address = command->get_external_address();
+	info.get()->external_port = command->get_external_port();
 
 	if (!this->cm->initialize_data_node_connection_pool(command->get_node_id(), info))
 	{

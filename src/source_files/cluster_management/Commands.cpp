@@ -397,7 +397,7 @@ RegisterDataNodeCommand::RegisterDataNodeCommand(void* metadata) {
 
 	this->external_address = std::string((char*)metadata + RDN_COMMAND_EXT_ADDRESS_OFFSET, external_address_lenth);
 
-	memcpy_s(&this->port, RDN_COMMAND_EXT_PORT_SIZE, (char*)metadata + RDN_COMMAND_EXT_PORT_OFFSET, RDN_COMMAND_EXT_PORT_SIZE);
+	memcpy_s(&this->external_port, RDN_COMMAND_EXT_PORT_SIZE, (char*)metadata + RDN_COMMAND_EXT_PORT_OFFSET, RDN_COMMAND_EXT_PORT_SIZE);
 }
 
 int RegisterDataNodeCommand::get_node_id() {
@@ -410,6 +410,14 @@ const std::string& RegisterDataNodeCommand::get_address() {
 
 int RegisterDataNodeCommand::get_port() {
 	return this->port;
+}
+
+const std::string& RegisterDataNodeCommand::get_external_address() {
+	return this->external_address;
+}
+
+int RegisterDataNodeCommand::get_external_port() {
+	return this->external_port;
 }
 
 std::shared_ptr<char> RegisterDataNodeCommand::get_metadata_bytes() {
@@ -425,8 +433,8 @@ std::shared_ptr<char> RegisterDataNodeCommand::get_metadata_bytes() {
 	memcpy_s(bytes.get() + RDN_COMMAND_PORT_OFFSET - COMMAND_TOTAL_BYTES, RDN_COMMAND_PORT_SIZE, &this->port, RDN_COMMAND_PORT_SIZE);
 
 	memcpy_s(bytes.get() + RDN_COMMAND_EXT_ADDRESS_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, RDN_COMMAND_EXT_ADDRESS_LENGTH_SIZE, &external_address_length, RDN_COMMAND_EXT_ADDRESS_LENGTH_SIZE);
-	memcpy_s(bytes.get() + RDN_COMMAND_EXT_ADDRESS_OFFSET - COMMAND_TOTAL_BYTES, external_address_length, this->address.c_str(), external_address_length);
-	memcpy_s(bytes.get() + RDN_COMMAND_EXT_PORT_OFFSET - COMMAND_TOTAL_BYTES, RDN_COMMAND_EXT_PORT_SIZE, &this->port, RDN_COMMAND_EXT_PORT_SIZE);
+	memcpy_s(bytes.get() + RDN_COMMAND_EXT_ADDRESS_OFFSET - COMMAND_TOTAL_BYTES, external_address_length, this->external_address.c_str(), external_address_length);
+	memcpy_s(bytes.get() + RDN_COMMAND_EXT_PORT_OFFSET - COMMAND_TOTAL_BYTES, RDN_COMMAND_EXT_PORT_SIZE, &this->external_port, RDN_COMMAND_EXT_PORT_SIZE);
 
 	return bytes;
 }
