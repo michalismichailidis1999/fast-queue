@@ -51,6 +51,8 @@ private:
 	std::shared_ptr<PartitionSegment> get_next_segment_to_remove_messages(Partition* partition, unsigned long long current_segment_id);
 
 	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> get_next_available_message(Partition* partition, PartitionSegment* segment, long long current_pos, void* current_batch, unsigned int current_batch_size, unsigned long long message_id);
+
+	std::shared_ptr<char> get_last_active_message_less_than_message_id(void* current_batch, unsigned int current_batch_size, unsigned long long message_id);
 public:
 	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Util* util, Settings* settings, Logger* logger);
 

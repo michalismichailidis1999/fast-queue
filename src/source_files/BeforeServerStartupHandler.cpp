@@ -95,7 +95,7 @@ void BeforeServerStartupHandler::handle_compacted_segment(const std::string& que
         true
     );
 
-    if (!this->fh->check_if_exists(compacted_segment_path) || !this->fh->check_if_exists(compacted_index_path)) {
+    if (this->fh->check_if_exists(segment_path) && this->fh->check_if_exists(index_path)) {
         this->fh->delete_dir_or_file(compacted_segment_path);
         this->fh->delete_dir_or_file(compacted_index_path);
         return;
