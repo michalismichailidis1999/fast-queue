@@ -101,7 +101,7 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 			req.get()->messages_keys.get()->push_back(message_key);
 			req.get()->messages.get()->push_back(message);
 
-			offset += sizeof(RequestValueKey) + sizeof(long) + *(message_size);
+			offset += sizeof(RequestValueKey) + 2 * sizeof(int) + (*message_size) + (*message_key_size);
 		} else if (*key == RequestValueKey::USERNAME) {
 			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			req.get()->username = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);

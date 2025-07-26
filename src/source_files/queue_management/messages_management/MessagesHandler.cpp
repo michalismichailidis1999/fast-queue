@@ -37,7 +37,7 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 
 		memcpy_s(messages_data.get() + offset + MESSAGE_TOTAL_BYTES, message_size, message_body, message_size);
 
-		Helper::add_message_metadata_values(messages_data.get() + offset + MESSAGE_TOTAL_BYTES, message_offset, current_timestamp, message_key_size, message_key);
+		Helper::add_message_metadata_values(messages_data.get() + offset, message_offset, current_timestamp, message_key_size, message_key);
 
 		Helper::add_common_metadata_values(messages_data.get() + offset, message_size + MESSAGE_TOTAL_BYTES, ObjectType::MESSAGE);
 

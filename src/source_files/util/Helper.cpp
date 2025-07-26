@@ -35,7 +35,7 @@ void Helper::add_message_metadata_values(void* metadata, unsigned long long mess
 	if (key != NULL && key_size > 0)
 	{
 		memcpy_s((char*)metadata + MESSAGE_KEY_LENGTH_OFFSET, MESSAGE_KEY_LENGTH_SIZE, &key_size, MESSAGE_KEY_LENGTH_SIZE);
-		memcpy_s((char*)metadata + MESSAGE_KEY_OFFSET, MESSAGE_KEY_SIZE, &key, MESSAGE_KEY_SIZE);
+		memcpy_s((char*)metadata + MESSAGE_KEY_OFFSET, key_size, key, key_size);
 	}
 }
 
