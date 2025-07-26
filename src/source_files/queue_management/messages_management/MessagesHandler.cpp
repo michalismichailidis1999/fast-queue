@@ -674,14 +674,16 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 				unsigned int message_bytes = 0;
 				unsigned int changed = 0;
 				bool is_message_active = true;
+				unsigned long long current_message_id = 0;
 
 				unsigned int offset = message_offset;
 
 				while (offset <= batch_size - MESSAGE_TOTAL_BYTES) {
 					memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 					memcpy_s(&is_message_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
+					memcpy_s(&current_message_id, MESSAGE_ID_SIZE, read_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
-					if (is_message_active) {
+					if (is_message_active && current_message_id > message_id) {
 						is_message_active = false;
 						memcpy_s(read_batch.get() + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE, &is_message_active, MESSAGE_IS_ACTIVE_SIZE);
 						Helper::update_checksum(read_batch.get() + offset, message_bytes);

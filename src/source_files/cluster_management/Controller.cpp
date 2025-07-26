@@ -236,7 +236,8 @@ void Controller::append_entries_to_followers() {
 					auto messages_res = this->mh->read_partition_messages(
 						this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
 						req.get()->prev_log_index - 1,
-						1
+						1,
+						true
 					);
 
 					if (std::get<4>(messages_res) == 1) {
@@ -389,7 +390,7 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 			if (this->commit_index > message_to_delete_from)
 				throw std::exception("Node has commit index larger than current leader");
 
-			if (!this->mh->remove_messages_after_message_id(partition, request->prev_log_index))
+			if (!this->mh->remove_messages_after_message_id(partition, message_to_delete_from))
 				throw std::exception("Failed to remove uncommited logs");
 
 			if (message_to_delete_from > 1) {
@@ -1105,7 +1106,7 @@ void Controller::check_for_commit_and_last_applied_diff() {
 
 		try
 		{
-			auto& res = this->mh->read_partition_messages(partition, this->last_applied + 1);
+			auto& res = this->mh->read_partition_messages(partition, this->last_applied + 1, 0, false, true);
 
 			unsigned int total_commands = std::get<4>(res);
 
@@ -1193,7 +1194,7 @@ std::shared_ptr<AppendEntriesRequest> Controller::prepare_append_entries_request
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
 
-	auto messages_res = this->mh->read_partition_messages(queue.get()->get_partition(0), index_to_send);
+	auto messages_res = this->mh->read_partition_messages(queue.get()->get_partition(0), index_to_send, 0, false, true);
 
 	req.get()->total_commands = std::get<4>(messages_res);
 	req.get()->commands_total_bytes = std::get<3>(messages_res) - std::get<2>(messages_res);
@@ -1234,7 +1235,8 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 				auto messages_res = this->mh->read_partition_messages(
 					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
 					prev_log_index,
-					1
+					1,
+					true
 				);
 
 				if (std::get<4>(messages_res) == 1) {
@@ -1253,7 +1255,8 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 				auto messages_res = this->mh->read_partition_messages(
 					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
 					prev_log_index - 1,
-					1
+					1,
+					true
 				);
 
 				if (std::get<4>(messages_res) == 1) {
