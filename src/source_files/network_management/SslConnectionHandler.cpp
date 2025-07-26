@@ -138,7 +138,7 @@ void SslContextHandler::cleanup_ssl() {
 	EVP_cleanup();
 }
 
-int SslContextHandler::respond_to_ssl(SSL* ssl, char* res_buf, long res_buf_len) {
+int SslContextHandler::respond_to_ssl(SSL* ssl, char* res_buf, unsigned int res_buf_len) {
     int res = SSL_write(ssl, res_buf, res_buf_len) > 0;
 
     if(res <= 0) ERR_print_errors_fp(stderr);
@@ -146,7 +146,7 @@ int SslContextHandler::respond_to_ssl(SSL* ssl, char* res_buf, long res_buf_len)
     return res;
 }
 
-int SslContextHandler::receive_ssl_buffer(SSL* ssl, char* res_buf, long res_buf_len) {
+int SslContextHandler::receive_ssl_buffer(SSL* ssl, char* res_buf, unsigned int res_buf_len) {
     int res = SSL_read(ssl, res_buf, res_buf_len) > 0;
 
     if (res <= 0) ERR_print_errors_fp(stderr);

@@ -22,8 +22,8 @@ public:
 	SSL* wrap_connection_with_ssl(SSL_CTX* ctx, int fd);
 	bool free_ssl(SSL* ssl);
 
-	int respond_to_ssl(SSL* ssl, char* res_buf, long res_buf_len);
-	int receive_ssl_buffer(SSL* ssl, char* res_buf, long res_buf_len);
+	int respond_to_ssl(SSL* ssl, char* res_buf, unsigned int res_buf_len);
+	int receive_ssl_buffer(SSL* ssl, char* res_buf, unsigned int res_buf_len);
 
 	bool is_connection_broken(int response_code);
 

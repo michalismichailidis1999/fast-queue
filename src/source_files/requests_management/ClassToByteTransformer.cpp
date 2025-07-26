@@ -2,8 +2,8 @@
 
 ClassToByteTransformer::ClassToByteTransformer() {}
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesRequest* obj, bool used_as_response) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(long) + 2 * sizeof(int) + 4 * sizeof(unsigned long long) + 6 * sizeof(RequestValueKey) + obj->commands_total_bytes;
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesRequest* obj, bool used_as_response) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + sizeof(long) + 2 * sizeof(int) + 4 * sizeof(unsigned long long) + 6 * sizeof(RequestValueKey) + obj->commands_total_bytes;
 	
 	if (used_as_response) buf_size += sizeof(ErrorCode);
 
@@ -22,8 +22,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 
 	long offset = 0;
 
-	memcpy_s(buf.get() + offset, sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	if (used_as_response) {
 		memcpy_s(buf.get() + offset, sizeof(ErrorCode), &error, sizeof(ErrorCode));
@@ -75,11 +75,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	if(obj->total_commands > 0)
 		memcpy_s(buf.get() + offset, obj->commands_total_bytes, obj->commands_data, obj->commands_total_bytes);
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(RequestVoteRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(int) + 3 * sizeof(long long) + 4 * sizeof(RequestValueKey);
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(RequestVoteRequest* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + sizeof(int) + 3 * sizeof(long long) + 4 * sizeof(RequestValueKey);
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	RequestType req_type = RequestType::REQUEST_VOTE;
@@ -91,8 +91,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Reques
 
 	long offset = 0;
 
-	memcpy_s(buf.get() + offset, sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
 	offset += sizeof(RequestType);
@@ -106,26 +106,25 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Reques
 	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &term_type, sizeof(RequestValueKey));
 	offset += sizeof(RequestValueKey);
 
-	memcpy_s(buf.get() + offset, sizeof(long long), &obj->term, sizeof(long long));
-	offset += sizeof(long long);
-	long term_offset = offset;
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->term, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &last_log_index_type, sizeof(RequestValueKey));
 	offset += sizeof(RequestValueKey);
 
-	memcpy_s(buf.get() + offset, sizeof(long long), &obj->last_log_index, sizeof(long long));
-	offset += sizeof(long long);
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->last_log_index, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &last_log_term_type, sizeof(RequestValueKey));
 	offset += sizeof(RequestValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(long long), &obj->last_log_term, sizeof(long long));
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNodeHeartbeatRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + 5 * sizeof(int) + sizeof(bool) + 6 * sizeof(RequestValueKey) + obj->address_length + obj->external_address_length;
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNodeHeartbeatRequest* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + 5 * sizeof(int) + sizeof(bool) + 6 * sizeof(RequestValueKey) + obj->address_length + obj->external_address_length;
 
 	RequestType req_type = RequestType::DATA_NODE_HEARTBEAT;
 
@@ -140,8 +139,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 
 	long offset = 0;
 
-	memcpy_s(buf.get() + offset, sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
 	offset += sizeof(RequestType);
@@ -188,11 +187,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->register_node, sizeof(bool));
 	offset += sizeof(bool);
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClusterMetadataUpdateRequest* obj) {
-	long buf_size = sizeof(long) + sizeof(RequestType) + sizeof(int) + 2 * sizeof(bool) + 2 * sizeof(unsigned long long) + 5 * sizeof(RequestValueKey);
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClusterMetadataUpdateRequest* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + sizeof(int) + 2 * sizeof(bool) + 2 * sizeof(unsigned long long) + 5 * sizeof(RequestValueKey);
 
 	RequestType req_type = RequestType::GET_CLUSTER_METADATA_UPDATES;
 
@@ -206,8 +205,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClu
 
 	long offset = 0;
 
-	memcpy_s(buf.get() + offset, sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
 	offset += sizeof(RequestType);
@@ -241,11 +240,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetClu
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->is_first_request, sizeof(bool));
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(unsigned long long) + 2 * sizeof(bool) + 3 * sizeof(ResponseValueKey);
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(AppendEntriesResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(unsigned long long) + 2 * sizeof(bool) + 3 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -256,8 +255,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 	ResponseValueKey log_matched_type = ResponseValueKey::LOG_MATCHED;
 	ResponseValueKey success_type = ResponseValueKey::SUCCESS;
 
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -279,11 +278,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Append
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->success, sizeof(bool));
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(RequestVoteResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(unsigned long long) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(RequestVoteResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(unsigned long long) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -293,8 +292,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Reques
 	ResponseValueKey term_type = ResponseValueKey::TERM;
 	ResponseValueKey vote_granted_type = ResponseValueKey::VOTE_GRANTED;
 
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -310,11 +309,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Reques
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->vote_granted, sizeof(bool));
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNodeHeartbeatResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(int) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNodeHeartbeatResponse* obj) {
+	long buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -324,8 +323,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -341,11 +340,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DataNo
 
 	memcpy_s(buf.get() + offset, sizeof(int), &obj->leader_id, sizeof(int));
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(CreateQueueResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(CreateQueueResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -354,8 +353,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Create
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -365,11 +364,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Create
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(DeleteQueueResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(DeleteQueueResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -378,8 +377,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Delete
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -389,13 +388,13 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Delete
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetControllerConnectionInfoResponse* obj) {
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(GetControllerConnectionInfoResponse* obj) {
 	int count = obj->connection_infos.size();
 
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey) + count * (3 * sizeof(int) + sizeof(ResponseValueKey));
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey) + count * (3 * sizeof(int) + sizeof(ResponseValueKey));
 
 	for (auto& info : obj->connection_infos)
 		buf_size += std::get<1>(info)->address.size();
@@ -408,8 +407,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetCon
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 	ResponseValueKey connection_info_type = ResponseValueKey::NODE_CONNECTION_INFO;
 
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -441,11 +440,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetCon
 		offset += sizeof(int);
 	}
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetLeaderIdResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey);
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(GetLeaderIdResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -454,8 +453,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetLea
 
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -465,11 +464,11 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetLea
 
 	memcpy_s(buf.get() + offset, sizeof(int), &obj->leader_id, sizeof(int));
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(ProduceMessagesResponse* obj) {
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(ProduceMessagesResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -478,8 +477,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Produc
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -489,13 +488,13 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(Produc
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetQueuePartitionsInfoResponse* obj) {
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(GetQueuePartitionsInfoResponse* obj) {
 	int count = obj->connection_infos.size();
 
-	long buf_size = sizeof(long) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey) + count * (4 * sizeof(int) + sizeof(ResponseValueKey));
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) + sizeof(ResponseValueKey) + count * (4 * sizeof(int) + sizeof(ResponseValueKey));
 
 	for (auto& info : obj->connection_infos)
 		buf_size += std::get<2>(info)->external_address.size();
@@ -508,8 +507,8 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetQue
 	ResponseValueKey total_partitions_type = ResponseValueKey::TOTAL_PARTITIONS;
 	ResponseValueKey connection_info_type = ResponseValueKey::PARTITION_NODE_CONNECTION_INFO;
 
-	memcpy_s(buf.get(), sizeof(long), &buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -545,5 +544,5 @@ std::tuple<long, std::shared_ptr<char>> ClassToByteTransformer::transform(GetQue
 		offset += sizeof(int);
 	}
 
-	return std::tuple<long, std::shared_ptr<char>>(buf_size, buf);
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }

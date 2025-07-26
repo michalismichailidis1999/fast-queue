@@ -77,6 +77,8 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 
 	req.get()->messages = std::make_shared<std::vector<char*>>();
 	req.get()->messages_sizes = std::make_shared<std::vector<int>>();
+	req.get()->messages_keys = std::make_shared<std::vector<char*>>();
+	req.get()->messages_keys_sizes = std::make_shared<std::vector<int>>();
 
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);

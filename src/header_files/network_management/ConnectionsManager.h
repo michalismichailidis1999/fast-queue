@@ -60,12 +60,12 @@ private:
 public:
 	ConnectionsManager(SocketHandler* socket_handler, SslContextHandler* ssl_context_handler, ResponseMapper* response_mapper, Util* util, Settings* settings, Logger* logger, std::atomic_bool* should_terminate);
 
-	bool receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char* res_buf, long res_buf_len);
-	bool respond_to_socket(SOCKET_ID socket, SSL* ssl, char* res_buf, long res_buf_len);
+	bool receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char* res_buf, unsigned int res_buf_len);
+	bool respond_to_socket(SOCKET_ID socket, SSL* ssl, char* res_buf, unsigned int res_buf_len);
 	bool respond_to_socket_with_error(SOCKET_ID socket, SSL* ssl, ErrorCode error_code, const std::string& error_message);
 
-	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, long buf_len, const std::string& internal_requets_type);
-	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(ConnectionPool* pool, int retries, char* buf, long buf_len, const std::string& internal_requets_type);
+	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, unsigned int buf_len, const std::string& internal_requets_type);
+	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(ConnectionPool* pool, int retries, char* buf, unsigned int buf_len, const std::string& internal_requets_type);
 
 	bool connect_to_data_node(int node_id, std::shared_ptr<ConnectionInfo> info, long fail_wait_milli = 3000);
 
@@ -100,4 +100,6 @@ public:
 	std::shared_ptr<ConnectionPool> get_controller_node_connection(int node_id);
 
 	std::shared_ptr<ConnectionPool> get_node_connection_pool(int node_id);
+
+	void close_socket_connection(SOCKET_ID socket, SSL* ssl);
 }; 

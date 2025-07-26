@@ -150,11 +150,11 @@ SOCKET_ID SocketHandler::accept_connection(SOCKET_ID listen_socket) {
     return accept(listen_socket, NULL, NULL);
 }
 
-int SocketHandler::respond_to_socket(SOCKET_ID socket, char* res_buf, long res_buf_len) {
+int SocketHandler::respond_to_socket(SOCKET_ID socket, char* res_buf, unsigned int res_buf_len) {
     return send(socket, res_buf, res_buf_len, 0);
 }
 
-int SocketHandler::receive_socket_buffer(SOCKET_ID socket, char* res_buf, long res_buf_len) {
+int SocketHandler::receive_socket_buffer(SOCKET_ID socket, char* res_buf, unsigned int res_buf_len) {
     return recv(socket, res_buf, res_buf_len, 0);
 }
 

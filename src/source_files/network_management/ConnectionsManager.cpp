@@ -12,7 +12,7 @@ ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, SslContext
 	this->failed_to_create_ssl_context = settings->get_internal_ssl_enabled() && this->ssl_context.get() == NULL;
 }
 
-bool ConnectionsManager::receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char* res_buf, long res_buf_len) {
+bool ConnectionsManager::receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char* res_buf, unsigned int res_buf_len) {
 	int res_code = ssl != NULL
 		? this->ssl_context_handler->receive_ssl_buffer(ssl, res_buf, res_buf_len)
 		: this->socket_handler->receive_socket_buffer(socket, res_buf, res_buf_len);
@@ -36,7 +36,7 @@ bool ConnectionsManager::receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char*
 	return res_code > 0;
 }
 
-bool ConnectionsManager::respond_to_socket(SOCKET_ID socket, SSL* ssl, char* res_buf, long res_buf_len) {
+bool ConnectionsManager::respond_to_socket(SOCKET_ID socket, SSL* ssl, char* res_buf, unsigned int res_buf_len) {
 	try
 	{
 		int res_code = ssl != NULL
@@ -96,7 +96,7 @@ bool ConnectionsManager::respond_to_socket_with_error(SOCKET_ID socket, SSL* ssl
 }
 
 // For internal communication only
-std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, long buf_len, const std::string& internal_requets_type) {
+std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
 	try
 	{
 		this->logger->log_info("Sending internal request of type " + internal_requets_type);
@@ -140,7 +140,7 @@ std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_t
 	}
 }
 
-std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_to_socket(ConnectionPool* pool, int retries, char* buf, long buf_len, const std::string& internal_requets_type) {
+std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_to_socket(ConnectionPool* pool, int retries, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
 	try
 	{
 		while (retries > 0) {
@@ -538,4 +538,9 @@ std::shared_ptr<ConnectionPool> ConnectionsManager::get_node_connection_pool(int
 	}
 
 	return nullptr;
+}
+
+void ConnectionsManager::close_socket_connection(SOCKET_ID socket, SSL* ssl) {
+	if (ssl != NULL) this->ssl_context_handler->free_ssl(ssl);
+	this->socket_handler->close_socket(socket);
 }

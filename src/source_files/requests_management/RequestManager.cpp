@@ -18,9 +18,9 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 	try
 	{
-		std::unique_ptr<char> req_size_buf = std::unique_ptr<char>(new char[sizeof(long)]);
+		std::unique_ptr<char> req_size_buf = std::unique_ptr<char>(new char[sizeof(int)]);
 
-		bool success = this->cm->receive_socket_buffer(socket, ssl, req_size_buf.get(), sizeof(long));
+		bool success = this->cm->receive_socket_buffer(socket, ssl, req_size_buf.get(), sizeof(int));
 
 		if (!success) {
 			this->cm->remove_socket_lock(socket);
@@ -28,14 +28,23 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			return;
 		}
 
-		long res_buffer_length = *((long*)req_size_buf.get());
+		int res_buffer_length = *((int*)req_size_buf.get());
 
-		res_buffer_length -= sizeof(long);
+		res_buffer_length -= sizeof(int);
 
 		if (res_buffer_length <= 0) {
 			this->logger->log_error("Received invalid request body format");
 			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Invalid request body format");
 			this->cm->remove_socket_lock(socket);
+			return;
+		}
+		
+		if (res_buffer_length > this->settings->get_max_message_size() && !internal_communication) {
+			std::string err_msg = "Message bytes (" + std::to_string(res_buffer_length) + ") was larger than maximum allowed bytes (" + std::to_string(this->settings->get_max_message_size()) + "). Closing this socket connection";
+			this->cm->close_socket_connection(socket, ssl);
+			this->cm->remove_socket_lock(socket);
+			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::TOO_MANY_BYTES_RECEIVED, err_msg);
+			this->logger->log_error(err_msg);
 			return;
 		}
 
@@ -47,13 +56,6 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 		lock_removed = true;
 
 		if (!success) return;
-
-		if (res_buffer_length > this->settings->get_max_message_size() && !internal_communication) {
-			std::string err_msg = "Message bytes (" + std::to_string(res_buffer_length) + ") was larger than maximum allowed bytes (" + std::to_string(this->settings->get_max_message_size()) + ")";
-			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::TOO_MANY_BYTES_RECEIVED, err_msg);
-			this->logger->log_error(err_msg);
-			return;
-		}
 
 		RequestType request_type = (RequestType)((int)recvbuf.get()[0]);
 

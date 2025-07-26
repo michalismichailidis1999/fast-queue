@@ -35,9 +35,9 @@ struct DataNodeHeartbeatRequest {
 
 struct RequestVoteRequest {
 	int candidate_id;
-	long long term;
-	long long last_log_index;
-	long long last_log_term;
+	unsigned long long term;
+	unsigned long long last_log_index;
+	unsigned long long last_log_term;
 };
 
 struct GetClusterMetadataUpdateRequest {
