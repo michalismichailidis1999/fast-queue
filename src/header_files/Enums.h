@@ -48,7 +48,7 @@ enum class RequestValueKey {
 	PARTITIONS,
 	REPLICATION_FACTOR,
 	PARTITION,
-	MESSAGE,
+	MESSAGES,
 
 	// Internal Communication
 	NODE_ID,

@@ -90,18 +90,25 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 		} else if (*key == RequestValueKey::PARTITION) {
 			req.get()->partition = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
-		} else if (*key == RequestValueKey::MESSAGE) {
-			int* message_key_size = (int*)(recvbuf + offset + sizeof(RequestValueKey));
-			int* message_size = (int*)(recvbuf + offset + sizeof(RequestValueKey) + sizeof(int));
-			char* message_key = (char*)(recvbuf + offset + sizeof(RequestValueKey) + 2 * sizeof(int));
-			char* message = (char*)(recvbuf + offset + sizeof(RequestValueKey) + 2 * sizeof(int) + *message_key_size);
+		} else if (*key == RequestValueKey::MESSAGES) {
+			int messages_total_bytes = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
 
-			req.get()->messages_keys_sizes.get()->push_back(*message_key_size);
-			req.get()->messages_sizes.get()->push_back(*message_size);
-			req.get()->messages_keys.get()->push_back(message_key);
-			req.get()->messages.get()->push_back(message);
+			unsigned int end_offset = offset + messages_total_bytes;
 
-			offset += sizeof(RequestValueKey) + 2 * sizeof(int) + (*message_size) + (*message_key_size);
+			while (offset < end_offset) {
+				int* message_key_size = (int*)(recvbuf + offset);
+				int* message_size = (int*)(recvbuf + offset + sizeof(int));
+				char* message_key = (char*)(recvbuf + offset + 2 * sizeof(int));
+				char* message = (char*)(recvbuf + offset + 2 * sizeof(int) + *message_key_size);
+
+				req.get()->messages_keys_sizes.get()->push_back(*message_key_size);
+				req.get()->messages_sizes.get()->push_back(*message_size);
+				req.get()->messages_keys.get()->push_back(message_key);
+				req.get()->messages.get()->push_back(message);
+
+				offset += sizeof(RequestValueKey) + 2 * sizeof(int) + (*message_size) + (*message_key_size);
+			}
 		} else if (*key == RequestValueKey::USERNAME) {
 			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			req.get()->username = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
