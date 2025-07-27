@@ -461,10 +461,6 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
         while (offset <= bytes_read - MESSAGE_TOTAL_BYTES) {
             memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 
-            if (message_bytes > 1000) {
-                int temp2 = 1;
-            }
-
             if (offset + message_bytes > bytes_read - MESSAGE_TOTAL_BYTES) break;
 
             memcpy_s(&message_id, MESSAGE_ID_SIZE, read_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
@@ -477,7 +473,26 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
         segment->set_last_message_offset(message_id);
         segment->set_last_message_timestamp(message_timestamp);
 
-        if (bytes_read < READ_MESSAGES_BATCH_SIZE) break;
+        if (bytes_read < READ_MESSAGES_BATCH_SIZE) {
+            if (offset + message_bytes > bytes_read) {
+                std::unique_ptr<char> corrupted_message = std::unique_ptr<char>(new char[message_bytes]);
+                bool ia_active = false;
+
+                memcpy_s(corrupted_message.get(), message_bytes, read_batch.get() + offset, message_bytes);
+                memcpy_s(corrupted_message.get() + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE, &ia_active, MESSAGE_IS_ACTIVE_SIZE);
+
+                this->fh->write_to_file(
+                    segment->get_segment_key(),
+                    segment->get_segment_path(),
+                    message_bytes,
+                    read_pos + offset,
+                    corrupted_message.get(),
+                    true
+                );
+            }
+
+            break;
+        }
 
         if (message_bytes > batch_size) {
             batch_size = message_bytes;
