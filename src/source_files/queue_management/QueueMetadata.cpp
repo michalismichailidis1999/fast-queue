@@ -77,7 +77,7 @@ std::tuple<int, std::shared_ptr<char>> QueueMetadata::get_metadata_bytes() {
 	memcpy_s(bytes.get() + QUEUE_LAST_APPLIED_INDEX_OFFSET, QUEUE_LAST_APPLIED_INDEX_SIZE, &this->last_applied_index, QUEUE_LAST_APPLIED_INDEX_SIZE);
 	memcpy_s(bytes.get() + QUEUE_CLEANUP_POLICY_OFFSET, QUEUE_CLEANUP_POLICY_SIZE, &this->cleanup_policy, QUEUE_CLEANUP_POLICY_SIZE);
 
-	Helper::add_common_metadata_values((void*)(bytes.get()), QUEUE_METADATA_TOTAL_BYTES, ObjectType::METADATA);
+	Helper::add_common_metadata_values((void*)(bytes.get()), QUEUE_METADATA_TOTAL_BYTES);
 
 	return std::tuple<int, std::shared_ptr<char>>(QUEUE_METADATA_TOTAL_BYTES, bytes);
 }

@@ -142,7 +142,7 @@ std::tuple<long, std::shared_ptr<char>> PartitionSegment::get_metadata_bytes() {
 	memcpy_s(bytes.get() + SEGMENT_IS_COMPACTED_OFFSET, SEGMENT_IS_COMPACTED_SIZE, &this->compacted, SEGMENT_IS_READ_ONLY_SIZE);
 	memcpy_s(bytes.get() + SEGMENT_LAST_INDEX_PAGE_OFFSET_OFFSET, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE, &this->last_index_page_offset, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE);
 
-	Helper::add_common_metadata_values((void*)(bytes.get()), SEGMENT_METADATA_TOTAL_BYTES, ObjectType::METADATA);
+	Helper::add_common_metadata_values((void*)(bytes.get()), SEGMENT_METADATA_TOTAL_BYTES);
 
 	return std::tuple<long, std::shared_ptr<char>>(SEGMENT_METADATA_TOTAL_BYTES, bytes);
 }

@@ -44,6 +44,8 @@ private:
 	std::shared_ptr<PartitionSegment> initialize_compacted_segment_write_locations(Partition* partition, PartitionSegment* segment);
 
 	std::shared_ptr<PartitionSegment> get_prev_compacted_segment(Partition* partition, unsigned long long prev_segment_id);
+
+	unsigned int get_key_offset(const std::string& queue_name, void* message_data);
 public:
 	CompactionHandler(Controller* controller, QueueManager* qm, MessagesHandler* mh, SegmentLockManager* lock_manager, ClusterMetadataApplyHandler* cmah, FileHandler* fh, QueueSegmentFilePathMapper* pm, Logger* logger, Settings* settings);
 

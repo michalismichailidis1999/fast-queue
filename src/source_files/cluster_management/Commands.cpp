@@ -71,38 +71,46 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 	long total_bytes = 0;
 	int size_dif = COMMAND_TOTAL_BYTES;
 
+	unsigned int key_offset = 0;
+
 	std::string key = "";
 
 	switch (this->type) {
 	case CommandType::CREATE_QUEUE:
-		total_bytes = CQ_COMMAND_TOTAL_BYTES;
+		key = ((CreateQueueCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = CQ_COMMAND_TOTAL_BYTES + key.size();
 		size_dif = CQ_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
-		key = ((CreateQueueCommand*)(this->command_info.get()))->get_metadata_bytes().get();
+		key_offset = CQ_COMMAND_TOTAL_BYTES;
 		break;
 	case CommandType::ALTER_PARTITION_ASSIGNMENT:
-		total_bytes = PA_COMMAND_TOTAL_BYTES;
+		key = ((PartitionAssignmentCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = PA_COMMAND_TOTAL_BYTES + key.size();
 		size_dif = PA_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
-		key = ((PartitionAssignmentCommand*)(this->command_info.get()))->get_metadata_bytes().get();
+		key_offset = PA_COMMAND_TOTAL_BYTES;
 		break;
 	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT:
-		total_bytes = PLA_COMMAND_TOTAL_BYTES;
+		key = ((PartitionLeaderAssignmentCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = PLA_COMMAND_TOTAL_BYTES + key.size();
 		size_dif = PLA_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
-		key = ((PartitionLeaderAssignmentCommand*)(this->command_info.get()))->get_metadata_bytes().get();
+		key_offset = PLA_COMMAND_TOTAL_BYTES;
 		break;
 	case CommandType::DELETE_QUEUE:
-		total_bytes = DQ_COMMAND_TOTAL_BYTES;
+		key = ((DeleteQueueCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = DQ_COMMAND_TOTAL_BYTES + key.size();
 		size_dif = DQ_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
-		key = ((DeleteQueueCommand*)(this->command_info.get()))->get_metadata_bytes().get();
+		key_offset = DQ_COMMAND_TOTAL_BYTES;
 		break;
 	case CommandType::REGISTER_DATA_NODE:
-		total_bytes = RDN_COMMAND_TOTAL_BYTES;
+		key = ((RegisterDataNodeCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = RDN_COMMAND_TOTAL_BYTES + key.size();
 		size_dif = RDN_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
-		key = ((RegisterDataNodeCommand*)(this->command_info.get()))->get_metadata_bytes().get();
+		key_offset = RDN_COMMAND_TOTAL_BYTES;
 		break;
 	case CommandType::UNREGISTER_DATA_NODE:
-		total_bytes = UDN_COMMAND_TOTAL_BYTES;
+		key = ((UnregisterDataNodeCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = UDN_COMMAND_TOTAL_BYTES + key.size();
 		size_dif = UDN_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
-		key = ((UnregisterDataNodeCommand*)(this->command_info.get()))->get_metadata_bytes().get();
+		key_offset = UDN_COMMAND_TOTAL_BYTES;
 		break;
 	default:
 		return std::tuple<long, std::shared_ptr<char>>(0, nullptr);
@@ -110,7 +118,7 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[total_bytes]);
 	
-	Helper::add_message_metadata_values(bytes.get(), this->metadata_version, this->timestamp, key.size(), key.c_str());
+	Helper::add_message_metadata_values(bytes.get(), this->metadata_version, this->timestamp, key.size(), key.c_str(), key_offset);
 
 	memcpy_s(bytes.get() + COMMAND_TYPE_OFFSET, COMMAND_TYPE_SIZE, &this->type, COMMAND_TYPE_SIZE);
 	memcpy_s(bytes.get() + COMMAND_TERM_OFFSET, COMMAND_TERM_SIZE, &this->term, COMMAND_TERM_SIZE);
@@ -168,7 +176,7 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		return std::tuple<long, std::shared_ptr<char>>(0, nullptr);
 	}
 
-	Helper::add_common_metadata_values(bytes.get(), total_bytes, ObjectType::MESSAGE);
+	Helper::add_common_metadata_values(bytes.get(), total_bytes);
 
 	return std::tuple<long, std::shared_ptr<char>>(total_bytes, bytes);
 }

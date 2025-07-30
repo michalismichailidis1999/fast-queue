@@ -59,7 +59,7 @@ std::tuple<std::shared_ptr<char>, unsigned int> BTreeNode::get_page_bytes() {
 		offset += INDEX_KEY_VALUE_METADATA_SIZE;
 	}
 
-	Helper::add_common_metadata_values(bytes.get(), INDEX_PAGE_SIZE, ObjectType::BTREE_PAGE);
+	Helper::add_common_metadata_values(bytes.get(), INDEX_PAGE_SIZE);
 
 	return std::tuple<std::shared_ptr<char>, unsigned int>(bytes, INDEX_PAGE_SIZE);
 }

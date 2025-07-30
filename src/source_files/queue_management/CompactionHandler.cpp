@@ -252,15 +252,17 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 
 				if (offset + message_bytes > bytes_read) break;
 
-				memcpy_s(&key_size, MESSAGE_KEY_LENGTH_SIZE, read_batch.get() + offset + MESSAGE_KEY_LENGTH_OFFSET, MESSAGE_KEY_LENGTH_SIZE);
+				unsigned int key_offset = this->get_key_offset(partition->get_queue_name(), read_batch.get() + offset);
 
-				if (i == 0 && key_size == 0) {
+				memcpy_s(&key_size, MESSAGE_KEY_SIZE, read_batch.get() + offset + MESSAGE_KEY_OFFSET, MESSAGE_KEY_SIZE);
+
+				if (i == 0 && (key_size == 0 || key_offset == 0)) {
 					offset += message_bytes;
 					continue;
 				}
 
 				if (i == 0) {
-					key = std::string(read_batch.get() + offset + MESSAGE_KEY_OFFSET, key_size);
+					key = std::string(read_batch.get() + offset + key_offset, key_size);
 
 					bool key_exists = this->existing_keys.find(key) != this->existing_keys.end();
 					count = this->existing_keys[key];
@@ -274,7 +276,7 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 					continue;
 				}
 
-				if (key_size == 0) {
+				if (key_size == 0 || key_offset == 0) {
 					this->mh->save_messages(partition, read_batch.get() + offset, message_bytes, write_segment);
 					offset += message_bytes;
 					continue;
@@ -310,6 +312,24 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 			batch_size = READ_MESSAGES_BATCH_SIZE;
 			read_batch = std::unique_ptr<char>(new char[batch_size]);
 		}
+	}
+}
+
+unsigned int CompactionHandler::get_key_offset(const std::string& queue_name, void* message_data) {
+	bool is_internal_queue = Helper::is_internal_queue(queue_name);
+
+	if (is_internal_queue) return MESSAGE_TOTAL_BYTES;
+
+	CommandType type = CommandType::NONE;
+
+	switch (type) {
+		case CommandType::CREATE_QUEUE: return CQ_COMMAND_TOTAL_BYTES;
+		case CommandType::DELETE_QUEUE: return DQ_COMMAND_TOTAL_BYTES;
+		case CommandType::ALTER_PARTITION_ASSIGNMENT: return PA_COMMAND_TOTAL_BYTES;
+		case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT: return PLA_COMMAND_TOTAL_BYTES;
+		case CommandType::REGISTER_DATA_NODE: return RDN_COMMAND_TOTAL_BYTES;
+		case CommandType::UNREGISTER_DATA_NODE: return UDN_COMMAND_TOTAL_BYTES;
+		default: 0;
 	}
 }
 

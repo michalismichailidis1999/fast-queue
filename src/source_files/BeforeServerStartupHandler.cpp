@@ -384,7 +384,7 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
     segment->set_index(index_file_key, index_file_path);
 
     if (this->fh->check_if_exists(index_file_path)) {
-        std::string partition_info = partition > 0
+        std::string partition_info = partition >= 0
             ? " partition " + std::to_string(partition) + " "
             : " ";
 

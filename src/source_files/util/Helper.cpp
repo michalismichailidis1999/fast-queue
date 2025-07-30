@@ -1,9 +1,8 @@
 #include "../../header_files/util/Helper.h"
 
-void Helper::add_common_metadata_values(void* metadata, long total_bytes, ObjectType type) {
+void Helper::add_common_metadata_values(void* metadata, long total_bytes) {
 	memcpy_s((char*)metadata + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES, &total_bytes, TOTAL_METADATA_BYTES);
 	memcpy_s((char*)metadata + VERSION_SIZE_OFFSET, VERSION_SIZE, &VERSION_INT_FORMAT, VERSION_SIZE);
-	memcpy_s((char*)metadata + OBJECT_TYPE_OFFSET, OBJECT_TYPE_SIZE, &type, OBJECT_TYPE_SIZE);
 
 	unsigned long long checksum = crc32(
 		crc32(0L, Z_NULL, 0), 
@@ -24,7 +23,7 @@ void Helper::update_checksum(void* metadata, long total_bytes) {
 	memcpy_s((char*)metadata + CHECKSUM_OFFSET, CHECKSUM_SIZE, &checksum, CHECKSUM_SIZE);
 }
 
-void Helper::add_message_metadata_values(void* metadata, unsigned long long message_id, unsigned long long timestamp, unsigned int key_size, const char* key) {
+void Helper::add_message_metadata_values(void* metadata, unsigned long long message_id, unsigned long long timestamp, unsigned int key_size, const char* key, unsigned int key_offset) {
 	memcpy_s((char*)metadata + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &message_id, MESSAGE_ID_SIZE);
 	memcpy_s((char*)metadata + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE, &timestamp, MESSAGE_TIMESTAMP_SIZE);
 
@@ -34,8 +33,8 @@ void Helper::add_message_metadata_values(void* metadata, unsigned long long mess
 
 	if (key != NULL && key_size > 0)
 	{
-		memcpy_s((char*)metadata + MESSAGE_KEY_LENGTH_OFFSET, MESSAGE_KEY_LENGTH_SIZE, &key_size, MESSAGE_KEY_LENGTH_SIZE);
-		memcpy_s((char*)metadata + MESSAGE_KEY_OFFSET, key_size, key, key_size);
+		memcpy_s((char*)metadata + MESSAGE_KEY_OFFSET, MESSAGE_KEY_SIZE, &key_size, MESSAGE_KEY_SIZE);
+		memcpy_s((char*)metadata + key_offset, key_size, key, key_size);
 	}
 }
 

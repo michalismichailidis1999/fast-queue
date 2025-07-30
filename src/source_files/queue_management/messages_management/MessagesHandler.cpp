@@ -22,6 +22,9 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 	for(auto& s : *(request->messages_sizes.get()))
 		total_messages_bytes += s + MESSAGE_TOTAL_BYTES;
 
+	for (auto& s : *(request->messages_keys_sizes.get()))
+		total_messages_bytes += s;
+
 	std::unique_ptr<char> messages_data = std::unique_ptr<char>(new char[total_messages_bytes]);
 
 	unsigned int offset = 0;
@@ -35,13 +38,14 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 
 		unsigned long long message_offset = partition->get_next_message_offset();
 
-		memcpy_s(messages_data.get() + offset + MESSAGE_TOTAL_BYTES, message_size, message_body, message_size);
+		memcpy_s(messages_data.get() + offset + MESSAGE_PAYLOAD_OFFSET, MESSAGE_PAYLOAD_SIZE, &message_size, MESSAGE_PAYLOAD_SIZE);
+		memcpy_s(messages_data.get() + offset + MESSAGE_TOTAL_BYTES + message_key_size, message_size, message_body, message_size);
 
 		Helper::add_message_metadata_values(messages_data.get() + offset, message_offset, current_timestamp, message_key_size, message_key);
 
-		Helper::add_common_metadata_values(messages_data.get() + offset, message_size + MESSAGE_TOTAL_BYTES, ObjectType::MESSAGE);
+		Helper::add_common_metadata_values(messages_data.get() + offset, message_key_size + message_size + MESSAGE_TOTAL_BYTES);
 
-		offset += MESSAGE_TOTAL_BYTES + message_size;
+		offset += MESSAGE_TOTAL_BYTES + message_key_size + message_size;
 	}
 
 	return this->save_messages(partition, messages_data.get(), total_messages_bytes, nullptr, cache_messages);

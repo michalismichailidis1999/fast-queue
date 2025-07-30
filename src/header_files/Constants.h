@@ -47,9 +47,7 @@ static const unsigned int VERSION_SIZE = sizeof(unsigned int);
 static const unsigned int VERSION_SIZE_OFFSET = TOTAL_METADATA_BYTES + TOTAL_METADATA_BYTES_OFFSET;
 static const unsigned int CHECKSUM_SIZE = sizeof(unsigned long long);
 static const unsigned int CHECKSUM_OFFSET = VERSION_SIZE + VERSION_SIZE_OFFSET;
-static const unsigned int OBJECT_TYPE_SIZE = sizeof(unsigned int);
-static const unsigned int OBJECT_TYPE_OFFSET = CHECKSUM_SIZE + CHECKSUM_OFFSET;
-static const unsigned int COMMON_METADATA_TOTAL_BYTES = TOTAL_METADATA_BYTES + VERSION_SIZE + CHECKSUM_SIZE + OBJECT_TYPE_SIZE;
+static const unsigned int COMMON_METADATA_TOTAL_BYTES = TOTAL_METADATA_BYTES + VERSION_SIZE + CHECKSUM_SIZE;
 
 static const unsigned int INDEX_PAGE_OFFSET_SIZE = sizeof(unsigned long long);
 static const unsigned int INDEX_PAGE_OFFSET_OFFSET = COMMON_METADATA_TOTAL_BYTES;
@@ -87,11 +85,11 @@ static const unsigned int MESSAGE_TIMESTAMP_SIZE = sizeof(unsigned long long);
 static const unsigned int MESSAGE_TIMESTAMP_OFFSET = MESSAGE_ID_SIZE + MESSAGE_ID_OFFSET;
 static const unsigned int MESSAGE_IS_ACTIVE_SIZE = sizeof(bool);
 static const unsigned int MESSAGE_IS_ACTIVE_OFFSET = MESSAGE_TIMESTAMP_SIZE + MESSAGE_TIMESTAMP_OFFSET;
-static const unsigned int MESSAGE_KEY_LENGTH_SIZE = sizeof(unsigned int);
-static const unsigned int MESSAGE_KEY_LENGTH_OFFSET = MESSAGE_IS_ACTIVE_SIZE + MESSAGE_IS_ACTIVE_OFFSET;
-static const unsigned int MESSAGE_KEY_SIZE = sizeof(char) * MAX_MESSAGE_KEY_CHARS;
-static const unsigned int MESSAGE_KEY_OFFSET = MESSAGE_KEY_LENGTH_SIZE + MESSAGE_KEY_LENGTH_OFFSET;
-static const unsigned int MESSAGE_TOTAL_BYTES = COMMON_METADATA_TOTAL_BYTES + MESSAGE_ID_SIZE + MESSAGE_TIMESTAMP_SIZE + MESSAGE_IS_ACTIVE_SIZE + MESSAGE_KEY_LENGTH_SIZE + MESSAGE_KEY_SIZE;
+static const unsigned int MESSAGE_KEY_SIZE = sizeof(unsigned int);
+static const unsigned int MESSAGE_KEY_OFFSET = MESSAGE_IS_ACTIVE_SIZE + MESSAGE_IS_ACTIVE_OFFSET;
+static const unsigned int MESSAGE_PAYLOAD_SIZE = sizeof(unsigned int);
+static const unsigned int MESSAGE_PAYLOAD_OFFSET = MESSAGE_KEY_SIZE + MESSAGE_KEY_OFFSET;
+static const unsigned int MESSAGE_TOTAL_BYTES = COMMON_METADATA_TOTAL_BYTES + MESSAGE_ID_SIZE + MESSAGE_TIMESTAMP_SIZE + MESSAGE_IS_ACTIVE_SIZE + MESSAGE_KEY_SIZE + MESSAGE_PAYLOAD_SIZE;
 
 static const unsigned int QUEUE_NAME_SIZE = MAX_QUEUE_NAME_CHARS * sizeof(char);
 static const unsigned int QUEUE_NAME_OFFSET = COMMON_METADATA_TOTAL_BYTES;
@@ -175,6 +173,7 @@ static const unsigned int DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET = COMMAND_TOTAL_BY
 static const unsigned int DQ_COMMAND_QUEUE_NAME_SIZE = sizeof(char) * MAX_QUEUE_NAME_CHARS;
 static const unsigned int DQ_COMMAND_QUEUE_NAME_OFFSET = DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE + DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET;
 static const unsigned int DQ_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE + DQ_COMMAND_QUEUE_NAME_SIZE;
+
 static const unsigned int RDN_COMMAND_NODE_ID_SIZE = sizeof(unsigned int);
 static const unsigned int RDN_COMMAND_NODE_ID_OFFSET = COMMAND_TOTAL_BYTES;
 static const unsigned int RDN_COMMAND_ADDRESS_LENGTH_SIZE = sizeof(unsigned int);

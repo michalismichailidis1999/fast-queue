@@ -117,19 +117,13 @@ enum class MessageType {
 };
 
 enum class CommandType {
+	NONE,
 	CREATE_QUEUE,
 	DELETE_QUEUE,
 	ALTER_PARTITION_ASSIGNMENT,
 	ALTER_PARTITION_LEADER_ASSIGNMENT,
 	REGISTER_DATA_NODE,
 	UNREGISTER_DATA_NODE
-};
-
-enum class ObjectType {
-	METADATA,
-	MESSAGE,
-	MARKER,
-	BTREE_PAGE
 };
 
 enum class CommitMarkerStatus {
