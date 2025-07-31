@@ -58,6 +58,7 @@ struct GetQueuePartitionsInfoResponse {
 
 struct RegisterConsumerResponse {
 	bool ok;
+	unsigned long long consumer_id;
 };
 
 // =======================================================

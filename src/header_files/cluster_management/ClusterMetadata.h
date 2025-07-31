@@ -19,6 +19,7 @@ private:
 
 	IndexedHeap<int, int>* nodes_partition_counts;
 	IndexedHeap<int, int>* nodes_leader_partition_counts;
+	IndexedHeap<int, int>* consumers_partition_counts;
 
 	// nodes_partitions_mut used for all the below maps
 	std::unordered_map<int, std::shared_ptr<std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>>>> nodes_partitions;
@@ -28,10 +29,14 @@ private:
 	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, int>>> partition_leader_nodes;
 	// ======================================================
 
+	unsigned long long last_consumer_id;
+	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, unsigned long long>>> partition_consumers;
+
 	std::unordered_map<std::string, std::shared_ptr<QueueMetadata>> queues;
 
 	std::mutex nodes_partitions_mut;
 	std::mutex queues_mut;
+	std::mutex consumers_mut;
 
 	void apply_create_queue_command(CreateQueueCommand* command);
 	void apply_delete_queue_command(DeleteQueueCommand* command);

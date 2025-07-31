@@ -141,5 +141,5 @@ public:
 
 	unsigned long long get_last_log_term();
 
-	void assign_consumer_group_to_partitions(RegisterConsumerRequest* request);
+	unsigned long long assign_consumer_group_to_partitions(RegisterConsumerRequest* request, Queue* queue);
 };

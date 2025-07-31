@@ -556,11 +556,18 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	int offset = 0;
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
+	ResponseValueKey consumer_id_type = ResponseValueKey::CONSUMER_ID;
 
 	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &ok_type, sizeof(ResponseValueKey));
 	offset += sizeof(ResponseValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
+	offset += sizeof(bool);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &consumer_id_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->consumer_id, sizeof(unsigned long long));
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }

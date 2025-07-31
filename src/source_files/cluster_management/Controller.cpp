@@ -1301,6 +1301,36 @@ unsigned long long Controller::get_last_log_term() {
 	return this->last_log_term;
 }
 
-void Controller::assign_consumer_group_to_partitions(RegisterConsumerRequest* request) {
+unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsumerRequest* request, Queue* queue) {
+	std::lock_guard<std::mutex> lock(this->future_cluster_metadata->consumers_mut);
 
+	const std::string& queue_name = queue->get_metadata()->get_name();
+	int total_queue_partitions = queue->get_metadata()->get_partitions();
+
+	auto partition_consumers = this->future_cluster_metadata->partition_consumers[queue_name];
+
+	if (partition_consumers == nullptr) {
+		partition_consumers = std::make_shared<std::unordered_map<int, unsigned long long>>();
+		this->future_cluster_metadata->partition_consumers[queue_name] = partition_consumers;
+	}
+
+	unsigned long long consumer_id = ++this->future_cluster_metadata->last_consumer_id;
+
+	if (partition_consumers.get()->size() == total_queue_partitions) return consumer_id;
+
+	std::vector<Command> commands;
+
+	for (int i = 0; i < total_queue_partitions; i++)
+		if (partition_consumers.get()->find(i) == partition_consumers.get()->end()) {
+			(*(partition_consumers.get()))[i] = consumer_id;
+
+			this->future_cluster_metadata->consumers_partition_counts->insert(
+				consumer_id,
+				this->future_cluster_metadata->consumers_partition_counts->get(consumer_id) + 1
+			);
+
+			// TODO: Create commands here
+		}
+
+	this->store_commands(&commands);
 }
