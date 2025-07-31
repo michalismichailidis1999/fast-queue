@@ -37,4 +37,6 @@ public:
 	void handle_delete_queue_request(SOCKET_ID socket, SSL* ssl, DeleteQueueRequest* request);
 
 	void handle_get_queue_partitions_info_request(SOCKET_ID socket, SSL* ssl, GetQueuePartitionsInfoRequest* request);
+
+	void handle_register_consumer_request(SOCKET_ID socket, SSL* ssl, RegisterConsumerRequest* request);
 };

@@ -20,7 +20,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode error = ErrorCode::NONE;
 
-	long offset = 0;
+	int offset = 0;
 
 	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
@@ -89,7 +89,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	RequestValueKey last_log_index_type = RequestValueKey::LAST_LOG_INDEX;
 	RequestValueKey last_log_term_type = RequestValueKey::LAST_LOG_TERM;
 
-	long offset = 0;
+	int offset = 0;
 
 	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
@@ -137,7 +137,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
-	long offset = 0;
+	int offset = 0;
 
 	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
@@ -203,7 +203,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
-	long offset = 0;
+	int offset = 0;
 
 	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
@@ -249,7 +249,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
+	int offset = 0;
 
 	ResponseValueKey term_type = ResponseValueKey::TERM;
 	ResponseValueKey log_matched_type = ResponseValueKey::LOG_MATCHED;
@@ -287,7 +287,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
+	int offset = 0;
 
 	ResponseValueKey term_type = ResponseValueKey::TERM;
 	ResponseValueKey vote_granted_type = ResponseValueKey::VOTE_GRANTED;
@@ -318,7 +318,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
+	int offset = 0;
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
@@ -349,7 +349,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
+	int offset = 0;
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 
@@ -373,7 +373,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
+	int offset = 0;
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 
@@ -402,7 +402,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
+	int offset = 0;
 
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 	ResponseValueKey connection_info_type = ResponseValueKey::NODE_CONNECTION_INFO;
@@ -449,7 +449,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
+	int offset = 0;
 
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 
@@ -473,7 +473,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
+	int offset = 0;
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 
@@ -502,7 +502,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
-	long offset = 0;
+	int offset = 0;
 
 	ResponseValueKey total_partitions_type = ResponseValueKey::TOTAL_PARTITIONS;
 	ResponseValueKey connection_info_type = ResponseValueKey::PARTITION_NODE_CONNECTION_INFO;
@@ -543,6 +543,24 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 		memcpy_s(buf.get() + offset, sizeof(int), &conn_info->external_port, sizeof(int));
 		offset += sizeof(int);
 	}
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(RegisterConsumerResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+
+	ResponseValueKey ok_type = ResponseValueKey::OK;
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &ok_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }

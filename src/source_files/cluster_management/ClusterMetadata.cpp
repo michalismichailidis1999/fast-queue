@@ -236,7 +236,7 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 		}
 	}
 
-	for (auto& iter : obj->partition_leader_nodes) { // TODO: Fix this
+	for (auto& iter : obj->partition_leader_nodes) {
 		auto queue_partition_leads = std::make_shared<std::unordered_map<int, int>>();
 
 		this->partition_leader_nodes[iter.first] = queue_partition_leads;

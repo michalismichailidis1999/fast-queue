@@ -245,3 +245,38 @@ void ClientRequestExecutor::handle_get_queue_partitions_info_request(SOCKET_ID s
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
+
+void ClientRequestExecutor::handle_register_consumer_request(SOCKET_ID socket, SSL* ssl, RegisterConsumerRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Request to register consumer must only be sent to controller nodes");
+		return;
+	}
+
+	if (this->controller->get_cluster_metadata()->get_leader_id() != this->settings->get_node_id()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Non leader node. Cannot register consumer.");
+		return;
+	}
+
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
+
+	if (Helper::is_internal_queue(queue_name)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Cannot register consumer for internal queue");
+		return;
+	}
+
+	if (queue == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
+		return;
+	}
+
+	this->controller->assign_consumer_group_to_partitions(request);
+
+	std::unique_ptr<RegisterConsumerResponse> res = std::make_unique<RegisterConsumerResponse>();
+	res.get()->ok = true;
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}

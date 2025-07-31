@@ -160,9 +160,7 @@ void ClusterMetadataApplyHandler::apply_register_data_node_command(ClusterMetada
 	info.get()->external_port = command->get_external_port();
 
 	if (!this->cm->initialize_data_node_connection_pool(command->get_node_id(), info))
-	{
 		this->logger->log_error("Error occured while trying to register data node connection pool");
-	}
 }
 
 void ClusterMetadataApplyHandler::apply_unregister_data_node_command(ClusterMetadata* cluster_metadata, UnregisterDataNodeCommand* command) {

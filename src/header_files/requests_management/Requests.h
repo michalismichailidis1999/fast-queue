@@ -52,40 +52,26 @@ struct GetClusterMetadataUpdateRequest {
 
 // External Requests
 
-struct CreateQueueRequest {
-	// For authentication
+struct AuthRequest {
 	int username_length;
 	char* username;
 	int password_length;
 	char* password;
-	// ==================
+};
 
+struct CreateQueueRequest : AuthRequest {
 	int queue_name_length;
 	char* queue_name;
 	int partitions;
 	int replication_factor;
 };
 
-struct DeleteQueueRequest {
-	// For authentication
-	int username_length;
-	char* username;
-	int password_length;
-	char* password;
-	// ==================
-
+struct DeleteQueueRequest : AuthRequest {
 	int queue_name_length;
 	char* queue_name;
 };
 
-struct ProduceMessagesRequest {
-	// For authentication
-	int username_length;
-	char* username;
-	int password_length;
-	char* password;
-	// ==================
-
+struct ProduceMessagesRequest : AuthRequest {
 	int queue_name_length;
 	char* queue_name;
 	int partition;
@@ -93,6 +79,13 @@ struct ProduceMessagesRequest {
 	std::shared_ptr<std::vector<char*>> messages_keys;
 	std::shared_ptr<std::vector<int>> messages_sizes;
 	std::shared_ptr<std::vector<int>> messages_keys_sizes;
+};
+
+struct RegisterConsumerRequest : AuthRequest {
+	int queue_name_length;
+	char* queue_name;
+	int consumer_group_id_length;
+	char* consumer_group_id;
 };
 
 struct GetQueuePartitionsInfoRequest {

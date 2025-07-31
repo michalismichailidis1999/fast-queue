@@ -56,4 +56,8 @@ struct GetQueuePartitionsInfoResponse {
 	std::vector<std::tuple<int, int, ConnectionInfo*>> connection_infos;
 };
 
+struct RegisterConsumerResponse {
+	bool ok;
+};
+
 // =======================================================

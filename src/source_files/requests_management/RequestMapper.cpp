@@ -4,8 +4,8 @@ RequestMapper::RequestMapper(Logger* logger) {
 	this->logger = logger;
 }
 
-std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
+std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<CreateQueueRequest> req = std::make_unique<CreateQueueRequest>();
 
@@ -40,8 +40,8 @@ std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char*
 	return req;
 }
 
-std::unique_ptr<DeleteQueueRequest> RequestMapper::to_delete_queue_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
+std::unique_ptr<DeleteQueueRequest> RequestMapper::to_delete_queue_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<DeleteQueueRequest> req = std::make_unique<DeleteQueueRequest>();
 
@@ -70,8 +70,8 @@ std::unique_ptr<DeleteQueueRequest> RequestMapper::to_delete_queue_request(char*
 	return req;
 }
 
-std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
+std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<ProduceMessagesRequest> req = std::make_unique<ProduceMessagesRequest>();
 
@@ -127,8 +127,8 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 	return req;
 }
 
-std::unique_ptr<GetQueuePartitionsInfoRequest> RequestMapper::to_get_queue_partitions_info_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
+std::unique_ptr<GetQueuePartitionsInfoRequest> RequestMapper::to_get_queue_partitions_info_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<GetQueuePartitionsInfoRequest> req = std::make_unique<GetQueuePartitionsInfoRequest>();
 
@@ -149,8 +149,8 @@ std::unique_ptr<GetQueuePartitionsInfoRequest> RequestMapper::to_get_queue_parti
 	return req;
 }
 
-std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(char* recvbuf, long recvbuflen, bool used_as_response) {
-	long offset = sizeof(RequestType) + (used_as_response ? sizeof(ErrorCode) : 0); // skip request type 
+std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(char* recvbuf, int recvbuflen, bool used_as_response) {
+	int offset = sizeof(RequestType) + (used_as_response ? sizeof(ErrorCode) : 0); // skip request type 
 
 	std::unique_ptr<AppendEntriesRequest> req = std::make_unique<AppendEntriesRequest>();
 
@@ -195,8 +195,8 @@ std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(c
 	return req;
 }
 
-std::unique_ptr<RequestVoteRequest> RequestMapper::to_request_vote_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
+std::unique_ptr<RequestVoteRequest> RequestMapper::to_request_vote_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<RequestVoteRequest> req = std::make_unique<RequestVoteRequest>();
 
@@ -228,8 +228,8 @@ std::unique_ptr<RequestVoteRequest> RequestMapper::to_request_vote_request(char*
 	return req;
 }
 
-std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
+std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<DataNodeHeartbeatRequest> req = std::make_unique<DataNodeHeartbeatRequest>();
 
@@ -271,8 +271,8 @@ std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_
 	return req;
 }
 
-std::unique_ptr<GetClusterMetadataUpdateRequest> RequestMapper::to_get_cluster_metadata_update_request(char* recvbuf, long recvbuflen) {
-	long offset = sizeof(RequestType); // skip request type 
+std::unique_ptr<GetClusterMetadataUpdateRequest> RequestMapper::to_get_cluster_metadata_update_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<GetClusterMetadataUpdateRequest> req = std::make_unique<GetClusterMetadataUpdateRequest>();
 
@@ -301,6 +301,43 @@ std::unique_ptr<GetClusterMetadataUpdateRequest> RequestMapper::to_get_cluster_m
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type DataNodeHeartbeatRequest");
+			throw std::exception("Invalid request value");
+		}
+	}
+
+	return req;
+}
+
+std::unique_ptr<RegisterConsumerRequest> RequestMapper::to_register_consumer_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<RegisterConsumerRequest> req = std::make_unique<RegisterConsumerRequest>();
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::QUEUE_NAME) {
+			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
+		}
+		else if (*key == RequestValueKey::CONSUMER_GROUP_ID) {
+			req.get()->consumer_group_id_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->consumer_group_id = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->consumer_group_id_length;
+		}
+		else if (*key == RequestValueKey::USERNAME) {
+			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->username = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->username_length;
+		}
+		else if (*key == RequestValueKey::PASSWORD) {
+			req.get()->password_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->password = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->password_length;
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type ProduceMessagesRequest");
 			throw std::exception("Invalid request value");
 		}
 	}

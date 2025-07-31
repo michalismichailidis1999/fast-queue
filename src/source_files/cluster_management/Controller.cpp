@@ -1300,3 +1300,7 @@ unsigned long long Controller::get_last_log_index() {
 unsigned long long Controller::get_last_log_term() {
 	return this->last_log_term;
 }
+
+void Controller::assign_consumer_group_to_partitions(RegisterConsumerRequest* request) {
+
+}
