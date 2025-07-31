@@ -251,7 +251,16 @@ void BPlusTreeIndexHandler::clear_index_values(Partition* partition, PartitionSe
 
 	node->remove_from_key_and_after(message_id);
 
-	this->flush_node_to_disk(partition, segment, node, true);
+	if (node->rows_num > 0 || parent_node == NULL) {
+		this->flush_node_to_disk(partition, segment, node, true);
+		return;
+	}
+
+	if (node->rows_num == 0 && parent_node->get_next_page_offset() == node->page_offset) {
+		parent_node->next_page_offset = 0;
+		this->flush_node_to_disk(partition, segment, parent_node, true);
+		return;
+	}
 
 	std::shared_ptr<BTreeNode> node_ref = nullptr;
 	BTreeNode* node_to_remove_rows = parent_node;
@@ -261,16 +270,19 @@ void BPlusTreeIndexHandler::clear_index_values(Partition* partition, PartitionSe
 		node_to_remove_rows->remove_from_key_and_after(prev_min_key);
 		prev_min_key = min_key;
 
-		this->flush_node_to_disk(partition, segment, node_to_remove_rows, true);
-
-		if (node_to_remove_rows->rows_num == 0 && node_to_remove_rows->prev_page_offset != 0) {
-			this->read_index_page_from_disk(partition, segment, node_data.get(), node_to_remove_rows->prev_page_offset);
-			node_ref = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
-			node_to_remove_rows = node_ref.get();
+		if (node_to_remove_rows->rows_num > 0) {
+			this->flush_node_to_disk(partition, segment, node_to_remove_rows, true);
+			return;
 		}
-		else {
-			node_to_remove_rows = NULL;
-			node_ref = nullptr;
+		
+		if (node_to_remove_rows->prev_page_offset == 0) {
+			BTreeNode new_leaf_node = BTreeNode(PageType::LEAF);
+			this->flush_node_to_disk(partition, segment, &new_leaf_node, true);
+			return;
 		}
+		
+		this->read_index_page_from_disk(partition, segment, node_data.get(), node_to_remove_rows->prev_page_offset);
+		node_ref = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
+		node_to_remove_rows = node_ref.get();
 	}
 }
