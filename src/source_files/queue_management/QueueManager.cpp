@@ -123,7 +123,10 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 
 	segment.get()->set_index(index_key, index_path);
 
-	partition->set_active_segment(segment);
+	partition.get()->set_active_segment(segment);
+
+	partition.get()->set_message_map(mm_key, mm_path);
+	partition.get()->set_offsets(off_key, off_path);
 
 	if (!this->fh->check_if_exists(segment_path))
 	{

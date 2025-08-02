@@ -41,6 +41,8 @@ private:
 
 	void set_partition_active_segment(Partition* partition, bool is_cluster_metadata_queue);
 
+	void set_partition_replicated_offset(Partition* partition);
+
 	void set_segment_index(const std::string& queue_name, PartitionSegment* segment, int partition = -1);
 
 	void set_segment_last_message_offset_and_timestamp(Partition* partition, PartitionSegment* segment);

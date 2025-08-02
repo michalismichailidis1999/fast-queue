@@ -261,9 +261,11 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
         queue = std::shared_ptr<Queue>(new Queue(metadata));
 
         for (auto& iter : partitions) {
-            // TODO: Init partition replicated offset
-
             this->set_partition_active_segment(iter.second.get(), is_cluster_metadata_queue);
+
+            if (!is_cluster_metadata_queue)
+                this->set_partition_replicated_offset(iter.second.get());
+
             queue->add_partition(iter.second);
         }
 
@@ -345,6 +347,37 @@ void BeforeServerStartupHandler::set_partition_segment_message_map(Partition* pa
     }
 
     partition->set_message_map(file_key, file_path);
+}
+
+void BeforeServerStartupHandler::set_partition_replicated_offset(Partition* partition) {
+    std::string offsets_key = this->pm->get_partition_offsets_key(partition->get_queue_name(), partition->get_partition_id());
+    std::string offsets_path = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id());
+
+    partition->set_offsets(offsets_key, offsets_path);
+
+    unsigned long long last_replicated_offset = 0;
+
+    if (this->fh->check_if_exists(offsets_path)) {
+        this->fh->read_from_file(
+            offsets_key,
+            offsets_path,
+            sizeof(unsigned long long),
+            0,
+            &last_replicated_offset
+        );
+
+        partition->set_last_replicated_offset(last_replicated_offset);
+
+        return;
+    }
+
+    this->fh->create_new_file(
+        offsets_path,
+        sizeof(unsigned long long),
+        &last_replicated_offset,
+        offsets_key,
+        true
+    );
 }
 
 void BeforeServerStartupHandler::set_partition_active_segment(Partition* partition, bool is_cluster_metadata_queue) {

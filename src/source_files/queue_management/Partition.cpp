@@ -7,6 +7,11 @@ Partition::Partition(unsigned int partition_id, const std::string& queue_name) {
 	this->smallest_segment_id = 0;
 	this->smallest_uncompacted_segment_id = 0;
 	this->last_message_offset = 0;
+	this->last_replicated_offset = 0;
+	this->message_map_key = "";
+	this->message_map_path = "";
+	this->offsets_key = "";
+	this->offsets_path = "";
 }
 
 const std::string& Partition::get_queue_name() {
@@ -51,6 +56,12 @@ void Partition::set_message_map(const std::string& message_map_key, const std::s
 	this->message_map_path = message_map_path;
 }
 
+void Partition::set_offsets(const std::string& offsets_key, const std::string& offsets_path) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+	this->offsets_key = offsets_key;
+	this->offsets_path = offsets_path;
+}
+
 const std::string& Partition::get_message_map_key() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->message_map_key;
@@ -59,6 +70,16 @@ const std::string& Partition::get_message_map_key() {
 const std::string& Partition::get_message_map_path() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->message_map_path;
+}
+
+const std::string& Partition::get_offsets_key() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->offsets_key;
+}
+
+const std::string& Partition::get_offsets_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->offsets_path;
 }
 
 void Partition::set_smallest_uncompacted_segment_id(unsigned long long segment_id) {
@@ -89,4 +110,15 @@ unsigned long long Partition::get_next_message_offset() {
 void Partition::set_last_message_offset(unsigned long long last_message_offset) {
 	std::lock_guard<std::shared_mutex> lock(this->mut);
 	this->last_message_offset = last_message_offset;
+}
+
+unsigned long long Partition::get_last_replicated_offset() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->last_replicated_offset;
+
+}
+
+void Partition::set_last_replicated_offset(unsigned long long last_replicated_offset) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+	this->last_replicated_offset = last_replicated_offset;
 }

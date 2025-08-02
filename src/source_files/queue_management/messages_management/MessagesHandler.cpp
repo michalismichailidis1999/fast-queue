@@ -16,7 +16,7 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 	this->cluster_metadata_file_path = this->pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
 }
 
-bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest* request, bool cache_messages) {
+bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest* request, bool cache_messages, bool has_replication) {
 	unsigned int total_messages_bytes = 0;
 
 	for(auto& s : *(request->messages_sizes.get()))
@@ -30,13 +30,15 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 	unsigned int offset = 0;
 	unsigned long long current_timestamp = this->util->get_current_time_milli().count();
 
+	unsigned long long message_offset = 0;
+
 	for (int i = 0; i < request->messages.get()->size(); i++) {
 		auto& message_size = (*(request->messages_sizes.get()))[i];
 		auto& message_body = (*(request->messages.get()))[i];
 		auto& message_key = (*(request->messages_keys.get()))[i];
 		auto& message_key_size = (*(request->messages_keys_sizes.get()))[i];
 
-		unsigned long long message_offset = partition->get_next_message_offset();
+		message_offset = partition->get_next_message_offset();
 
 		memcpy_s(messages_data.get() + offset + MESSAGE_PAYLOAD_OFFSET, MESSAGE_PAYLOAD_SIZE, &message_size, MESSAGE_PAYLOAD_SIZE);
 		memcpy_s(messages_data.get() + offset + MESSAGE_TOTAL_BYTES + message_key_size, message_size, message_body, message_size);
@@ -48,7 +50,19 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 		offset += MESSAGE_TOTAL_BYTES + message_key_size + message_size;
 	}
 
-	return this->save_messages(partition, messages_data.get(), total_messages_bytes, nullptr, cache_messages);
+	bool success = this->save_messages(partition, messages_data.get(), total_messages_bytes, nullptr, cache_messages);
+
+	if (success && !has_replication)
+		this->disk_flusher->write_data_to_specific_file_location(
+			partition->get_offsets_key(),
+			partition->get_offsets_path(),
+			&message_offset,
+			sizeof(unsigned long long),
+			0,
+			true
+		);
+
+	return success;
 }
 
 bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write, bool cache_messages) {

@@ -21,7 +21,12 @@ private:
 	std::string message_map_key;
 	std::string message_map_path;
 
+	std::string offsets_key;
+	std::string offsets_path;
+
 	unsigned long long last_message_offset;
+
+	unsigned long long last_replicated_offset;
 
 	std::shared_mutex mut;
 public:
@@ -35,6 +40,7 @@ public:
 	void set_current_segment_id(unsigned long long current_segment_id);
 
 	void set_message_map(const std::string& message_map_key, const std::string& message_map_path);
+	void set_offsets(const std::string& offsets_key, const std::string& offsets_path);
 
 	void set_smallest_uncompacted_segment_id(unsigned long long segment_id);
 	unsigned long long get_smallest_uncompacted_segment_id();
@@ -45,8 +51,14 @@ public:
 	unsigned long long get_next_message_offset();
 	void set_last_message_offset(unsigned long long last_message_offset);
 
+	unsigned long long get_last_replicated_offset();
+	void set_last_replicated_offset(unsigned long long last_replicated_offset);
+
 	const std::string& get_message_map_key();
 	const std::string& get_message_map_path();
+
+	const std::string& get_offsets_key();
+	const std::string& get_offsets_path();
 
 	PartitionSegment* get_active_segment();
 	std::shared_ptr<PartitionSegment> get_active_segment_ref();
