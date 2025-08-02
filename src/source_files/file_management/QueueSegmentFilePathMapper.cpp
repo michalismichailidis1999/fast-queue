@@ -79,3 +79,15 @@ std::string QueueSegmentFilePathMapper::get_file_path(const std::string& queue_n
 		+ (compacted ? "_compacted" : "")
 		+ FILE_EXTENSION;
 }
+
+std::string QueueSegmentFilePathMapper::get_partition_offsets_path(const std::string& queue_name, int partition) {
+	return this->settings->get_log_path()
+		+ "/"
+		+ queue_name
+		+ "/partition-" + std::to_string(partition) + "/__offsets"
+		+ FILE_EXTENSION;
+}
+
+std::string QueueSegmentFilePathMapper::get_partition_offsets_key(const std::string& queue_name, int partition) {
+	return queue_name + "_p_" + std::to_string(partition) + "_off";
+}

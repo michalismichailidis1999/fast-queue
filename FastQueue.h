@@ -27,7 +27,6 @@
 #include "./src/header_files/requests_management/ClientRequestExecutor.h"
 #include "./src/header_files/requests_management/InternalRequestExecutor.h"
 #include "./src/header_files/requests_management/RequestManager.h"
-#include "./src/header_files/queue_management/messages_management/Producer.h"
 #include "./src/header_files/queue_management/messages_management/Consumer.h"
 #include "./src/header_files/queue_management/messages_management/SegmentAllocator.h"
 #include "./src/header_files/queue_management/messages_management/MessagesHandler.h"

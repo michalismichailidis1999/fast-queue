@@ -116,6 +116,9 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 	std::string mm_key = this->pm->get_segment_message_map_key(queue_name, partition_id);
 	std::string mm_path = this->pm->get_segment_message_map_path(queue_name, partition_id);
 
+	std::string off_key = this->pm->get_partition_offsets_key(queue_name, partition_id);
+	std::string off_path = this->pm->get_partition_offsets_path(queue_name, partition_id);
+
 	std::shared_ptr<PartitionSegment> segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(1, segment_key, segment_path));
 
 	segment.get()->set_index(index_key, index_path);
@@ -155,6 +158,18 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 			MESSAGES_LOC_MAP_PAGE_SIZE,
 			data.get(),
 			mm_key,
+			true
+		);
+	}
+
+	if (!this->fh->check_if_exists(off_path)) {
+		unsigned long long replicated_message_offset = 0;
+
+		this->fh->create_new_file(
+			off_path,
+			sizeof(unsigned long long),
+			&replicated_message_offset,
+			off_key,
 			true
 		);
 	}

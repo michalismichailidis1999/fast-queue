@@ -5,7 +5,6 @@
 #include <memory>
 #include <shared_mutex>
 #include "./Queue.h"
-#include "./messages_management/Producer.h"
 #include "./messages_management/Consumer.h"
 #include "./messages_management/index_management/BTreeNode.h"
 #include "./messages_management/index_management/SegmentMessageMap.h"

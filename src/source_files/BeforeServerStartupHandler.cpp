@@ -115,7 +115,8 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
     std::regex is_segment_index("index_0*([1-9][0-9]*)\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
     std::regex is_compacted_segment_index("index_0*([1-9][0-9]*)_compacted\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
     std::regex partition_match_rgx("partition-([0-9]|[1-9][0-9]+)$", std::regex_constants::icase);
-    std::regex is_metadat_file_rgx("metadata\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_metadata_file_rgx("metadata\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_offsets_file_rgx("__offsets\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
 
     int partition_id = 0;
     bool is_cluster_metadata_queue = false;
@@ -138,7 +139,9 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 
         std::smatch match;
 
-        if (std::regex_search(path, match, is_metadat_file_rgx)) return;
+        if (std::regex_search(path, match, is_metadata_file_rgx)) return;
+
+        if (std::regex_search(path, match, is_offsets_file_rgx)) return;
 
         if (std::regex_search(path, match, is_segment_index))  return;
 
@@ -258,6 +261,8 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
         queue = std::shared_ptr<Queue>(new Queue(metadata));
 
         for (auto& iter : partitions) {
+            // TODO: Init partition replicated offset
+
             this->set_partition_active_segment(iter.second.get(), is_cluster_metadata_queue);
             queue->add_partition(iter.second);
         }
