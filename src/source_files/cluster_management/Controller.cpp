@@ -1301,11 +1301,13 @@ unsigned long long Controller::get_last_log_term() {
 	return this->last_log_term;
 }
 
-unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsumerRequest* request, Queue* queue) {
+unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsumerRequest* request, Queue* queue, const std::string& group_id) {
 	std::lock_guard<std::mutex> lock(this->future_cluster_metadata->consumers_mut);
 
 	const std::string& queue_name = queue->get_metadata()->get_name();
 	int total_queue_partitions = queue->get_metadata()->get_partitions();
+
+	this->future_cluster_metadata->queues_with_consumers.insert(queue_name);
 
 	auto partition_consumers = this->future_cluster_metadata->partition_consumers[queue_name];
 

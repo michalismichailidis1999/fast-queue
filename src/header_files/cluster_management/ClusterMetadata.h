@@ -31,6 +31,7 @@ private:
 
 	unsigned long long last_consumer_id;
 	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, unsigned long long>>> partition_consumers;
+	std::unordered_set<std::string> queues_with_consumers;
 
 	std::unordered_map<std::string, std::shared_ptr<QueueMetadata>> queues;
 

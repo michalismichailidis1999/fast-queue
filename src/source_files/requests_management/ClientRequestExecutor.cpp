@@ -61,6 +61,12 @@ void ClientRequestExecutor::handle_create_queue_request(SOCKET_ID socket, SSL* s
 		return;
 	}
 
+	if (request->queue_name_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	std::shared_ptr<QueueMetadata> queue_metadata = std::shared_ptr<QueueMetadata>(
@@ -95,6 +101,12 @@ void ClientRequestExecutor::handle_create_queue_request(SOCKET_ID socket, SSL* s
 }
 
 void ClientRequestExecutor::handle_delete_queue_request(SOCKET_ID socket, SSL* ssl, DeleteQueueRequest* request) {
+	if (request->queue_name_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	if (Helper::is_internal_queue(queue_name)) {
@@ -118,6 +130,12 @@ void ClientRequestExecutor::handle_delete_queue_request(SOCKET_ID socket, SSL* s
 }
 
 void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, ProduceMessagesRequest* request) {
+	if (request->queue_name_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
@@ -189,6 +207,12 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 }
 
 void ClientRequestExecutor::handle_get_queue_partitions_info_request(SOCKET_ID socket, SSL* ssl, GetQueuePartitionsInfoRequest* request) {
+	if (request->queue_name_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
@@ -257,6 +281,18 @@ void ClientRequestExecutor::handle_register_consumer_request(SOCKET_ID socket, S
 		return;
 	}
 
+	if (request->queue_name_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
+	if (request->consumer_group_id_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required");
+		return;
+	}
+
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
@@ -271,9 +307,11 @@ void ClientRequestExecutor::handle_register_consumer_request(SOCKET_ID socket, S
 		return;
 	}
 
+	std::string group_id = std::string(request->consumer_group_id, request->consumer_group_id_length);
+
 	std::unique_ptr<RegisterConsumerResponse> res = std::make_unique<RegisterConsumerResponse>();
 	res.get()->ok = true;
-	res.get()->consumer_id = this->controller->assign_consumer_group_to_partitions(request, queue.get());
+	res.get()->consumer_id = this->controller->assign_consumer_group_to_partitions(request, queue.get(), group_id);
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 

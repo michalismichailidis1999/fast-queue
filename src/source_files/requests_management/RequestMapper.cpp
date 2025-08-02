@@ -8,6 +8,7 @@ std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char*
 	int offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<CreateQueueRequest> req = std::make_unique<CreateQueueRequest>();
+	req.get()->queue_name_length = 0;
 
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
@@ -45,6 +46,8 @@ std::unique_ptr<DeleteQueueRequest> RequestMapper::to_delete_queue_request(char*
 
 	std::unique_ptr<DeleteQueueRequest> req = std::make_unique<DeleteQueueRequest>();
 
+	req.get()->queue_name_length = 0;
+
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
 
@@ -79,6 +82,8 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 	req.get()->messages_sizes = std::make_shared<std::vector<int>>();
 	req.get()->messages_keys = std::make_shared<std::vector<char*>>();
 	req.get()->messages_keys_sizes = std::make_shared<std::vector<int>>();
+
+	req.get()->queue_name_length = 0;
 
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
@@ -131,6 +136,8 @@ std::unique_ptr<GetQueuePartitionsInfoRequest> RequestMapper::to_get_queue_parti
 	int offset = sizeof(RequestType); // skip request type 
 
 	std::unique_ptr<GetQueuePartitionsInfoRequest> req = std::make_unique<GetQueuePartitionsInfoRequest>();
+
+	req.get()->queue_name_length = 0;
 
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
@@ -313,6 +320,10 @@ std::unique_ptr<RegisterConsumerRequest> RequestMapper::to_register_consumer_req
 
 	std::unique_ptr<RegisterConsumerRequest> req = std::make_unique<RegisterConsumerRequest>();
 
+	req.get()->queue_name_length = 0;
+	req.get()->consumer_group_id_length = 0;
+	req.get()->consume_from_beginning = false;
+
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
 
@@ -325,6 +336,10 @@ std::unique_ptr<RegisterConsumerRequest> RequestMapper::to_register_consumer_req
 			req.get()->consumer_group_id_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			req.get()->consumer_group_id = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
 			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->consumer_group_id_length;
+		}
+		else if (*key == RequestValueKey::CONSUME_FROM) {
+			req.get()->consume_from_beginning = *(bool*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(bool);
 		}
 		else if (*key == RequestValueKey::USERNAME) {
 			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));

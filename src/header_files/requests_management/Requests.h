@@ -86,6 +86,7 @@ struct RegisterConsumerRequest : AuthRequest {
 	char* queue_name;
 	int consumer_group_id_length;
 	char* consumer_group_id;
+	bool consume_from_beginning;
 };
 
 struct GetQueuePartitionsInfoRequest {

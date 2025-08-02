@@ -51,6 +51,7 @@ enum class RequestValueKey {
 	PARTITION,
 	MESSAGES,
 	CONSUMER_GROUP_ID,
+	CONSUME_FROM,
 
 	// Internal Communication
 	NODE_ID,
