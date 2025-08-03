@@ -86,6 +86,16 @@ void ClusterMetadata::apply_command(Command* command) {
 		this->apply_partition_leader_assignment_command(command_info);
 		return;
 	}
+	case CommandType::REGISTER_CONSUMER_GROUP: {
+		RegisterConsumerGroupCommand* command_info = static_cast<RegisterConsumerGroupCommand*>(command->get_command_info());
+		this->apply_register_consuer_group_command(command_info);
+		return;
+	}
+	case CommandType::UNREGISTER_CONSUMER_GROUP: {
+		RegisterConsumerGroupCommand* command_info = static_cast<RegisterConsumerGroupCommand*>(command->get_command_info());
+		this->apply_register_consuer_group_command(command_info);
+		return;
+	}
 	default:
 		return;
 	}
@@ -191,10 +201,26 @@ void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderA
 	this->nodes_leader_partition_counts->update(node_id, lead_partitions_count - 1);
 }
 
+void ClusterMetadata::apply_register_consuer_group_command(RegisterConsumerGroupCommand* command) {
+
+}
+
+void ClusterMetadata::apply_unregister_consuer_group_command(UnregisterConsumerGroupCommand* command) {
+
+}
+
 void ClusterMetadata::copy_from(ClusterMetadata* obj) {
+	std::lock_guard<std::mutex> _lock1(obj->nodes_partitions_mut);
+	std::lock_guard<std::mutex> _lock2(obj->consumers_mut);
+
+	std::lock_guard<std::mutex> lock1(this->nodes_partitions_mut);
+	std::lock_guard<std::mutex> lock2(this->consumers_mut);
+
 	this->leader_id.store(obj->leader_id.load());
 	this->metadata_version.store(obj->metadata_version);
 	this->current_term.store(obj->current_term);
+
+	this->last_consumer_id = obj->last_consumer_id;
 
 	if(this->nodes_partition_counts != NULL)
 		free(this->nodes_partition_counts);
@@ -212,6 +238,24 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->consumers_partition_counts = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a < b; }, 0, 0);
 	this->consumers_partition_counts_inverse = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a > b; }, 0, 0);
+
+	this->nodes_partitions.clear();
+	this->owned_partitions.clear();
+	this->partition_leader_nodes.clear();
+	this->partition_consumers.clear();
+	this->consumers_consume_init_point.clear();
+	this->queues.clear();
+
+	for (auto& iter : obj->queues) {
+		std::shared_ptr<QueueMetadata> queue = std::shared_ptr<QueueMetadata>(new QueueMetadata(
+			iter.second.get()->get_name(),
+			iter.second.get()->get_partitions(),
+			iter.second.get()->get_replication_factor(),
+			iter.second.get()->get_cleanup_policy()
+		));
+
+		this->queues[iter.first] = queue;
+	}
 
 	for (auto& iter : obj->nodes_partitions) {
 		auto partitions = std::make_shared<std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>>>();
@@ -257,6 +301,35 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 			this->nodes_leader_partition_counts->insert(iter_two.second, this->nodes_leader_partition_counts->get(iter_two.second) + 1);
 		}
 	}
+
+	for (auto& iter : obj->partition_consumers) {
+		auto queue_consumer_groups = std::make_shared<std::unordered_map<std::string,std::shared_ptr<std::unordered_map<int, unsigned long long>>>>();
+
+		this->partition_consumers[iter.first] = queue_consumer_groups;
+
+		for (auto& iter_two : *(iter.second.get())) {
+			auto consumer_groups = std::make_shared<std::unordered_map<int, unsigned long long>>();
+
+			for (auto& iter_three : *(iter_two.second.get())) {
+				(*(consumer_groups.get()))[iter_three.first] = iter_three.second;
+
+				this->consumers_partition_counts->insert(
+					iter_three.second,
+					this->consumers_partition_counts->get(iter_three.second) + 1
+				);
+
+				this->consumers_partition_counts_inverse->insert(
+					iter_three.second,
+					this->consumers_partition_counts->get(iter_three.second) + 1
+				);
+			}
+
+			(*(queue_consumer_groups.get()))[iter.first] = consumer_groups;
+		}
+	}
+
+	for (auto& iter : obj->consumers_consume_init_point)
+		this->consumers_consume_init_point[iter.first] = iter.second;
 }
 
 int ClusterMetadata::get_partition_leader(const std::string& queue, int partition) {

@@ -100,6 +100,12 @@ void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadat
 	case CommandType::UNREGISTER_DATA_NODE:
 		this->apply_unregister_data_node_command(cluster_metadata, (UnregisterDataNodeCommand*)command->get_command_info());
 		break;
+	case CommandType::REGISTER_CONSUMER_GROUP:
+		this->apply_register_consumer_group_command((RegisterConsumerGroupCommand*)command->get_command_info());
+		break;
+	case CommandType::UNREGISTER_CONSUMER_GROUP:
+		this->apply_unregister_consumer_group_command((UnregisterConsumerGroupCommand*)command->get_command_info());
+		break;
 	default:
 		break;
 	}
@@ -167,4 +173,38 @@ void ClusterMetadataApplyHandler::apply_unregister_data_node_command(ClusterMeta
 	if (this->settings->get_node_id() == command->get_node_id()) return;
 
 	this->cm->remove_data_node_connections(command->get_node_id());
+}
+
+void ClusterMetadataApplyHandler::apply_register_consumer_group_command(RegisterConsumerGroupCommand* command) {
+	std::shared_ptr<Queue> queue = this->qm->get_queue(command->get_queue_name());
+
+	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) return;
+
+	Partition* partition = queue->get_partition(command->get_partition_id());
+
+	if (partition == NULL) return;
+
+	std::shared_ptr<Consumer> consumer = std::shared_ptr<Consumer>(
+		new Consumer(
+			command->get_group_id(), 
+			command->get_consumer_id(), 
+			command->get_consume_from_beginning() 
+				? 0 
+				: partition->get_message_offset()
+		)
+	);
+
+	partition->add_consumer(consumer);
+}
+
+void ClusterMetadataApplyHandler::apply_unregister_consumer_group_command(UnregisterConsumerGroupCommand* command) {
+	std::shared_ptr<Queue> queue = this->qm->get_queue(command->get_queue_name());
+
+	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) return;
+
+	Partition* partition = queue->get_partition(command->get_partition_id());
+
+	if (partition == NULL) return;
+
+	partition->remove_consumer(command->get_consumer_id());
 }

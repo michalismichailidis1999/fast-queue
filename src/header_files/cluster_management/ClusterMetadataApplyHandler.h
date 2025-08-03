@@ -6,6 +6,7 @@
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../queue_management/QueueManager.h"
+#include "../queue_management/messages_management/Consumer.h"
 #include "../Settings.h"
 #include "../logging/Logger.h"
 
@@ -24,6 +25,8 @@ private:
 	void apply_delete_queue_command(ClusterMetadata* cluster_metadata, DeleteQueueCommand* command);
 	void apply_register_data_node_command(ClusterMetadata* cluster_metadata, RegisterDataNodeCommand* command);
 	void apply_unregister_data_node_command(ClusterMetadata* cluster_metadata, UnregisterDataNodeCommand* command);
+	void apply_register_consumer_group_command(RegisterConsumerGroupCommand* command);
+	void apply_unregister_consumer_group_command(UnregisterConsumerGroupCommand* command);
 public:
 	ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings, Logger* logger);
 

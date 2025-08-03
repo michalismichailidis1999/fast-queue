@@ -7,11 +7,21 @@ Consumer::Consumer(std::string group_id, unsigned long long id, unsigned long lo
 }
 
 unsigned long long Consumer::get_offset() {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->offset;
 }
 
 void Consumer::set_offset(unsigned long long offset) {
-	std::lock_guard<std::mutex> lock(this->mut);
+	std::lock_guard<std::shared_mutex> lock(this->mut);
 	this->offset = offset;
+}
+
+unsigned long long Consumer::get_id() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->id;
+}
+
+const std::string& Consumer::get_group_id() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->group_id;
 }

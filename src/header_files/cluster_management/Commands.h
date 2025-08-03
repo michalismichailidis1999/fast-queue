@@ -183,8 +183,10 @@ private:
 	std::string group_id;
 	unsigned long long consumer_id;
 	unsigned long long stole_from_consumer;
+
+	bool consume_from_beginning;
 public:
-	RegisterConsumerGroupCommand(const std::string& queue_name, int partition_id, const std::string& group_id, unsigned long long consumer_id, unsigned long long stole_from_consumer);
+	RegisterConsumerGroupCommand(const std::string& queue_name, int partition_id, const std::string& group_id, unsigned long long consumer_id, unsigned long long stole_from_consumer, bool consume_from_beginning);
 
 	RegisterConsumerGroupCommand(void* metadata);
 
@@ -197,6 +199,8 @@ public:
 	unsigned long long get_consumer_id();
 
 	unsigned long long get_stole_from_consumer();
+
+	bool get_consume_from_beginning();
 
 	std::shared_ptr<char> get_metadata_bytes();
 

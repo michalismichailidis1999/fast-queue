@@ -1400,12 +1400,15 @@ unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsu
 						iter.first,
 						group_id,
 						consumer_id,
-						iter.second
+						iter.second,
+						request->consume_from_beginning
 					)
 				)
 			)
 		);
 	}
+
+	this->future_cluster_metadata->consumers_consume_init_point[consumer_id] = request->consume_from_beginning;
 
 	this->store_commands(&commands);
 
@@ -1483,7 +1486,11 @@ void Controller::unregister_consumer(const std::string& queue_name, const std::s
 					partition_id,
 					group_id,
 					consumer_with_min_partitions,
-					0
+					0,
+					this->future_cluster_metadata->consumers_consume_init_point.find(consumer_with_min_partitions)
+					!= this->future_cluster_metadata->consumers_consume_init_point.end()
+						? this->future_cluster_metadata->consumers_consume_init_point[consumer_with_min_partitions]
+						: true
 				)
 			)
 		);

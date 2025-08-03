@@ -107,6 +107,11 @@ unsigned long long Partition::get_next_message_offset() {
 	return ++this->last_message_offset;
 }
 
+unsigned long long Partition::get_message_offset() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->last_message_offset;
+}
+
 void Partition::set_last_message_offset(unsigned long long last_message_offset) {
 	std::lock_guard<std::shared_mutex> lock(this->mut);
 	this->last_message_offset = last_message_offset;
@@ -121,4 +126,19 @@ unsigned long long Partition::get_last_replicated_offset() {
 void Partition::set_last_replicated_offset(unsigned long long last_replicated_offset) {
 	std::lock_guard<std::shared_mutex> lock(this->mut);
 	this->last_replicated_offset = last_replicated_offset;
+}
+
+void Partition::add_consumer(std::shared_ptr<Consumer> consumer) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+	this->consumers[consumer.get()->get_id()] = consumer;
+}
+
+std::shared_ptr<Consumer> Partition::get_consumer(unsigned long long consumer_id) {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->consumers[consumer_id];
+}
+
+void Partition::remove_consumer(unsigned long long consumer_id) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+	this->consumers.erase(consumer_id);
 }

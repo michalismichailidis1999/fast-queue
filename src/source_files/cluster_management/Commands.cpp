@@ -517,12 +517,13 @@ std::string UnregisterDataNodeCommand::get_command_key() {
 
 // Register Consumer Group Command
 
-RegisterConsumerGroupCommand::RegisterConsumerGroupCommand(const std::string& queue_name, int partition_id, const std::string& group_id, unsigned long long consumer_id, unsigned long long stole_from_consumer) {
+RegisterConsumerGroupCommand::RegisterConsumerGroupCommand(const std::string& queue_name, int partition_id, const std::string& group_id, unsigned long long consumer_id, unsigned long long stole_from_consumer, bool consume_from_beginning) {
 	this->queue_name = queue_name;
 	this->partition_id = partition_id;
 	this->group_id = group_id;
 	this->consumer_id = consumer_id;
 	this->stole_from_consumer = stole_from_consumer;
+	this->consume_from_beginning = consume_from_beginning;
 }
 
 RegisterConsumerGroupCommand::RegisterConsumerGroupCommand(void* metadata) {
@@ -538,6 +539,7 @@ RegisterConsumerGroupCommand::RegisterConsumerGroupCommand(void* metadata) {
 	memcpy_s(&this->partition_id, RCG_COMMAND_PARTITION_ID_SIZE, (char*)metadata + RCG_COMMAND_PARTITION_ID_OFFSET, RCG_COMMAND_PARTITION_ID_SIZE);
 	memcpy_s(&this->consumer_id, RCG_COMMAND_CONSUMER_ID_SIZE, (char*)metadata + RCG_COMMAND_CONSUMER_ID_OFFSET, RCG_COMMAND_CONSUMER_ID_SIZE);
 	memcpy_s(&this->stole_from_consumer, RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE, (char*)metadata + RCG_COMMAND_STOLE_FROM_CONSUMER_OFFSET, RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE);
+	memcpy_s(&this->consume_from_beginning, RCG_COMMAND_CONSUME_FROM_BEGINNING_SIZE, (char*)metadata + RCG_COMMAND_CONSUME_FROM_BEGINNING_OFFSET, RCG_COMMAND_CONSUME_FROM_BEGINNING_SIZE);
 }
 
 const std::string& RegisterConsumerGroupCommand::get_queue_name() {
@@ -560,6 +562,10 @@ unsigned long long RegisterConsumerGroupCommand::get_stole_from_consumer() {
 	return this->stole_from_consumer;
 }
 
+bool RegisterConsumerGroupCommand::get_consume_from_beginning() {
+	return this->consume_from_beginning;
+}
+
 std::shared_ptr<char> RegisterConsumerGroupCommand::get_metadata_bytes() {
 	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[RCG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
 
@@ -575,6 +581,7 @@ std::shared_ptr<char> RegisterConsumerGroupCommand::get_metadata_bytes() {
 	memcpy_s(bytes.get() + RCG_COMMAND_PARTITION_ID_OFFSET - COMMAND_TOTAL_BYTES, RCG_COMMAND_PARTITION_ID_SIZE, &this->partition_id, RCG_COMMAND_PARTITION_ID_SIZE);
 	memcpy_s(bytes.get() + RCG_COMMAND_CONSUMER_ID_OFFSET - COMMAND_TOTAL_BYTES, RCG_COMMAND_CONSUMER_ID_SIZE, &this->consumer_id, RCG_COMMAND_CONSUMER_ID_SIZE);
 	memcpy_s(bytes.get() + RCG_COMMAND_STOLE_FROM_CONSUMER_OFFSET - COMMAND_TOTAL_BYTES, RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE, &this->stole_from_consumer, RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE);
+	memcpy_s(bytes.get() + RCG_COMMAND_CONSUME_FROM_BEGINNING_OFFSET - COMMAND_TOTAL_BYTES, RCG_COMMAND_CONSUME_FROM_BEGINNING_SIZE, &this->consume_from_beginning, RCG_COMMAND_CONSUME_FROM_BEGINNING_SIZE);
 
 	return bytes;
 }

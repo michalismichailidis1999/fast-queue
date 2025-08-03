@@ -42,6 +42,8 @@ private:
 		>
 	> partition_consumers;
 
+	std::unordered_map<unsigned long long, bool> consumers_consume_init_point;
+
 	std::unordered_map<std::string, std::shared_ptr<QueueMetadata>> queues;
 
 	std::mutex nodes_partitions_mut;
@@ -52,6 +54,8 @@ private:
 	void apply_delete_queue_command(DeleteQueueCommand* command);
 	void apply_partition_assignment_command(PartitionAssignmentCommand* command);
 	void apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command);
+	void apply_register_consuer_group_command(RegisterConsumerGroupCommand* command);
+	void apply_unregister_consuer_group_command(UnregisterConsumerGroupCommand* command);
 
 public:
 	ClusterMetadata();

@@ -2,8 +2,10 @@
 #include <memory>
 #include <shared_mutex>
 #include <unordered_set>
+#include <unordered_map>
 #include <string>
 #include "./PartitionSegment.h"
+#include "./messages_management/Consumer.h"
 #include "../Constants.h"
 
 class Partition {
@@ -28,6 +30,8 @@ private:
 
 	unsigned long long last_replicated_offset;
 
+	std::unordered_map<unsigned long long, std::shared_ptr<Consumer>> consumers;
+
 	std::shared_mutex mut;
 public:
 	Partition(unsigned int partition_id, const std::string& queue_name);
@@ -49,6 +53,7 @@ public:
 	unsigned long long get_smallest_segment_id();
 
 	unsigned long long get_next_message_offset();
+	unsigned long long get_message_offset();
 	void set_last_message_offset(unsigned long long last_message_offset);
 
 	unsigned long long get_last_replicated_offset();
@@ -63,6 +68,10 @@ public:
 	PartitionSegment* get_active_segment();
 	std::shared_ptr<PartitionSegment> get_active_segment_ref();
 	std::shared_ptr<PartitionSegment> set_active_segment(std::shared_ptr<PartitionSegment> segment);
+
+	void add_consumer(std::shared_ptr<Consumer> consumer);
+	std::shared_ptr<Consumer> get_consumer(unsigned long long consumer_id);
+	void remove_consumer(unsigned long long consumer_id);
 
 	friend class RetentionHandler;
 	friend class CompactionHandler;
