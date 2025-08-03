@@ -59,39 +59,43 @@ bool ClusterMetadata::has_node_partitions(int node_id) {
 }
 
 void ClusterMetadata::apply_command(Command* command) {
-	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
-
 	this->metadata_version = command->get_metadata_version();
 	this->current_term = command->get_term();
 
 	switch (command->get_command_type())
 	{
 	case CommandType::CREATE_QUEUE: {
+		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
 		CreateQueueCommand* command_info = static_cast<CreateQueueCommand*>(command->get_command_info());
 		this->apply_create_queue_command(command_info);
 		return;
 	}
 	case CommandType::DELETE_QUEUE: {
+		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
 		DeleteQueueCommand* command_info = static_cast<DeleteQueueCommand*>(command->get_command_info());
 		this->apply_delete_queue_command(command_info);
 		return;
 	}
 	case CommandType::ALTER_PARTITION_ASSIGNMENT: {
+		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
 		PartitionAssignmentCommand* command_info = static_cast<PartitionAssignmentCommand*>(command->get_command_info());
 		this->apply_partition_assignment_command(command_info);
 		return;
 	}
 	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT: {
+		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
 		PartitionLeaderAssignmentCommand* command_info = static_cast<PartitionLeaderAssignmentCommand*>(command->get_command_info());
 		this->apply_partition_leader_assignment_command(command_info);
 		return;
 	}
 	case CommandType::REGISTER_CONSUMER_GROUP: {
+		std::lock_guard<std::mutex> lock(this->consumers_mut);
 		RegisterConsumerGroupCommand* command_info = static_cast<RegisterConsumerGroupCommand*>(command->get_command_info());
 		this->apply_register_consuer_group_command(command_info);
 		return;
 	}
 	case CommandType::UNREGISTER_CONSUMER_GROUP: {
+		std::lock_guard<std::mutex> lock(this->consumers_mut);
 		RegisterConsumerGroupCommand* command_info = static_cast<RegisterConsumerGroupCommand*>(command->get_command_info());
 		this->apply_register_consuer_group_command(command_info);
 		return;
@@ -202,11 +206,63 @@ void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderA
 }
 
 void ClusterMetadata::apply_register_consuer_group_command(RegisterConsumerGroupCommand* command) {
+	auto queue_consumer_groups = this->partition_consumers[command->get_queue_name()];
 
+	if (queue_consumer_groups == nullptr) {
+		queue_consumer_groups = std::make_shared<std::unordered_map<std::string,std::shared_ptr<std::unordered_map<int, unsigned long long>>>>();
+		this->partition_consumers[command->get_queue_name()] = queue_consumer_groups;
+	}
+
+	auto group_consumers = (*(queue_consumer_groups.get()))[command->get_group_id()];
+
+	if (group_consumers == nullptr) {
+		group_consumers = std::make_shared<std::unordered_map<int, unsigned long long>>();
+		(*(queue_consumer_groups.get()))[command->get_group_id()] = group_consumers;
+	}
+
+	(*(group_consumers.get()))[command->get_partition_id()] = command->get_consumer_id();
+
+	this->consumers_partition_counts->insert(
+		command->get_consumer_id(),
+		this->consumers_partition_counts->get(command->get_consumer_id()) + 1
+	);
+
+	this->consumers_partition_counts_inverse->insert(
+		command->get_consumer_id(),
+		this->consumers_partition_counts->get(command->get_consumer_id()) + 1
+	);
+
+	this->consumers_consume_init_point[command->get_consumer_id()] = command->get_consume_from_beginning();
+
+	if (command->get_stole_from_consumer() > 0) {
+		int total_assigned_partitions = this->consumers_partition_counts->remove(command->get_stole_from_consumer());
+		this->consumers_partition_counts_inverse->remove(command->get_stole_from_consumer());
+
+		if (--total_assigned_partitions > 0) {
+			this->consumers_partition_counts->insert(command->get_stole_from_consumer(), total_assigned_partitions);
+			this->consumers_partition_counts_inverse->insert(command->get_stole_from_consumer(), total_assigned_partitions);
+		}
+	}
 }
 
 void ClusterMetadata::apply_unregister_consuer_group_command(UnregisterConsumerGroupCommand* command) {
+	auto queue_consumer_groups = this->partition_consumers[command->get_queue_name()];
 
+	if (queue_consumer_groups == nullptr) return;
+
+	auto group_consumers = (*(queue_consumer_groups.get()))[command->get_group_id()];
+
+	if (group_consumers == nullptr) return;
+
+	group_consumers.get()->erase(command->get_partition_id());
+
+	int total_assigned_partitions = this->consumers_partition_counts->remove(command->get_consumer_id());
+	this->consumers_partition_counts_inverse->remove(command->get_consumer_id());
+
+	if (--total_assigned_partitions > 0) {
+		this->consumers_partition_counts->insert(command->get_consumer_id(), total_assigned_partitions);
+		this->consumers_partition_counts_inverse->insert(command->get_consumer_id(), total_assigned_partitions);
+	}
 }
 
 void ClusterMetadata::copy_from(ClusterMetadata* obj) {
