@@ -1307,8 +1307,6 @@ unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsu
 	const std::string& queue_name = queue->get_metadata()->get_name();
 	int total_queue_partitions = queue->get_metadata()->get_partitions();
 
-	this->future_cluster_metadata->queues_with_consumers.insert(queue_name);
-
 	auto group_partition_consumers = this->future_cluster_metadata->partition_consumers[queue_name];
 
 	if (group_partition_consumers == nullptr) {
@@ -1323,70 +1321,175 @@ unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsu
 		(*(group_partition_consumers.get()))[group_id] = partition_consumers;
 	}
 
-	std::unordered_set<int> partitions_to_check;
-	unsigned long long stole_partition_from = 0;
+	std::unordered_map<int, unsigned long long> partitions_to_check;
 
-	if (partition_consumers.get()->size() == total_queue_partitions) {
-		if (total_queue_partitions == 0) return 0;
+	std::unordered_set<unsigned long long> consumer_ids;
 
-		auto max_assigned_partitions_tup = this->future_cluster_metadata->consumers_partition_counts_inverse->extractTopElement();
+	for (auto& iter : (*partition_consumers.get()))
+		consumer_ids.insert(iter.second);
 
-		unsigned long long assigend_consumer = std::get<0>(max_assigned_partitions_tup);
-		int total_assigned_partitions = std::get<1>(max_assigned_partitions_tup);
+	int partition_count_per_consumer = consumer_ids.size() + 1;
 
-		this->future_cluster_metadata->consumers_partition_counts_inverse->insert(assigend_consumer, total_assigned_partitions);
+	for (int i = 0; i < total_queue_partitions; i++)
+		if (partition_consumers.get()->find(i) == partition_consumers.get()->end())
+			partitions_to_check[i] = 0;
 
-		if (total_assigned_partitions == 1) return 0;
+	if (partitions_to_check.size() < partition_count_per_consumer) {
+		int iterations = partition_count_per_consumer - partitions_to_check.size();
 
-		int partition_to_assign = -1;
+		for (int i = 0; i < iterations; i++) {
+			unsigned long long consumer_with_max_partitions = 0;
+			int max_partitions = -1;
 
-		for (int i = 0; i < total_queue_partitions; i++)
-			if ((*(partition_consumers.get()))[i] == assigend_consumer)
-			{
-				stole_partition_from = assigend_consumer;
-				partition_to_assign = i;
-				break;
+			for (auto& iter : (*partition_consumers.get())) {
+				int consumer_count = this->future_cluster_metadata->consumers_partition_counts_inverse->get(iter.second);
+
+				if (consumer_count > max_partitions) {
+					max_partitions = consumer_count;
+					consumer_with_max_partitions = iter.second;
+				}
 			}
 
-		if (partition_to_assign == -1) return 0;
-		else partitions_to_check.insert(partition_to_assign);
-	}
-	else for (int i = 0; i < total_queue_partitions; i++)
-		partitions_to_check.insert(i);
+			if (consumer_with_max_partitions == 0 || max_partitions == 1) break;
 
+			int partition_to_assign = -1;
+
+			for (int i = 0; i < total_queue_partitions; i++)
+				if (
+					partition_consumers.get()->find(i) != partition_consumers.get()->end() 
+					&& (*(partition_consumers.get()))[i] == consumer_with_max_partitions
+				)
+				{
+					partition_to_assign = i;
+					this->future_cluster_metadata->consumers_partition_counts->insert(consumer_with_max_partitions, max_partitions - 1);
+					this->future_cluster_metadata->consumers_partition_counts_inverse->insert(consumer_with_max_partitions, max_partitions - 1);
+					break;
+				}
+
+			if (partition_to_assign == -1) break;
+			else partitions_to_check[partition_to_assign] = consumer_with_max_partitions;
+		}
+
+		if (partitions_to_check.size() == 0) return 0;
+	}
+	
 	unsigned long long consumer_id = ++this->future_cluster_metadata->last_consumer_id;
 
 	std::vector<Command> commands;
 
 	unsigned long long timestamp = this->util->get_current_time_milli().count();
 
-	for (auto partition_id : partitions_to_check)
-		if (partition_consumers.get()->find(partition_id) == partition_consumers.get()->end()) {
-			(*(partition_consumers.get()))[partition_id] = consumer_id;
+	for (auto& iter : partitions_to_check)
+	{
+		(*(partition_consumers.get()))[iter.first] = consumer_id;
 
-			int count = this->future_cluster_metadata->consumers_partition_counts->get(consumer_id);
+		int count = this->future_cluster_metadata->consumers_partition_counts->get(consumer_id);
 
-			this->future_cluster_metadata->consumers_partition_counts->insert(consumer_id, count + 1);
+		this->future_cluster_metadata->consumers_partition_counts->insert(consumer_id, count + 1);
 
-			this->future_cluster_metadata->consumers_partition_counts_inverse->insert(consumer_id, count + 1);
+		this->future_cluster_metadata->consumers_partition_counts_inverse->insert(consumer_id, count + 1);
 
-			commands.emplace_back(
-				Command(
-					CommandType::REGISTER_CONSUMER_GROUP,
-					this->term,
-					timestamp,
-					RegisterConsumerGroupCommand(
+		commands.emplace_back(
+			Command(
+				CommandType::REGISTER_CONSUMER_GROUP,
+				this->term,
+				timestamp,
+				std::shared_ptr<RegisterConsumerGroupCommand>(
+					new RegisterConsumerGroupCommand(
 						queue_name,
-						partition_id,
+						iter.first,
 						group_id,
 						consumer_id,
-						stole_partition_from
-					).get_metadata_bytes()
+						iter.second
+					)
 				)
-			);
-		}
+			)
+		);
+	}
 
 	this->store_commands(&commands);
 
 	return consumer_id;
+}
+
+void Controller::unregister_consumer(const std::string& queue_name, const std::string& group_id, unsigned long long consumer_id) {
+	std::lock_guard<std::mutex> lock(this->future_cluster_metadata->consumers_mut);
+
+	auto group_partition_consumers = this->future_cluster_metadata->partition_consumers[queue_name];
+
+	if (group_partition_consumers == nullptr) return;
+
+	auto partition_consumers = (*(group_partition_consumers.get()))[group_id];
+
+	if (partition_consumers == nullptr) return;
+
+	std::unordered_set<int> partitions_to_reassign;
+
+	this->future_cluster_metadata->consumers_partition_counts->remove(consumer_id);
+	this->future_cluster_metadata->consumers_partition_counts_inverse->remove(consumer_id);
+
+	std::vector<Command> commands;
+
+	unsigned long long timestamp = this->util->get_current_time_milli().count();
+
+	for (auto& iter : *(partition_consumers.get()))
+		if (iter.second == consumer_id) {
+			partitions_to_reassign.insert(iter.first);
+
+			commands.emplace_back(
+				CommandType::UNREGISTER_CONSUMER_GROUP,
+				this->term,
+				timestamp,
+				std::shared_ptr<UnregisterConsumerGroupCommand>(
+					new UnregisterConsumerGroupCommand(
+						queue_name,
+						iter.first,
+						group_id,
+						consumer_id
+					)
+				)
+			);
+		}
+
+	for (auto& partition_id : partitions_to_reassign) {
+		unsigned long long consumer_with_min_partitions = 0;
+		int min_partitions = INT32_MAX;
+
+		for (auto& iter : (*partition_consumers.get())) {
+			if (iter.second == consumer_id) continue;
+
+			int consumer_count = this->future_cluster_metadata->consumers_partition_counts->get(iter.second);
+
+			if (consumer_count < min_partitions) {
+				min_partitions = consumer_count;
+				consumer_with_min_partitions = iter.second;
+			}
+		}
+
+		if (consumer_with_min_partitions == 0) {
+			partition_consumers.get()->erase(partition_id);
+			continue;
+		}
+
+		(*(partition_consumers.get()))[partition_id] = consumer_with_min_partitions;
+		
+		commands.emplace_back(
+			CommandType::REGISTER_CONSUMER_GROUP,
+			this->term,
+			timestamp,
+			std::shared_ptr<RegisterConsumerGroupCommand>(
+				new RegisterConsumerGroupCommand(
+					queue_name,
+					partition_id,
+					group_id,
+					consumer_with_min_partitions,
+					0
+				)
+			)
+		);
+	}
+
+	if (partition_consumers.get()->size() == 0)
+
+	this->store_commands(&commands);
 }

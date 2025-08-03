@@ -38,6 +38,12 @@ Command::Command(void* metadata) {
 	case CommandType::UNREGISTER_DATA_NODE:
 		this->command_info = std::shared_ptr<UnregisterDataNodeCommand>(new UnregisterDataNodeCommand(metadata));
 		break;
+	case CommandType::REGISTER_CONSUMER_GROUP:
+		this->command_info = std::shared_ptr<RegisterConsumerGroupCommand>(new RegisterConsumerGroupCommand(metadata));
+		break;
+	case CommandType::UNREGISTER_CONSUMER_GROUP:
+		this->command_info = std::shared_ptr<UnregisterConsumerGroupCommand>(new UnregisterConsumerGroupCommand(metadata));
+		break;
 	default:
 		break;
 	}
@@ -112,6 +118,18 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		size_dif = UDN_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
 		key_offset = UDN_COMMAND_TOTAL_BYTES;
 		break;
+	case CommandType::REGISTER_CONSUMER_GROUP:
+		key = ((RegisterConsumerGroupCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = RCG_COMMAND_TOTAL_BYTES + key.size();
+		size_dif = RCG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key_offset = RCG_COMMAND_TOTAL_BYTES;
+		break;
+	case CommandType::UNREGISTER_CONSUMER_GROUP:
+		key = ((UnregisterConsumerGroupCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = UCG_COMMAND_TOTAL_BYTES + key.size();
+		size_dif = UCG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key_offset = UCG_COMMAND_TOTAL_BYTES;
+		break;
 	default:
 		return std::tuple<long, std::shared_ptr<char>>(0, nullptr);
 	}
@@ -169,6 +187,22 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 			bytes.get() + COMMAND_TOTAL_BYTES,
 			size_dif,
 			((UnregisterDataNodeCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
+			size_dif
+		);
+		break;
+	case CommandType::REGISTER_CONSUMER_GROUP:
+		memcpy_s(
+			bytes.get() + COMMAND_TOTAL_BYTES,
+			size_dif,
+			((RegisterConsumerGroupCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
+			size_dif
+		);
+		break;
+	case CommandType::UNREGISTER_CONSUMER_GROUP:
+		memcpy_s(
+			bytes.get() + COMMAND_TOTAL_BYTES,
+			size_dif,
+			((UnregisterConsumerGroupCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
 			size_dif
 		);
 		break;
@@ -520,6 +554,10 @@ const std::string& RegisterConsumerGroupCommand::get_group_id() {
 
 unsigned long long RegisterConsumerGroupCommand::get_consumer_id() {
 	return this->consumer_id;
+}
+
+unsigned long long RegisterConsumerGroupCommand::get_stole_from_consumer() {
+	return this->stole_from_consumer;
 }
 
 std::shared_ptr<char> RegisterConsumerGroupCommand::get_metadata_bytes() {

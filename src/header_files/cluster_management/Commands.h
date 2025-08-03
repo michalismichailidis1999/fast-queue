@@ -196,6 +196,8 @@ public:
 
 	unsigned long long get_consumer_id();
 
+	unsigned long long get_stole_from_consumer();
+
 	std::shared_ptr<char> get_metadata_bytes();
 
 	std::string get_command_key();

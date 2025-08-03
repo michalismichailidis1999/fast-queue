@@ -42,8 +42,6 @@ private:
 		>
 	> partition_consumers;
 
-	std::unordered_set<std::string> queues_with_consumers;
-
 	std::unordered_map<std::string, std::shared_ptr<QueueMetadata>> queues;
 
 	std::mutex nodes_partitions_mut;

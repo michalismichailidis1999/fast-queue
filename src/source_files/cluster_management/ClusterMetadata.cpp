@@ -202,6 +202,12 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 	if(this->nodes_leader_partition_counts != NULL)
 		free(this->nodes_leader_partition_counts);
 
+	if (this->consumers_partition_counts != NULL)
+		free(this->consumers_partition_counts);
+
+	if (this->consumers_partition_counts_inverse != NULL)
+		free(this->consumers_partition_counts_inverse);
+
 	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->consumers_partition_counts = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a < b; }, 0, 0);

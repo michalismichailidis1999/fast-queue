@@ -329,7 +329,7 @@ unsigned int CompactionHandler::get_key_offset(const std::string& queue_name, vo
 		case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT: return PLA_COMMAND_TOTAL_BYTES;
 		case CommandType::REGISTER_DATA_NODE: return RDN_COMMAND_TOTAL_BYTES;
 		case CommandType::UNREGISTER_DATA_NODE: return UDN_COMMAND_TOTAL_BYTES;
-		default: 0;
+		default: return 0;
 	}
 }
 
