@@ -310,8 +310,8 @@ void ClientRequestExecutor::handle_register_consumer_request(SOCKET_ID socket, S
 	std::string group_id = std::string(request->consumer_group_id, request->consumer_group_id_length);
 
 	std::unique_ptr<RegisterConsumerResponse> res = std::make_unique<RegisterConsumerResponse>();
-	res.get()->ok = true;
 	res.get()->consumer_id = this->controller->assign_consumer_group_to_partitions(request, queue.get(), group_id);
+	res.get()->ok = res.get()->consumer_id != 0;
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 

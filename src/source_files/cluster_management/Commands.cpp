@@ -480,3 +480,132 @@ std::string UnregisterDataNodeCommand::get_command_key() {
 }
 
 // ================================================================
+
+// Register Consumer Group Command
+
+RegisterConsumerGroupCommand::RegisterConsumerGroupCommand(const std::string& queue_name, int partition_id, const std::string& group_id, unsigned long long consumer_id, unsigned long long stole_from_consumer) {
+	this->queue_name = queue_name;
+	this->partition_id = partition_id;
+	this->group_id = group_id;
+	this->consumer_id = consumer_id;
+	this->stole_from_consumer = stole_from_consumer;
+}
+
+RegisterConsumerGroupCommand::RegisterConsumerGroupCommand(void* metadata) {
+	int queue_name_length = 0;
+	int group_id_length = 0;
+
+	memcpy_s(&queue_name_length, RCG_COMMAND_QUEUE_NAME_LENGTH_SIZE, (char*)metadata + RCG_COMMAND_QUEUE_NAME_LENGTH_OFFSET, RCG_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(&group_id_length, RCG_COMMAND_GROUP_ID_LENGTH_SIZE, (char*)metadata + RCG_COMMAND_GROUP_ID_LENGTH_OFFSET, RCG_COMMAND_GROUP_ID_LENGTH_SIZE);
+
+	this->queue_name = std::string((char*)metadata + RCG_COMMAND_QUEUE_NAME_OFFSET, queue_name_length);
+	this->group_id = std::string((char*)metadata + RCG_COMMAND_GROUP_ID_LENGTH_OFFSET, group_id_length);
+
+	memcpy_s(&this->partition_id, RCG_COMMAND_PARTITION_ID_SIZE, (char*)metadata + RCG_COMMAND_PARTITION_ID_OFFSET, RCG_COMMAND_PARTITION_ID_SIZE);
+	memcpy_s(&this->consumer_id, RCG_COMMAND_CONSUMER_ID_SIZE, (char*)metadata + RCG_COMMAND_CONSUMER_ID_OFFSET, RCG_COMMAND_CONSUMER_ID_SIZE);
+	memcpy_s(&this->stole_from_consumer, RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE, (char*)metadata + RCG_COMMAND_STOLE_FROM_CONSUMER_OFFSET, RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE);
+}
+
+const std::string& RegisterConsumerGroupCommand::get_queue_name() {
+	return this->queue_name;
+}
+
+int RegisterConsumerGroupCommand::get_partition_id() {
+	return this->partition_id;
+}
+
+const std::string& RegisterConsumerGroupCommand::get_group_id() {
+	return this->group_id;
+}
+
+unsigned long long RegisterConsumerGroupCommand::get_consumer_id() {
+	return this->consumer_id;
+}
+
+std::shared_ptr<char> RegisterConsumerGroupCommand::get_metadata_bytes() {
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[RCG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
+
+	int queue_name_length = this->queue_name.size();
+	int group_id_size = this->group_id.size();
+
+	memcpy_s(bytes.get() + RCG_COMMAND_QUEUE_NAME_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, RCG_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_length, RCG_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(bytes.get() + RCG_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_length, this->queue_name.c_str(), queue_name_length);
+
+	memcpy_s(bytes.get() + RCG_COMMAND_GROUP_ID_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, RCG_COMMAND_GROUP_ID_LENGTH_SIZE, &group_id_size, RCG_COMMAND_GROUP_ID_LENGTH_SIZE);
+	memcpy_s(bytes.get() + RCG_COMMAND_GROUP_ID_OFFSET - COMMAND_TOTAL_BYTES, group_id_size, this->group_id.c_str(), group_id_size);
+
+	memcpy_s(bytes.get() + RCG_COMMAND_PARTITION_ID_OFFSET - COMMAND_TOTAL_BYTES, RCG_COMMAND_PARTITION_ID_SIZE, &this->partition_id, RCG_COMMAND_PARTITION_ID_SIZE);
+	memcpy_s(bytes.get() + RCG_COMMAND_CONSUMER_ID_OFFSET - COMMAND_TOTAL_BYTES, RCG_COMMAND_CONSUMER_ID_SIZE, &this->consumer_id, RCG_COMMAND_CONSUMER_ID_SIZE);
+	memcpy_s(bytes.get() + RCG_COMMAND_STOLE_FROM_CONSUMER_OFFSET - COMMAND_TOTAL_BYTES, RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE, &this->stole_from_consumer, RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE);
+
+	return bytes;
+}
+
+std::string RegisterConsumerGroupCommand::get_command_key() {
+	return "rcg_" + this->group_id + "_q_" + queue_name + "_p_" + std::to_string(this->partition_id);
+}
+
+// ================================================================
+
+// Register Consumer Group Command
+
+UnregisterConsumerGroupCommand::UnregisterConsumerGroupCommand(const std::string& queue_name, int partition_id, const std::string& group_id, unsigned long long consumer_id) {
+	this->queue_name = queue_name;
+	this->partition_id = partition_id;
+	this->group_id = group_id;
+	this->consumer_id = consumer_id;
+}
+
+UnregisterConsumerGroupCommand::UnregisterConsumerGroupCommand(void* metadata) {
+	int queue_name_length = 0;
+	int group_id_length = 0;
+
+	memcpy_s(&queue_name_length, UCG_COMMAND_QUEUE_NAME_LENGTH_SIZE, (char*)metadata + UCG_COMMAND_QUEUE_NAME_LENGTH_OFFSET, UCG_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(&group_id_length, UCG_COMMAND_GROUP_ID_LENGTH_SIZE, (char*)metadata + UCG_COMMAND_GROUP_ID_LENGTH_OFFSET, UCG_COMMAND_GROUP_ID_LENGTH_SIZE);
+
+	this->queue_name = std::string((char*)metadata + UCG_COMMAND_QUEUE_NAME_OFFSET, queue_name_length);
+	this->group_id = std::string((char*)metadata + UCG_COMMAND_GROUP_ID_LENGTH_OFFSET, group_id_length);
+
+	memcpy_s(&this->partition_id, UCG_COMMAND_PARTITION_ID_SIZE, (char*)metadata + UCG_COMMAND_PARTITION_ID_OFFSET, UCG_COMMAND_PARTITION_ID_SIZE);
+	memcpy_s(&this->consumer_id, UCG_COMMAND_CONSUMER_ID_SIZE, (char*)metadata + UCG_COMMAND_CONSUMER_ID_OFFSET, UCG_COMMAND_CONSUMER_ID_SIZE);
+}
+
+const std::string& UnregisterConsumerGroupCommand::get_queue_name() {
+	return this->queue_name;
+}
+
+int UnregisterConsumerGroupCommand::get_partition_id() {
+	return this->partition_id;
+}
+
+const std::string& UnregisterConsumerGroupCommand::get_group_id() {
+	return this->group_id;
+}
+
+unsigned long long UnregisterConsumerGroupCommand::get_consumer_id() {
+	return this->consumer_id;
+}
+
+std::shared_ptr<char> UnregisterConsumerGroupCommand::get_metadata_bytes() {
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[RCG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
+
+	int queue_name_length = this->queue_name.size();
+	int group_id_size = this->group_id.size();
+
+	memcpy_s(bytes.get() + UCG_COMMAND_QUEUE_NAME_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, UCG_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_length, UCG_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(bytes.get() + UCG_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_length, this->queue_name.c_str(), queue_name_length);
+
+	memcpy_s(bytes.get() + UCG_COMMAND_GROUP_ID_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, UCG_COMMAND_GROUP_ID_LENGTH_SIZE, &group_id_size, UCG_COMMAND_GROUP_ID_LENGTH_SIZE);
+	memcpy_s(bytes.get() + UCG_COMMAND_GROUP_ID_OFFSET - COMMAND_TOTAL_BYTES, group_id_size, this->group_id.c_str(), group_id_size);
+
+	memcpy_s(bytes.get() + UCG_COMMAND_PARTITION_ID_OFFSET - COMMAND_TOTAL_BYTES, UCG_COMMAND_PARTITION_ID_SIZE, &this->partition_id, UCG_COMMAND_PARTITION_ID_SIZE);
+	memcpy_s(bytes.get() + UCG_COMMAND_CONSUMER_ID_OFFSET - COMMAND_TOTAL_BYTES, UCG_COMMAND_CONSUMER_ID_SIZE, &this->consumer_id, UCG_COMMAND_CONSUMER_ID_SIZE);
+
+	return bytes;
+}
+
+std::string UnregisterConsumerGroupCommand::get_command_key() {
+	return "ucg_" + this->group_id + "_q_" + queue_name + "_p_" + std::to_string(this->partition_id);
+}
+
+// ================================================================

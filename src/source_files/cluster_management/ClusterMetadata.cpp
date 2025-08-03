@@ -8,7 +8,8 @@ ClusterMetadata::ClusterMetadata() {
 
 	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
-	this->consumers_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
+	this->consumers_partition_counts = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a < b; }, 0, 0);
+	this->consumers_partition_counts_inverse = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a > b; }, 0, 0);
 }
 
 void ClusterMetadata::set_leader_id(int leader_id) {
@@ -203,7 +204,8 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 
 	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
-	this->consumers_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
+	this->consumers_partition_counts = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a < b; }, 0, 0);
+	this->consumers_partition_counts_inverse = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a > b; }, 0, 0);
 
 	for (auto& iter : obj->nodes_partitions) {
 		auto partitions = std::make_shared<std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>>>();

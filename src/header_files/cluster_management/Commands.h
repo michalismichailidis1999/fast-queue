@@ -174,3 +174,58 @@ public:
 
 	friend class Command;
 };
+
+class RegisterConsumerGroupCommand {
+private:
+	std::string queue_name;
+	int partition_id;
+
+	std::string group_id;
+	unsigned long long consumer_id;
+	unsigned long long stole_from_consumer;
+public:
+	RegisterConsumerGroupCommand(const std::string& queue_name, int partition_id, const std::string& group_id, unsigned long long consumer_id, unsigned long long stole_from_consumer);
+
+	RegisterConsumerGroupCommand(void* metadata);
+
+	const std::string& get_queue_name();
+
+	int get_partition_id();
+
+	const std::string& get_group_id();
+
+	unsigned long long get_consumer_id();
+
+	std::shared_ptr<char> get_metadata_bytes();
+
+	std::string get_command_key();
+
+	friend class Command;
+};
+
+class UnregisterConsumerGroupCommand {
+private:
+	std::string queue_name;
+	int partition_id;
+
+	std::string group_id;
+	unsigned long long consumer_id;
+public:
+	UnregisterConsumerGroupCommand(const std::string& queue_name, int partition_id, const std::string& group_id, unsigned long long consumer_id);
+
+	UnregisterConsumerGroupCommand(void* metadata);
+
+	const std::string& get_queue_name();
+
+	int get_partition_id();
+
+	const std::string& get_group_id();
+
+	unsigned long long get_consumer_id();
+
+	std::shared_ptr<char> get_metadata_bytes();
+
+	std::string get_command_key();
+
+	friend class Command;
+};

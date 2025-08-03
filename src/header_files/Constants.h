@@ -25,6 +25,7 @@ static const unsigned int CHECK_FOR_COMPACTION = 5000;
 
 static const unsigned int MAX_QUEUE_NAME_CHARS = 100;
 static const unsigned int MAX_MESSAGE_KEY_CHARS = 140;
+static const unsigned int MAX_CONSUMER_GROUP_ID_CHARS = 75;
 
 static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
@@ -195,34 +196,37 @@ static const unsigned int UDN_COMMAND_NODE_ID_SIZE = sizeof(unsigned int);
 static const unsigned int UDN_COMMAND_NODE_ID_OFFSET = COMMAND_TOTAL_BYTES;
 static const unsigned int UDN_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + UDN_COMMAND_NODE_ID_SIZE;
 
-// =================================================================
+static const unsigned int RCG_COMMAND_QUEUE_NAME_LENGTH_SIZE = sizeof(unsigned int);
+static const unsigned int RCG_COMMAND_QUEUE_NAME_LENGTH_OFFSET = COMMAND_TOTAL_BYTES;
+static const unsigned int RCG_COMMAND_QUEUE_NAME_SIZE = sizeof(char) * MAX_QUEUE_NAME_CHARS;
+static const unsigned int RCG_COMMAND_QUEUE_NAME_OFFSET = RCG_COMMAND_QUEUE_NAME_LENGTH_SIZE + RCG_COMMAND_QUEUE_NAME_LENGTH_OFFSET;
+static const unsigned int RCG_COMMAND_PARTITION_ID_SIZE = sizeof(int);
+static const unsigned int RCG_COMMAND_PARTITION_ID_OFFSET = RCG_COMMAND_QUEUE_NAME_SIZE + RCG_COMMAND_QUEUE_NAME_OFFSET;
+static const unsigned int RCG_COMMAND_GROUP_ID_LENGTH_SIZE = sizeof(unsigned int);
+static const unsigned int RCG_COMMAND_GROUP_ID_LENGTH_OFFSET = RCG_COMMAND_PARTITION_ID_SIZE + RCG_COMMAND_PARTITION_ID_OFFSET;
+static const unsigned int RCG_COMMAND_GROUP_ID_SIZE = sizeof(char) * MAX_CONSUMER_GROUP_ID_CHARS;
+static const unsigned int RCG_COMMAND_GROUP_ID_OFFSET = RCG_COMMAND_GROUP_ID_LENGTH_SIZE + RCG_COMMAND_GROUP_ID_LENGTH_OFFSET;
+static const unsigned int RCG_COMMAND_CONSUMER_ID_SIZE = sizeof(unsigned long long);
+static const unsigned int RCG_COMMAND_CONSUMER_ID_OFFSET = RCG_COMMAND_GROUP_ID_SIZE + RCG_COMMAND_GROUP_ID_OFFSET;
+static const unsigned int RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE = sizeof(unsigned long long);
+static const unsigned int RCG_COMMAND_STOLE_FROM_CONSUMER_OFFSET = RCG_COMMAND_CONSUMER_ID_SIZE + RCG_COMMAND_CONSUMER_ID_OFFSET;
+static const unsigned int RCG_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + RCG_COMMAND_QUEUE_NAME_LENGTH_SIZE + RCG_COMMAND_QUEUE_NAME_SIZE
++ RCG_COMMAND_PARTITION_ID_SIZE + RCG_COMMAND_GROUP_ID_LENGTH_SIZE + RCG_COMMAND_GROUP_ID_SIZE + RCG_COMMAND_CONSUMER_ID_SIZE
++ RCG_COMMAND_STOLE_FROM_CONSUMER_SIZE;
 
-// Cluster Metadata
-
-static const unsigned int METADATA_VERSION_SIZE = sizeof(unsigned long long);
-static const unsigned int METADATA_VERSION_OFFSET = COMMON_METADATA_TOTAL_BYTES;
-static const unsigned int TERM_SIZE = sizeof(unsigned long long);
-static const unsigned int TERM_OFFSET = METADATA_VERSION_SIZE + METADATA_VERSION_OFFSET;
-static const unsigned int TOTAL_QUEUES_SIZE = sizeof(unsigned int);
-static const unsigned int TOTAL_QUEUES_OFFSET = TERM_SIZE + TERM_OFFSET;
-static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_SIZE = sizeof(unsigned int);
-static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_OFFSET = TOTAL_QUEUES_SIZE + TOTAL_QUEUES_OFFSET;
-static const unsigned int TOTAL_PARTITION_ASSIGNMENTS_BYTES = COMMON_METADATA_TOTAL_BYTES + METADATA_VERSION_SIZE + TERM_SIZE + TOTAL_QUEUES_SIZE + TOTAL_PARTITION_ASSIGNMENTS_SIZE;
-
-static const unsigned int PA_QUEUE_NAME_LENGTH_SIZE = sizeof(unsigned int);
-static const unsigned int PA_QUEUE_NAME_LENGTH_OFFSET = 0;
-static const unsigned int PA_QUEUE_NAME_SIZE = sizeof(char) * MAX_QUEUE_NAME_CHARS;
-static const unsigned int PA_QUEUE_NAME_OFFSET = PA_QUEUE_NAME_LENGTH_SIZE + PA_QUEUE_NAME_LENGTH_OFFSET;
-static const unsigned int PA_QUEUE_TOTAL_ASSIGNMENTS_SIZE = sizeof(char) * MAX_QUEUE_NAME_CHARS;
-static const unsigned int PA_QUEUE_TOTAL_ASSIGNMENTS_OFFSET = PA_QUEUE_NAME_SIZE + PA_QUEUE_NAME_OFFSET;
-static const unsigned int PA_QUEUE_TOTAL_BYTES = PA_QUEUE_NAME_LENGTH_SIZE + PA_QUEUE_NAME_SIZE + PA_QUEUE_TOTAL_ASSIGNMENTS_SIZE;
-
-static const unsigned int PA_PARTITION_ID_SIZE = sizeof(unsigned int);
-static const unsigned int PA_PARTITION_ID_OFFSET = 0;
-static const unsigned int PA_NODE_ID_SIZE = sizeof(unsigned int);
-static const unsigned int PA_NODE_ID_OFFSET = PA_PARTITION_ID_SIZE + PA_PARTITION_ID_OFFSET;
-static const unsigned int PA_IS_LEAD_SIZE = sizeof(bool);
-static const unsigned int PA_IS_LEAD_OFFSET = PA_NODE_ID_SIZE + PA_NODE_ID_OFFSET;
-static const unsigned int PA_NODE_ASSIGNMENT_TOTAL_BYTES = PA_PARTITION_ID_SIZE + PA_NODE_ID_SIZE + PA_IS_LEAD_SIZE;
+static const unsigned int UCG_COMMAND_QUEUE_NAME_LENGTH_SIZE = sizeof(unsigned int);
+static const unsigned int UCG_COMMAND_QUEUE_NAME_LENGTH_OFFSET = COMMAND_TOTAL_BYTES;
+static const unsigned int UCG_COMMAND_QUEUE_NAME_SIZE = sizeof(char) * MAX_QUEUE_NAME_CHARS;
+static const unsigned int UCG_COMMAND_QUEUE_NAME_OFFSET = UCG_COMMAND_QUEUE_NAME_LENGTH_SIZE + UCG_COMMAND_QUEUE_NAME_LENGTH_OFFSET;
+static const unsigned int UCG_COMMAND_PARTITION_ID_SIZE = sizeof(int);
+static const unsigned int UCG_COMMAND_PARTITION_ID_OFFSET = UCG_COMMAND_QUEUE_NAME_SIZE + UCG_COMMAND_QUEUE_NAME_OFFSET;
+static const unsigned int UCG_COMMAND_GROUP_ID_LENGTH_SIZE = sizeof(unsigned int);
+static const unsigned int UCG_COMMAND_GROUP_ID_LENGTH_OFFSET = UCG_COMMAND_PARTITION_ID_SIZE + UCG_COMMAND_PARTITION_ID_OFFSET;
+static const unsigned int UCG_COMMAND_GROUP_ID_SIZE = sizeof(char) * MAX_CONSUMER_GROUP_ID_CHARS;
+static const unsigned int UCG_COMMAND_GROUP_ID_OFFSET = UCG_COMMAND_GROUP_ID_LENGTH_SIZE + UCG_COMMAND_GROUP_ID_LENGTH_OFFSET;
+static const unsigned int UCG_COMMAND_CONSUMER_ID_SIZE = sizeof(unsigned long long);
+static const unsigned int UCG_COMMAND_CONSUMER_ID_OFFSET = UCG_COMMAND_GROUP_ID_SIZE + UCG_COMMAND_GROUP_ID_OFFSET;
+static const unsigned int UCG_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + UCG_COMMAND_QUEUE_NAME_LENGTH_SIZE + UCG_COMMAND_QUEUE_NAME_SIZE
++ UCG_COMMAND_PARTITION_ID_SIZE + UCG_COMMAND_GROUP_ID_LENGTH_SIZE + UCG_COMMAND_GROUP_ID_SIZE + UCG_COMMAND_CONSUMER_ID_SIZE;
 
 // =================================================================
