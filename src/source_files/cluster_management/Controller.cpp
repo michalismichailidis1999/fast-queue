@@ -1210,7 +1210,23 @@ unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned
 
 	std::sort(largest_indexes_sent->begin(), largest_indexes_sent->end());
 
-	return (*largest_indexes_sent)[this->half_quorum_nodes_count - 2];
+	unsigned long long largest_replicated_index = (*largest_indexes_sent)[0];
+
+	int counter = this->half_quorum_nodes_count;
+	unsigned long long prev_index = largest_replicated_index;
+
+	for (int i = 1; i < largest_indexes_sent->size(); i++) {
+		unsigned long long current = (*largest_indexes_sent)[i];
+
+		if (current == prev_index) counter--;
+		else counter = this->half_quorum_nodes_count;
+
+		if (counter == 0) largest_replicated_index = current;
+
+		prev_index = current;
+	}
+
+	return largest_replicated_index;
 }
 
 int Controller::get_partition_leader(const std::string& queue, int partition) {
