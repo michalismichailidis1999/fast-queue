@@ -195,7 +195,7 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
-		case RequestType::REGISTER_CONSUMER_REQUEST:
+		case RequestType::REGISTER_CONSUMER:
 		{
 			this->logger->log_info("Received and executing request type of REGISTER_CONSUMER_REQUEST");
 
@@ -212,6 +212,16 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			std::unique_ptr<GetConsumerAssignedPartitionsRequest> request = this->mapper->to_get_consumer_assigned_partitions_request(recvbuf.get(), res_buffer_length);
 
 			this->client_request_executor->handle_get_consumer_assigned_partitions_request(socket, ssl, request.get());
+
+			break;
+		}
+		case RequestType::CONSUME:
+		{
+			this->logger->log_info("Received and executing request type of CONSUME");
+
+			std::unique_ptr<ConsumeRequest> request = this->mapper->to_consume_request(recvbuf.get(), res_buffer_length);
+
+			this->client_request_executor->handle_consume_request(socket, ssl, request.get());
 
 			break;
 		}

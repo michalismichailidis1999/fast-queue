@@ -65,4 +65,10 @@ struct GetConsumerAssignedPartitionsResponse {
 	std::vector<int> partitions;
 };
 
+struct ConsumeResponse {
+	int total_messages;
+	int messages_total_bytes;
+	void* messages_data;
+};
+
 // =======================================================

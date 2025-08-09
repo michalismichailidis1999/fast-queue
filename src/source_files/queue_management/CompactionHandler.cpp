@@ -47,10 +47,13 @@ void CompactionHandler::handle_queue_partitions_segment_compaction(const std::st
 	for (unsigned int i = 0; i < partitions; i++) {
 		if (!(*should_terminate) && this->continue_compaction(queue.get())) return;
 
-		Partition* partition = queue->get_partition(i);
+		std::shared_ptr<Partition> partition = queue->get_partition(i);
+
+		if (partition == nullptr) continue;
+
 		unsigned int segments_checked_count = 20;
 
-		while (this->handle_partition_oldest_segment_compaction(partition) && segments_checked_count > 0)
+		while (this->handle_partition_oldest_segment_compaction(partition.get()) && segments_checked_count > 0)
 			segments_checked_count--;
 	}
 }

@@ -18,10 +18,10 @@ void Queue::remove_partition(unsigned int partition_id) {
 	this->partitions.erase(partition_id);
 }
 
-Partition* Queue::get_partition(unsigned int partition_id) {
+std::shared_ptr<Partition> Queue::get_partition(unsigned int partition_id) {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 
 	if (this->partitions.find(partition_id) == this->partitions.end()) return nullptr;
 
-	return this->partitions[partition_id].get();
+	return this->partitions[partition_id];
 }

@@ -34,7 +34,7 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
 
     std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
 
-    Partition* partition = queue.get()->get_partition(0);
+    std::shared_ptr<Partition> partition = queue.get()->get_partition(0);
 
     unsigned long long smallest_segment_id = partition->get_smallest_segment_id();
     unsigned long long current_segment_id = partition->get_current_segment_id();

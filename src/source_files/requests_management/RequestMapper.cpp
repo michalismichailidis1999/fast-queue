@@ -403,3 +403,51 @@ std::unique_ptr<GetConsumerAssignedPartitionsRequest> RequestMapper::to_get_cons
 
 	return req;
 }
+
+std::unique_ptr<ConsumeRequest> RequestMapper::to_consume_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<ConsumeRequest> req = std::make_unique<ConsumeRequest>();
+
+	req.get()->queue_name_length = 0;
+	req.get()->consumer_group_id_length = 0;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::QUEUE_NAME) {
+			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
+		}
+		else if (*key == RequestValueKey::CONSUMER_GROUP_ID) {
+			req.get()->consumer_group_id_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->consumer_group_id = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->consumer_group_id_length;
+		}
+		else if (*key == RequestValueKey::PARTITION) {
+			req.get()->partition = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else if (*key == RequestValueKey::CONSUMER_ID) {
+			req.get()->consumer_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::USERNAME) {
+			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->username = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->username_length;
+		}
+		else if (*key == RequestValueKey::PASSWORD) {
+			req.get()->password_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->password = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->password_length;
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type ConsumeRequest");
+			throw std::exception("Invalid request value");
+		}
+	}
+
+	return req;
+}

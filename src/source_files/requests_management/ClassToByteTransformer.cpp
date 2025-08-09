@@ -597,3 +597,28 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(ConsumeResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(int) + obj->messages_total_bytes + sizeof(ResponseValueKey);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+
+	ResponseValueKey messages_type = ResponseValueKey::MESSAGES;
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &messages_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->total_messages, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->messages_total_bytes, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, obj->messages_total_bytes, &obj->messages_data, obj->messages_total_bytes);
+	offset += obj->messages_total_bytes;
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}

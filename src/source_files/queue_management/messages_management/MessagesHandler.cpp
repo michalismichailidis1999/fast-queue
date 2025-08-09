@@ -191,7 +191,7 @@ void MessagesHandler::set_last_message_id_and_timestamp(PartitionSegment* segmen
 	segment->set_last_message_timestamp(last_message_timestamp);
 }
 
-std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> MessagesHandler::read_partition_messages(Partition* partition, unsigned long long read_from_message_id, unsigned int maximum_messages_to_read, bool get_prev_available, bool get_next_available) {
+std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> MessagesHandler::read_partition_messages(Partition* partition, unsigned long long read_from_message_id, unsigned int maximum_messages_to_read, bool get_prev_available, bool get_next_available, unsigned long long maximum_message_id) {
 	PartitionSegment* segment_to_read = NULL;
 
 	try

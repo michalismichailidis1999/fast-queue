@@ -1,12 +1,10 @@
 #include "../../header_files/requests_management/ClientRequestExecutor.h"
 
-ClientRequestExecutor::ClientRequestExecutor(MessagesHandler* mh, ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, FileHandler* fh, Util* util, Settings* settings, Logger* logger) {
+ClientRequestExecutor::ClientRequestExecutor(MessagesHandler* mh, ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
 	this->mh = mh;
 	this->cm = cm;
 	this->qm = qm;
 	this->controller = controller;
-	this->fh = fh;
-	this->util = util;
 	this->settings = settings;
 	this->transformer = transformer;
 	this->logger = logger;
@@ -160,9 +158,9 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 		return;
 	}
 
-	Partition* partition = queue.get()->get_partition(request->partition);
+	std::shared_ptr<Partition> partition = queue.get()->get_partition(request->partition);
 
-	if (partition == NULL) {
+	if (partition == nullptr) {
 		this->cm->respond_to_socket_with_error(
 			socket,
 			ssl,
@@ -201,7 +199,7 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 		return;
 	}
 
-	this->mh->save_messages(partition, request);
+	this->mh->save_messages(partition.get(), request);
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
@@ -360,6 +358,88 @@ void ClientRequestExecutor::handle_get_consumer_assigned_partitions_request(SOCK
 		request->consumer_id,
 		&res.get()->partitions
 	);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
+
+void ClientRequestExecutor::handle_consume_request(SOCKET_ID socket, SSL* ssl, ConsumeRequest* request) {
+	if (request->queue_name_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
+	if (request->consumer_group_id_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required");
+		return;
+	}
+
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
+
+	if (Helper::is_internal_queue(queue_name)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Cannot consume from internal queue");
+		return;
+	}
+
+	if (queue == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
+		return;
+	}
+
+	if (request->partition < 0) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_PARTITION_NUMBER, "Partition cannot be less than 0");
+		return;
+	}
+
+	if (queue.get()->get_metadata()->get_partitions() - 1 < request->partition) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_PARTITION_NUMBER, "Queue has only " + std::to_string(queue.get()->get_metadata()->get_partitions()) + " partitions");
+		return;
+	}
+
+	if (this->controller->get_partition_leader(queue_name, request->partition) != this->settings->get_node_id()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
+		return;
+	}
+
+	std::string group_id = std::string(request->consumer_group_id, request->consumer_group_id_length);
+
+	std::shared_ptr<Partition> partition = queue.get()->get_partition(request->partition);
+
+	if (partition == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
+		return;
+	}
+
+	std::shared_ptr<Consumer> consumer = partition.get()->get_consumer(request->consumer_id);
+
+	if (consumer == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::CONSUMER_NOT_FOUND, "Consumer not found");
+		return;
+	}
+
+	if (consumer.get()->get_group_id() != group_id) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_CONSUMER_GROUP_ID, "Incorrect consumer group id " + group_id);
+		return;
+	}
+
+	std::unique_ptr<ConsumeResponse> res = std::make_unique<ConsumeResponse>();
+
+	auto messages_res = this->mh->read_partition_messages(
+		partition.get(), 
+		consumer->get_offset() + 1, 0, 
+		false, 
+		true, 
+		partition->get_last_replicated_offset()
+	);
+	
+	res.get()->total_messages = std::get<4>(messages_res);
+	res.get()->messages_total_bytes = std::get<3>(messages_res) - std::get<2>(messages_res);
+	res.get()->messages_data = std::get<0>(messages_res).get() + std::get<2>(messages_res);
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 

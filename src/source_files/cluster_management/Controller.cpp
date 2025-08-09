@@ -234,7 +234,7 @@ void Controller::append_entries_to_followers() {
 			if (!res.get()->log_matched && req.get()->prev_log_index > 0) {
 				if (req.get()->prev_log_index - 1 > 0) {
 					auto messages_res = this->mh->read_partition_messages(
-						this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+						this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0).get(),
 						req.get()->prev_log_index - 1,
 						1,
 						true
@@ -381,7 +381,7 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 			|| (request->prev_log_index == this->last_log_index
 				&& request->prev_log_term > this->last_log_term)
 		) {
-			Partition* partition = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0);
+			std::shared_ptr<Partition> partition = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0);
 
 			unsigned long long message_to_delete_from = request->prev_log_index < this->last_log_index
 				? request->prev_log_index
@@ -390,11 +390,11 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 			if (this->commit_index > message_to_delete_from)
 				throw std::exception("Node has commit index larger than current leader");
 
-			if (!this->mh->remove_messages_after_message_id(partition, message_to_delete_from))
+			if (!this->mh->remove_messages_after_message_id(partition.get(), message_to_delete_from))
 				throw std::exception("Failed to remove uncommited logs");
 
 			if (message_to_delete_from > 1) {
-				auto messages_res = this->mh->read_partition_messages(partition, message_to_delete_from);
+				auto messages_res = this->mh->read_partition_messages(partition.get(), message_to_delete_from);
 
 				if (std::get<4>(messages_res) != 1) {
 					this->logger->log_error("Something went wrong while trying to fix log offset to match the leader");
@@ -1001,7 +1001,7 @@ void Controller::store_commands(std::vector<Command>* commands) {
 	try
 	{
 		this->mh->save_messages(
-			this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+			this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0).get(),
 			messages_bytes.get(),
 			total_bytes
 		);
@@ -1040,7 +1040,7 @@ bool Controller::store_commands(void* commands, int total_commands, long command
 	try
 	{
 		this->mh->save_messages(
-			this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+			this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0).get(),
 			commands,
 			commands_total_bytes
 		);
@@ -1093,7 +1093,7 @@ void Controller::execute_command(void* command_metadata) {
 
 void Controller::check_for_commit_and_last_applied_diff() {
 	std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
-	Partition* partition = queue.get()->get_partition(0);
+	Partition* partition = queue.get()->get_partition(0).get();
 	queue.reset();
 
 	while (!(*this->should_terminate)) {
@@ -1194,7 +1194,7 @@ std::shared_ptr<AppendEntriesRequest> Controller::prepare_append_entries_request
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME);
 
-	auto messages_res = this->mh->read_partition_messages(queue.get()->get_partition(0), index_to_send, 0, false, true);
+	auto messages_res = this->mh->read_partition_messages(queue.get()->get_partition(0).get(), index_to_send, 0, false, true);
 
 	req.get()->total_commands = std::get<4>(messages_res);
 	req.get()->commands_total_bytes = std::get<3>(messages_res) - std::get<2>(messages_res);
@@ -1249,7 +1249,7 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 				this->follower_indexes[request->node_id] = std::tuple<unsigned long long, unsigned long long>(0, 0);
 			else {
 				auto messages_res = this->mh->read_partition_messages(
-					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0).get(),
 					prev_log_index,
 					1,
 					true
@@ -1269,7 +1269,7 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 		} else if (!request->is_first_request && !request->prev_req_index_matched) {
 			if (prev_log_index - 1 > 0) {
 				auto messages_res = this->mh->read_partition_messages(
-					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0),
+					this->qm->get_queue(CLUSTER_METADATA_QUEUE_NAME).get()->get_partition(0).get(),
 					prev_log_index - 1,
 					1,
 					true

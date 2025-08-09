@@ -7,8 +7,6 @@
 #include "../queue_management/messages_management/MessagesHandler.h"
 #include "../cluster_management/Controller.h"
 #include "../cluster_management/ClusterMetadata.h"
-#include "../util/Util.h"
-#include "../file_management/FileHandler.h"
 #include "./ClassToByteTransformer.h"
 #include "./Requests.h"
 
@@ -19,12 +17,10 @@ private:
 	QueueManager* qm;
 	Controller* controller;
 	ClassToByteTransformer* transformer;
-	FileHandler* fh;
-	Util* util;
 	Settings* settings;
 	Logger* logger;
 public:
-	ClientRequestExecutor(MessagesHandler* mh, ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, FileHandler* fh, Util* util, Settings* settings, Logger* logger);
+	ClientRequestExecutor(MessagesHandler* mh, ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, Settings* settings, Logger* logger);
 
 	void handle_get_controllers_connection_info_request(SOCKET_ID socket, SSL* ssl);
 
@@ -41,4 +37,6 @@ public:
 	void handle_register_consumer_request(SOCKET_ID socket, SSL* ssl, RegisterConsumerRequest* request);
 
 	void handle_get_consumer_assigned_partitions_request(SOCKET_ID socket, SSL* ssl, GetConsumerAssignedPartitionsRequest* request);
+
+	void handle_consume_request(SOCKET_ID socket, SSL* ssl, ConsumeRequest* request);
 };

@@ -19,5 +19,5 @@ public:
 
 	void add_partition(std::shared_ptr<Partition> partition);
 	void remove_partition(unsigned int partition_id);
-	Partition* get_partition(unsigned int partition_id);
+	std::shared_ptr<Partition> get_partition(unsigned int partition_id);
 };

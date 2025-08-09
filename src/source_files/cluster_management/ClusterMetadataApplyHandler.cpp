@@ -180,9 +180,9 @@ void ClusterMetadataApplyHandler::apply_register_consumer_group_command(Register
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) return;
 
-	Partition* partition = queue->get_partition(command->get_partition_id());
+	std::shared_ptr<Partition> partition = queue->get_partition(command->get_partition_id());
 
-	if (partition == NULL) return;
+	if (partition == nullptr) return;
 
 	std::shared_ptr<Consumer> consumer = std::shared_ptr<Consumer>(
 		new Consumer(
@@ -202,9 +202,9 @@ void ClusterMetadataApplyHandler::apply_unregister_consumer_group_command(Unregi
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) return;
 
-	Partition* partition = queue->get_partition(command->get_partition_id());
+	std::shared_ptr<Partition> partition = queue->get_partition(command->get_partition_id());
 
-	if (partition == NULL) return;
+	if (partition == nullptr) return;
 
 	partition->remove_consumer(command->get_consumer_id());
 }

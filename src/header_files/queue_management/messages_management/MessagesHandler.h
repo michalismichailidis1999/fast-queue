@@ -64,7 +64,7 @@ public:
 
 	void update_cluster_metadata_last_applied(unsigned long long last_applied);
 
-	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> read_partition_messages(Partition* partition, unsigned long long read_from_message_id, unsigned int maximum_messages_to_read = 0, bool get_prev_available = false, bool get_next_available = false);
+	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> read_partition_messages(Partition* partition, unsigned long long read_from_message_id, unsigned int maximum_messages_to_read = 0, bool get_prev_available = false, bool get_next_available = false, unsigned long long maximum_message_id = 0);
 
 	bool remove_messages_after_message_id(Partition* partition, unsigned long long message_id);
 };
