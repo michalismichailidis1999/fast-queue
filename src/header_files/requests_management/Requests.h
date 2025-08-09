@@ -94,5 +94,12 @@ struct GetQueuePartitionsInfoRequest {
 	char* queue_name;
 };
 
+struct GetConsumerAssignedPartitionsRequest : AuthRequest {
+	int queue_name_length;
+	char* queue_name;
+	int consumer_group_id_length;
+	char* consumer_group_id;
+	unsigned long long consumer_id;
+};
 
 // ======================================================================

@@ -317,3 +317,51 @@ void ClientRequestExecutor::handle_register_consumer_request(SOCKET_ID socket, S
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
+
+void ClientRequestExecutor::handle_get_consumer_assigned_partitions_request(SOCKET_ID socket, SSL* ssl, GetConsumerAssignedPartitionsRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Request to get consumer assigned partitions must only be sent to controller nodes");
+		return;
+	}
+	
+	if (request->queue_name_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
+	if (request->consumer_group_id_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required");
+		return;
+	}
+
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
+
+	if (Helper::is_internal_queue(queue_name)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Action is not allowed for internal queue");
+		return;
+	}
+
+	if (queue == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
+		return;
+	}
+
+	std::string group_id = std::string(request->consumer_group_id, request->consumer_group_id_length);
+
+	std::unique_ptr<GetConsumerAssignedPartitionsResponse> res = std::make_unique<GetConsumerAssignedPartitionsResponse>();
+
+	this->controller->find_consumer_assigned_partitions(
+		queue_name,
+		group_id,
+		request->consumer_id,
+		&res.get()->partitions
+	);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}

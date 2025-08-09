@@ -39,4 +39,6 @@ public:
 	void handle_get_queue_partitions_info_request(SOCKET_ID socket, SSL* ssl, GetQueuePartitionsInfoRequest* request);
 
 	void handle_register_consumer_request(SOCKET_ID socket, SSL* ssl, RegisterConsumerRequest* request);
+
+	void handle_get_consumer_assigned_partitions_request(SOCKET_ID socket, SSL* ssl, GetConsumerAssignedPartitionsRequest* request);
 };

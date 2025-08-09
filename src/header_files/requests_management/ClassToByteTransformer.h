@@ -43,6 +43,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(GetQueuePartitionsInfoResponse* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(RegisterConsumerResponse* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(GetConsumerAssignedPartitionsResponse* obj);
     // --
 
     // ------------------

@@ -548,7 +548,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 }
 
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(RegisterConsumerResponse* obj) {
-	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool);
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -568,6 +568,32 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	offset += sizeof(ResponseValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->consumer_id, sizeof(unsigned long long));
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(GetConsumerAssignedPartitionsResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) * (1 + obj->partitions.size()) + sizeof(ResponseValueKey);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+
+	ResponseValueKey assigned_partitions_type = ResponseValueKey::ASSIGNED_PARTITIONS;
+
+	int total_assigned_partitions = obj->partitions.size();
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &assigned_partitions_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &total_assigned_partitions, sizeof(int));
+	offset += sizeof(int);
+
+	for (int partition : obj->partitions) {
+		memcpy_s(buf.get() + offset, sizeof(int), &partition, sizeof(int));
+		offset += sizeof(int);
+	}
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }

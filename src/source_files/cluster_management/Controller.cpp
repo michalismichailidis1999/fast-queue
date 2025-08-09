@@ -1500,3 +1500,19 @@ void Controller::unregister_consumer(const std::string& queue_name, const std::s
 
 	this->store_commands(&commands);
 }
+
+void Controller::find_consumer_assigned_partitions(const std::string& queue_name, const std::string& group_id, unsigned long long consumer_id, std::vector<int>* partitions_list) {
+	std::lock_guard<std::mutex> lock(this->cluster_metadata->consumers_mut);
+
+	auto queue_consumer_groups = this->cluster_metadata->partition_consumers[queue_name];
+
+	if (queue_consumer_groups == nullptr) return;
+
+	auto group_consumers = (*(queue_consumer_groups.get()))[group_id];
+
+	if (group_consumers == nullptr) return;
+
+	for (auto& iter : (*(group_consumers.get())))
+		if (iter.second == consumer_id)
+			partitions_list->emplace_back(iter.first);
+}

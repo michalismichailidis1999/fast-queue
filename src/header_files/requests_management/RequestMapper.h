@@ -34,5 +34,7 @@ public:
 
 	std::unique_ptr<RegisterConsumerRequest> to_register_consumer_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<GetConsumerAssignedPartitionsRequest> to_get_consumer_assigned_partitions_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 };

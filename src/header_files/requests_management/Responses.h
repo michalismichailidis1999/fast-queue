@@ -61,4 +61,8 @@ struct RegisterConsumerResponse {
 	unsigned long long consumer_id;
 };
 
+struct GetConsumerAssignedPartitionsResponse {
+	std::vector<int> partitions;
+};
+
 // =======================================================
