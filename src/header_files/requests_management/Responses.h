@@ -71,4 +71,8 @@ struct ConsumeResponse {
 	void* messages_data;
 };
 
+struct AckMessageOffsetResponse {
+	bool ok;
+};
+
 // =======================================================

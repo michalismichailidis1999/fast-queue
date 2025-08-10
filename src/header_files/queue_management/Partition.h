@@ -30,9 +30,13 @@ private:
 
 	unsigned long long last_replicated_offset;
 
+	unsigned int consumer_offsets_flushed_bytes;
+
+	unsigned int consumer_offset_updates_count;
 	std::unordered_map<unsigned long long, std::shared_ptr<Consumer>> consumers;
 
 	std::shared_mutex mut;
+	std::shared_mutex consumers_mut;
 public:
 	Partition(unsigned int partition_id, const std::string& queue_name);
 
@@ -72,6 +76,12 @@ public:
 	void add_consumer(std::shared_ptr<Consumer> consumer);
 	std::shared_ptr<Consumer> get_consumer(unsigned long long consumer_id);
 	void remove_consumer(unsigned long long consumer_id);
+
+	unsigned int increase_consumers_offset_update_count();
+	void init_consumers_offset_update_count();
+
+	void set_consumer_offsets_flushed_bytes(unsigned int consumer_offsets_flushed_bytes);
+	unsigned int get_consumer_offsets_flushed_bytes();
 
 	friend class RetentionHandler;
 	friend class CompactionHandler;

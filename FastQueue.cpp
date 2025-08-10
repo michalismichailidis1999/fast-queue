@@ -121,7 +121,9 @@ int main(int argc, char* argv[])
 
     std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), request_mapper.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
 
-    std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(mh.get(), cm.get(), qm.get(), controller.get(), transformer.get(), settings.get(), server_logger.get()));
+    std::unique_ptr<MessageOffsetAckHandler> oah = std::unique_ptr<MessageOffsetAckHandler>(new MessageOffsetAckHandler(fh.get(), pm.get()));
+
+    std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(mh.get(), oah.get(), cm.get(), qm.get(), controller.get(), transformer.get(), settings.get(), server_logger.get()));
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), transformer.get()));
     std::unique_ptr<RequestManager> rm = std::unique_ptr<RequestManager>(new RequestManager(cm.get(), settings.get(), client_request_executor.get(), internal_request_executor.get(), request_mapper.get(), server_logger.get()));
 

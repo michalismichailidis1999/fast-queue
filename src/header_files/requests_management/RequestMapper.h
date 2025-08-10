@@ -38,5 +38,7 @@ public:
 
 	std::unique_ptr<ConsumeRequest> to_consume_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<AckMessageOffsetRequest> to_ack_message_offset_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 };

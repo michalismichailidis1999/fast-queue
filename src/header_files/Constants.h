@@ -29,6 +29,8 @@ static const unsigned int MAX_CONSUMER_GROUP_ID_CHARS = 75;
 
 static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
+static const unsigned int MAX_PARTITION_CONSUMER_OFFSET_UPDATES_COUNT_BEFORE_FLUSH = 10;
+
 static const unsigned int MAX_ADDRESS_CHARS = 39;
 
 static const unsigned int INDEX_PAGE_SIZE = 4096; // 4KB

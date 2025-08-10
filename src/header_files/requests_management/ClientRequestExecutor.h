@@ -5,6 +5,7 @@
 #include "../network_management/ConnectionsManager.h"
 #include "../queue_management/QueueManager.h"
 #include "../queue_management/messages_management/MessagesHandler.h"
+#include "../queue_management/messages_management/MessageOffsetAckHandler.h"
 #include "../cluster_management/Controller.h"
 #include "../cluster_management/ClusterMetadata.h"
 #include "./ClassToByteTransformer.h"
@@ -13,6 +14,7 @@
 class ClientRequestExecutor {
 private:
 	MessagesHandler* mh;
+	MessageOffsetAckHandler* oah;
 	ConnectionsManager* cm;
 	QueueManager* qm;
 	Controller* controller;
@@ -20,7 +22,7 @@ private:
 	Settings* settings;
 	Logger* logger;
 public:
-	ClientRequestExecutor(MessagesHandler* mh, ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, Settings* settings, Logger* logger);
+	ClientRequestExecutor(MessagesHandler* mh, MessageOffsetAckHandler* oah, ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, Settings* settings, Logger* logger);
 
 	void handle_get_controllers_connection_info_request(SOCKET_ID socket, SSL* ssl);
 
@@ -39,4 +41,6 @@ public:
 	void handle_get_consumer_assigned_partitions_request(SOCKET_ID socket, SSL* ssl, GetConsumerAssignedPartitionsRequest* request);
 
 	void handle_consume_request(SOCKET_ID socket, SSL* ssl, ConsumeRequest* request);
+
+	void handle_ack_message_offset_request(SOCKET_ID socket, SSL* ssl, AckMessageOffsetRequest* request);
 };

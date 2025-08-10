@@ -113,4 +113,14 @@ struct ConsumeRequest : AuthRequest {
 	bool read_single_offset_only;
 };
 
+struct AckMessageOffsetRequest : AuthRequest {
+	int queue_name_length;
+	char* queue_name;
+	int consumer_group_id_length;
+	char* consumer_group_id;
+	int partition;
+	unsigned long long consumer_id;
+	unsigned long long message_offset;
+};
+
 // ======================================================================

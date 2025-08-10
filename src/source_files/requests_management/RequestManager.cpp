@@ -9,7 +9,7 @@ RequestManager::RequestManager(ConnectionsManager* cm, Settings* settings, Clien
 	this->logger = logger;
 }
 
-bool RequestManager::is_user_authorized_for_action(char* username, int username_length, char* password, int password_length) {
+bool RequestManager::is_user_authorized_for_action(AuthRequest* request) {
 	return true;
 }
 
@@ -68,12 +68,7 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			if (
 				this->settings->get_external_user_authentication_enabled()
-				&& !this->is_user_authorized_for_action(
-					request.get()->username,
-					request.get()->username_length,
-					request.get()->password,
-					request.get()->password_length
-				)
+				&& !this->is_user_authorized_for_action(request.get())
 			) {
 				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
 				return;
@@ -91,13 +86,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			if (
 				this->settings->get_external_user_authentication_enabled()
-				&& !this->is_user_authorized_for_action(
-					request.get()->username,
-					request.get()->username_length,
-					request.get()->password,
-					request.get()->password_length
-				)
-				) {
+				&& !this->is_user_authorized_for_action(request.get())
+			) {
 				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
 				return;
 			}
@@ -130,13 +120,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			if (
 				this->settings->get_external_user_authentication_enabled()
-				&& !this->is_user_authorized_for_action(
-					request.get()->username,
-					request.get()->username_length,
-					request.get()->password,
-					request.get()->password_length
-				)
-				) {
+				&& !this->is_user_authorized_for_action(request.get())
+			) {
 				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
 				return;
 			}
@@ -201,6 +186,14 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			std::unique_ptr<RegisterConsumerRequest> request = this->mapper->to_register_consumer_request(recvbuf.get(), res_buffer_length);
 
+			if (
+				this->settings->get_external_user_authentication_enabled()
+				&& !this->is_user_authorized_for_action(request.get())
+			) {
+				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
+				return;
+			}
+
 			this->client_request_executor->handle_register_consumer_request(socket, ssl, request.get());
 
 			break;
@@ -210,6 +203,14 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			this->logger->log_info("Received and executing request type of GET_CONSUMER_ASSIGNED_PARTITIONS");
 
 			std::unique_ptr<GetConsumerAssignedPartitionsRequest> request = this->mapper->to_get_consumer_assigned_partitions_request(recvbuf.get(), res_buffer_length);
+
+			if (
+				this->settings->get_external_user_authentication_enabled()
+				&& !this->is_user_authorized_for_action(request.get())
+			) {
+				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
+				return;
+			}
 
 			this->client_request_executor->handle_get_consumer_assigned_partitions_request(socket, ssl, request.get());
 
@@ -221,7 +222,33 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			std::unique_ptr<ConsumeRequest> request = this->mapper->to_consume_request(recvbuf.get(), res_buffer_length);
 
+			if (
+				this->settings->get_external_user_authentication_enabled()
+				&& !this->is_user_authorized_for_action(request.get())
+			) {
+				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
+				return;
+			}
+
 			this->client_request_executor->handle_consume_request(socket, ssl, request.get());
+
+			break;
+		}
+		case RequestType::ACK:
+		{
+			this->logger->log_info("Received and executing request type of ACK");
+
+			std::unique_ptr<AckMessageOffsetRequest> request = this->mapper->to_ack_message_offset_request(recvbuf.get(), res_buffer_length);
+
+			if (
+				this->settings->get_external_user_authentication_enabled()
+				&& !this->is_user_authorized_for_action(request.get())
+				) {
+				this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNAUTHORIZED, "Insufficient user permissions to execute this action");
+				return;
+			}
+
+			this->client_request_executor->handle_ack_message_offset_request(socket, ssl, request.get());
 
 			break;
 		}

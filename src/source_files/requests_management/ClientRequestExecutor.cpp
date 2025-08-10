@@ -1,7 +1,8 @@
 #include "../../header_files/requests_management/ClientRequestExecutor.h"
 
-ClientRequestExecutor::ClientRequestExecutor(MessagesHandler* mh, ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
+ClientRequestExecutor::ClientRequestExecutor(MessagesHandler* mh, MessageOffsetAckHandler* oah, ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
 	this->mh = mh;
+	this->oah = oah;
 	this->cm = cm;
 	this->qm = qm;
 	this->controller = controller;
@@ -441,6 +442,84 @@ void ClientRequestExecutor::handle_consume_request(SOCKET_ID socket, SSL* ssl, C
 	res.get()->total_messages = std::get<4>(messages_res);
 	res.get()->messages_total_bytes = std::get<3>(messages_res) - std::get<2>(messages_res);
 	res.get()->messages_data = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
+
+void ClientRequestExecutor::handle_ack_message_offset_request(SOCKET_ID socket, SSL* ssl, AckMessageOffsetRequest* request) {
+	if (request->queue_name_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
+	if (request->consumer_group_id_length == 0)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required");
+		return;
+	}
+
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
+
+	if (Helper::is_internal_queue(queue_name)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Cannot consume from internal queue");
+		return;
+	}
+
+	if (queue == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
+		return;
+	}
+
+	if (request->partition < 0) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_PARTITION_NUMBER, "Partition cannot be less than 0");
+		return;
+	}
+
+	if (queue.get()->get_metadata()->get_partitions() - 1 < request->partition) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_PARTITION_NUMBER, "Queue has only " + std::to_string(queue.get()->get_metadata()->get_partitions()) + " partitions");
+		return;
+	}
+
+	if (this->controller->get_partition_leader(queue_name, request->partition) != this->settings->get_node_id()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
+		return;
+	}
+
+	std::string group_id = std::string(request->consumer_group_id, request->consumer_group_id_length);
+
+	std::shared_ptr<Partition> partition = queue.get()->get_partition(request->partition);
+
+	if (partition == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
+		return;
+	}
+
+	std::shared_ptr<Consumer> consumer = partition.get()->get_consumer(request->consumer_id);
+
+	if (consumer == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::CONSUMER_NOT_FOUND, "Consumer not found");
+		return;
+	}
+
+	if (consumer.get()->get_group_id() != group_id) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_CONSUMER_GROUP_ID, "Incorrect consumer group id " + group_id);
+		return;
+	}
+
+	consumer.get()->set_offset(request->message_offset);
+	
+	if (partition.get()->increase_consumers_offset_update_count() >= MAX_PARTITION_CONSUMER_OFFSET_UPDATES_COUNT_BEFORE_FLUSH) {
+		this->oah->flush_partition_consumer_offsets(partition.get());
+		partition.get()->init_consumers_offset_update_count();
+	}
+
+	std::unique_ptr<AckMessageOffsetResponse> res = std::make_unique<AckMessageOffsetResponse>();
+	res.get()->ok = true;
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 

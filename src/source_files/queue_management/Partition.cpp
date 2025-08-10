@@ -12,6 +12,7 @@ Partition::Partition(unsigned int partition_id, const std::string& queue_name) {
 	this->message_map_path = "";
 	this->offsets_key = "";
 	this->offsets_path = "";
+	this->consumer_offset_updates_count = 0;
 }
 
 const std::string& Partition::get_queue_name() {
@@ -129,16 +130,36 @@ void Partition::set_last_replicated_offset(unsigned long long last_replicated_of
 }
 
 void Partition::add_consumer(std::shared_ptr<Consumer> consumer) {
-	std::lock_guard<std::shared_mutex> lock(this->mut);
+	std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
 	this->consumers[consumer.get()->get_id()] = consumer;
 }
 
 std::shared_ptr<Consumer> Partition::get_consumer(unsigned long long consumer_id) {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
+	std::shared_lock<std::shared_mutex> lock(this->consumers_mut);
 	return this->consumers[consumer_id];
 }
 
 void Partition::remove_consumer(unsigned long long consumer_id) {
-	std::lock_guard<std::shared_mutex> lock(this->mut);
+	std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
 	this->consumers.erase(consumer_id);
+}
+
+unsigned int Partition::increase_consumers_offset_update_count() {
+	std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
+	return ++this->consumer_offset_updates_count;
+}
+
+void Partition::init_consumers_offset_update_count() {
+	std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
+	this->consumer_offset_updates_count = 0;
+}
+
+void Partition::set_consumer_offsets_flushed_bytes(unsigned int consumer_offsets_flushed_bytes) {
+	std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
+	this->consumer_offsets_flushed_bytes = consumer_offsets_flushed_bytes;
+}
+
+unsigned int Partition::get_consumer_offsets_flushed_bytes() {
+	std::shared_lock<std::shared_mutex> lock(this->consumers_mut);
+	return this->consumer_offsets_flushed_bytes;
 }
