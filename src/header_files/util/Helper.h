@@ -12,4 +12,5 @@ public:
 	static void retrieve_message_metadata_values(void* metadata, unsigned long long* message_id, unsigned long long* timestamp);
 	static bool has_valid_checksum(void* metadata);
 	static bool is_internal_queue(const std::string& queue_name);
+	static unsigned int abs(int val);
 };

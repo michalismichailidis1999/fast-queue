@@ -292,6 +292,12 @@ void ClientRequestExecutor::handle_register_consumer_request(SOCKET_ID socket, S
 		return;
 	}
 
+	if (request->consumer_group_id_length > MAX_CONSUMER_GROUP_ID_CHARS)
+	{
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Group id cannot be larger than " + std::to_string(MAX_CONSUMER_GROUP_ID_CHARS) + " characters");
+		return;
+	}
+
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);

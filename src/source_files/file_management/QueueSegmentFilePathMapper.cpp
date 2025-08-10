@@ -80,11 +80,12 @@ std::string QueueSegmentFilePathMapper::get_file_path(const std::string& queue_n
 		+ FILE_EXTENSION;
 }
 
-std::string QueueSegmentFilePathMapper::get_partition_offsets_path(const std::string& queue_name, int partition) {
+std::string QueueSegmentFilePathMapper::get_partition_offsets_path(const std::string& queue_name, int partition, bool temp_file) {
 	return this->settings->get_log_path()
 		+ "/"
 		+ queue_name
 		+ "/partition-" + std::to_string(partition) + "/__offsets"
+		+ (temp_file ? "_temp" : "")
 		+ FILE_EXTENSION;
 }
 

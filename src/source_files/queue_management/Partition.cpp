@@ -144,6 +144,17 @@ void Partition::remove_consumer(unsigned long long consumer_id) {
 	this->consumers.erase(consumer_id);
 }
 
+std::vector<std::shared_ptr<Consumer>> Partition::get_all_consumers() {
+	std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
+
+	std::vector<std::shared_ptr<Consumer>> consumers;
+
+	for (auto& iter : this->consumers)
+		consumers.emplace_back(iter.second);
+
+	return consumers;
+}
+
 unsigned int Partition::increase_consumers_offset_update_count() {
 	std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
 	return ++this->consumer_offset_updates_count;

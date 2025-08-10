@@ -76,6 +76,7 @@ public:
 	void add_consumer(std::shared_ptr<Consumer> consumer);
 	std::shared_ptr<Consumer> get_consumer(unsigned long long consumer_id);
 	void remove_consumer(unsigned long long consumer_id);
+	std::vector<std::shared_ptr<Consumer>> get_all_consumers();
 
 	unsigned int increase_consumers_offset_update_count();
 	void init_consumers_offset_update_count();

@@ -9,5 +9,5 @@ private:
 public:
 	MessageOffsetAckHandler(FileHandler* fh, QueueSegmentFilePathMapper* pm);
 
-	void flush_partition_consumer_offsets(Partition* partition);
+	void flush_partition_consumer_offsets(Partition* partition, bool from_server_startup = false);
 };
