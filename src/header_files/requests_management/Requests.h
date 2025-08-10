@@ -109,6 +109,8 @@ struct ConsumeRequest : AuthRequest {
 	char* consumer_group_id;
 	int partition;
 	unsigned long long consumer_id;
+	unsigned long long message_offset;
+	bool read_single_offset_only;
 };
 
 // ======================================================================

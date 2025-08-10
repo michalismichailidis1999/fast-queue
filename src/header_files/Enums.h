@@ -55,6 +55,8 @@ enum class RequestValueKey {
 	CONSUMER_GROUP_ID,
 	CONSUME_FROM,
 	CONSUMER_ID,
+	MESSAGE_OFFSET,
+	READ_SINGLE_OFFSET_ONLY,
 
 	// Internal Communication
 	NODE_ID,

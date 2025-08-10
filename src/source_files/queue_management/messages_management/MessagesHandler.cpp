@@ -394,9 +394,13 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 
 		unsigned int total_read = 0;
 		unsigned int new_read_end = read_start;
+		unsigned long long current_message_id = 0;
 
 		while (new_read_end < read_end && (maximum_messages_to_read > 0 ? total_read < maximum_messages_to_read : true)) {
+			memcpy_s(&current_message_id, MESSAGE_ID_SIZE, read_batch.get() + new_read_end + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 			memcpy_s(&is_message_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + new_read_end + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
+
+			if (current_message_id < maximum_message_id) break;
 
 			if (!is_message_active) break;
 

@@ -411,6 +411,8 @@ std::unique_ptr<ConsumeRequest> RequestMapper::to_consume_request(char* recvbuf,
 
 	req.get()->queue_name_length = 0;
 	req.get()->consumer_group_id_length = 0;
+	req.get()->message_offset = 0;
+	req.get()->read_single_offset_only = false;
 
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
@@ -432,6 +434,14 @@ std::unique_ptr<ConsumeRequest> RequestMapper::to_consume_request(char* recvbuf,
 		else if (*key == RequestValueKey::CONSUMER_ID) {
 			req.get()->consumer_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::MESSAGE_OFFSET) {
+			req.get()->message_offset = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::READ_SINGLE_OFFSET_ONLY) {
+			req.get()->read_single_offset_only = *(bool*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(bool);
 		}
 		else if (*key == RequestValueKey::USERNAME) {
 			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));

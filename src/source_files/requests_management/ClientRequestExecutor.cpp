@@ -431,7 +431,8 @@ void ClientRequestExecutor::handle_consume_request(SOCKET_ID socket, SSL* ssl, C
 
 	auto messages_res = this->mh->read_partition_messages(
 		partition.get(), 
-		consumer->get_offset() + 1, 0, 
+		request->message_offset == 0 ? consumer->get_offset() + 1 : request->message_offset, 
+		request->read_single_offset_only ? 1 : 0,
 		false, 
 		true, 
 		partition->get_last_replicated_offset()
