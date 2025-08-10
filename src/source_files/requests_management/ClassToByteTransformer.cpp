@@ -405,7 +405,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	int offset = 0;
 
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
-	ResponseValueKey connection_info_type = ResponseValueKey::NODE_CONNECTION_INFO;
+	ResponseValueKey connection_info_type = ResponseValueKey::CONTROLLER_CONNECTION_INFO;
 
 	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
