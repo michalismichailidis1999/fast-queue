@@ -1,9 +1,10 @@
 #include "../header_files/BeforeServerStartupHandler.h"
 
-BeforeServerStartupHandler::BeforeServerStartupHandler(Controller* controller, ClusterMetadataApplyHandler* cmah, QueueManager* qm, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
+BeforeServerStartupHandler::BeforeServerStartupHandler(Controller* controller, ClusterMetadataApplyHandler* cmah, QueueManager* qm, MessageOffsetAckHandler* oah, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
     this->controller = controller;
     this->cmah = cmah;
     this->qm = qm;
+    this->oah = oah;
     this->sa = sa;
     this->smm = smm;
 	this->fh = fh;
@@ -40,6 +41,7 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     unsigned long long current_segment_id = partition->get_current_segment_id();
 
     std::unordered_map<int, Command> registered_nodes;
+    std::unordered_map<unsigned long long, Command> registered_consumers;
 
     while (smallest_segment_id > 0 && smallest_segment_id <= current_segment_id) {
         this->cmah->apply_commands_from_segment(
@@ -48,6 +50,7 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
             this->controller->get_last_command_applied(),
             false,
             &registered_nodes,
+            &registered_consumers,
             this->controller->get_future_cluster_metadata()
         );
 
@@ -59,6 +62,29 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     {
         this->cmah->apply_command(this->controller->get_cluster_metadata(), &iter.second);
         this->controller->update_data_node_heartbeat(iter.first, NULL, true);
+    }
+
+    for (auto& iter : registered_consumers)
+        this->cmah->apply_command(this->controller->get_cluster_metadata(), &iter.second, true);
+
+    std::vector<std::string> queue_names;
+
+    this->qm->get_all_queue_names(&queue_names);
+
+    for (const std::string& queue_name : queue_names) {
+        if (queue_name == CLUSTER_METADATA_QUEUE_NAME) continue;
+
+        std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
+
+        int total_partitions = queue.get()->get_metadata()->get_partitions();
+
+        for (int i = 0; i < total_partitions; i++) {
+            std::shared_ptr<Partition> partition = queue.get()->get_partition(i);
+
+            if (partition == nullptr) continue;
+
+            this->oah->flush_partition_consumer_offsets(partition.get(), true);
+        }
     }
 
     this->logger->log_info("Cluster metadata rebuilt successfully");
@@ -353,9 +379,15 @@ void BeforeServerStartupHandler::set_partition_replicated_offset(Partition* part
     std::string offsets_key = this->pm->get_partition_offsets_key(partition->get_queue_name(), partition->get_partition_id());
     std::string offsets_path = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id());
 
+    std::string temp_offsets_path = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id(), true);
+
     partition->set_offsets(offsets_key, offsets_path);
 
     unsigned long long last_replicated_offset = 0;
+
+    if (!this->fh->check_if_exists(offsets_path) && this->fh->check_if_exists(temp_offsets_path)) {
+        this->fh->rename_file("", temp_offsets_path, offsets_path);
+    }
 
     if (this->fh->check_if_exists(offsets_path)) {
         this->fh->read_from_file(
@@ -365,6 +397,8 @@ void BeforeServerStartupHandler::set_partition_replicated_offset(Partition* part
             0,
             &last_replicated_offset
         );
+
+        this->fh->delete_dir_or_file(temp_offsets_path);
 
         partition->set_last_replicated_offset(last_replicated_offset);
 

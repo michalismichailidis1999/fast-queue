@@ -76,6 +76,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<DiskFlusher> df = std::unique_ptr<DiskFlusher>(new DiskFlusher(fh.get(), cache_handler.get(), server_logger.get(), settings.get(), &should_terminate));
     std::unique_ptr<DiskReader> dr = std::unique_ptr<DiskReader>(new DiskReader(fh.get(), cache_handler.get(), server_logger.get(), settings.get()));
 
+    std::unique_ptr<MessageOffsetAckHandler> oah = std::unique_ptr<MessageOffsetAckHandler>(new MessageOffsetAckHandler(fh.get(), pm.get()));
+
     std::unique_ptr<BPlusTreeIndexHandler> ih = std::unique_ptr<BPlusTreeIndexHandler>(new BPlusTreeIndexHandler(df.get(), dr.get()));
     std::unique_ptr<SegmentMessageMap> smm = std::unique_ptr<SegmentMessageMap>(new SegmentMessageMap(df.get(), dr.get(), pm.get()));
 
@@ -100,6 +102,7 @@ int main(int argc, char* argv[])
             controller.get(),
             cmah.get(),
             qm.get(),
+            oah.get(),
             sa.get(),
             smm.get(),
             fh.get(),
@@ -120,8 +123,6 @@ int main(int argc, char* argv[])
     controller.get()->update_quorum_communication_values();
 
     std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), request_mapper.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
-
-    std::unique_ptr<MessageOffsetAckHandler> oah = std::unique_ptr<MessageOffsetAckHandler>(new MessageOffsetAckHandler(fh.get(), pm.get()));
 
     std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(mh.get(), oah.get(), cm.get(), qm.get(), controller.get(), transformer.get(), settings.get(), server_logger.get()));
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), transformer.get()));

@@ -30,7 +30,7 @@ private:
 public:
 	ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings, Logger* logger);
 
-	void apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction = false, std::unordered_map<int, Command>* registered_nodes = NULL, ClusterMetadata* future_cluster_metadata = NULL);
+	void apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction = false, std::unordered_map<int, Command>* registered_nodes = NULL, std::unordered_map<unsigned long long, Command>* registered_consumers = NULL, ClusterMetadata* future_cluster_metadata = NULL);
 
-	void apply_command(ClusterMetadata* cluster_metadata, Command* command);
+	void apply_command(ClusterMetadata* cluster_metadata, Command* command, bool skip_cluster_metadata_update = false);
 };

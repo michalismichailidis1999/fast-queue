@@ -7,6 +7,7 @@
 #include "./queue_management/Partition.h"
 #include "./queue_management/PartitionSegment.h"
 #include "./queue_management/messages_management/SegmentAllocator.h"
+#include "./queue_management/messages_management/MessageOffsetAckHandler.h"
 #include "./queue_management/messages_management/index_management/BTreeNode.h"
 #include "./queue_management/messages_management/index_management/SegmentMessageMap.h"
 #include "./cluster_management/ClusterMetadata.h"
@@ -25,6 +26,7 @@ private:
 	Controller* controller;
 	ClusterMetadataApplyHandler* cmah;
 	QueueManager* qm;
+	MessageOffsetAckHandler* oah;
 	SegmentAllocator* sa;
 	SegmentMessageMap* smm;
 	FileHandler* fh;
@@ -49,7 +51,7 @@ private:
 
 	void handle_compacted_segment(const std::string& queue_name, int partition_id, unsigned long long segment_id, bool is_internal_queue);
 public:
-	BeforeServerStartupHandler(Controller* controller, ClusterMetadataApplyHandler* cmah, QueueManager* qm, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings);
+	BeforeServerStartupHandler(Controller* controller, ClusterMetadataApplyHandler* cmah, QueueManager* qm, MessageOffsetAckHandler* oah, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings);
 
 	void initialize_required_folders_and_queues();
 

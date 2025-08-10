@@ -1,3 +1,4 @@
+#pragma once
 #include "../../file_management/FileHandler.h"
 #include "../../file_management/QueueSegmentFilePathMapper.h"
 #include "../Partition.h"

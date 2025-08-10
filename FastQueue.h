@@ -30,6 +30,7 @@
 #include "./src/header_files/queue_management/messages_management/Consumer.h"
 #include "./src/header_files/queue_management/messages_management/SegmentAllocator.h"
 #include "./src/header_files/queue_management/messages_management/MessagesHandler.h"
+#include "./src/header_files/queue_management/messages_management/MessageOffsetAckHandler.h"
 #include "./src/header_files/queue_management/messages_management/index_management/SegmentMessageMap.h"
 #include "./src/header_files/queue_management/messages_management/index_management/BPlusTreeIndexHandler.h"
 #include "./src/header_files/queue_management/messages_management/index_management/BTreeNode.h"

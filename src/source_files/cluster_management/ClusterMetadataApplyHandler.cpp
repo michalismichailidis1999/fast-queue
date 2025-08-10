@@ -9,7 +9,7 @@ ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, Conne
 	this->logger = logger;
 }
 
-void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction, std::unordered_map<int, Command>* registered_nodes, ClusterMetadata* future_cluster_metadata) {
+void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction, std::unordered_map<int, Command>* registered_nodes, std::unordered_map<unsigned long long, Command>* registered_consumers, ClusterMetadata* future_cluster_metadata) {
 	std::unique_ptr<char> batch_size = std::unique_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
 
 	std::string segment_key = this->pm->get_file_key(CLUSTER_METADATA_QUEUE_NAME, segment_id, -1);
@@ -67,6 +67,25 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 				}
 			}
 
+			if (registered_consumers != NULL) {
+				RegisterConsumerGroupCommand* register_info = NULL;
+				UnregisterConsumerGroupCommand* unregister_info = NULL;
+
+				switch (command.get_command_type())
+				{
+				case CommandType::REGISTER_CONSUMER_GROUP:
+					register_info = (RegisterConsumerGroupCommand*)command.get_command_info();
+					(*registered_consumers)[register_info->get_consumer_id()] = command;
+					break;
+				case CommandType::UNREGISTER_CONSUMER_GROUP:
+					unregister_info = (UnregisterConsumerGroupCommand*)command.get_command_info();
+					registered_consumers->erase(unregister_info->get_consumer_id());
+					break;
+				default:
+					break;
+				}
+			}
+
 			offset += command_total_bytes;
 		}
 
@@ -80,7 +99,7 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 	this->fh->close_file(segment_key);
 }
 
-void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadata, Command* command) {
+void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadata, Command* command, bool skip_cluster_metadata_update) {
 	switch (command->get_command_type()) {
 	case CommandType::CREATE_QUEUE:
 		this->apply_create_queue_command(cluster_metadata, (CreateQueueCommand*)command->get_command_info());
@@ -110,7 +129,7 @@ void ClusterMetadataApplyHandler::apply_command(ClusterMetadata* cluster_metadat
 		break;
 	}
 
-	cluster_metadata->apply_command(command);
+	if(!skip_cluster_metadata_update) cluster_metadata->apply_command(command);
 }
 
 void ClusterMetadataApplyHandler::apply_create_queue_command(ClusterMetadata* cluster_metadata, CreateQueueCommand* command) {
