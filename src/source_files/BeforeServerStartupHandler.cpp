@@ -83,6 +83,49 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
 
             if (partition == nullptr) continue;
 
+            unsigned int total_consumers = 0;
+
+            this->fh->read_from_file(
+                partition.get()->get_offsets_key(),
+                partition.get()->get_offsets_path(),
+                sizeof(unsigned int),
+                sizeof(unsigned long long),
+                &total_consumers
+            );
+
+            if (total_consumers == 0) {
+                this->oah->flush_partition_consumer_offsets(partition.get(), true);
+                continue;
+            }
+
+            unsigned int total_consumer_bytes = CONSUMER_TOTAL_BYTES * total_consumers;
+
+            std::unique_ptr<char> consumer_bytes = std::unique_ptr<char>(new char[total_consumer_bytes]);
+
+            this->fh->read_from_file(
+                partition.get()->get_offsets_key(),
+                partition.get()->get_offsets_path(),
+                total_consumer_bytes,
+                sizeof(unsigned long long) + sizeof(unsigned int),
+                consumer_bytes.get()
+            );
+
+            unsigned int offset = 0;
+            unsigned long long consumer_id = 0;
+            unsigned long long message_offset = 0;
+
+            for (int j = 0; j < total_consumers; j++) {
+                memcpy_s(&consumer_id, CONSUMER_ID_SIZE, consumer_bytes.get() + CONSUMER_ID_OFFSET + offset, CONSUMER_ID_SIZE);
+                memcpy_s(&message_offset, CONSUMER_LAST_CONSUMED_MESSAGE_ID_SIZE, consumer_bytes.get() + CONSUMER_LAST_CONSUMED_MESSAGE_ID_OFFSET + offset, CONSUMER_LAST_CONSUMED_MESSAGE_ID_SIZE);
+
+                std::shared_ptr<Consumer> consumer = partition.get()->get_consumer(consumer_id);
+
+                if (consumer != nullptr)
+                    consumer.get()->set_offset(message_offset);
+
+                offset += CONSUMER_TOTAL_BYTES;
+            }
+
             this->oah->flush_partition_consumer_offsets(partition.get(), true);
         }
     }
@@ -405,10 +448,19 @@ void BeforeServerStartupHandler::set_partition_replicated_offset(Partition* part
         return;
     }
 
+    unsigned int total_bytes = sizeof(unsigned long long) + sizeof(unsigned int);
+
+    std::unique_ptr<char> buff = std::unique_ptr<char>(new char[total_bytes]);
+
+    unsigned long long zero_val = 0;
+
+    memcpy_s(buff.get(), sizeof(unsigned long long), &zero_val, sizeof(unsigned long long));
+    memcpy_s(buff.get() + sizeof(unsigned long long), sizeof(unsigned int), &zero_val, sizeof(unsigned int));
+
     this->fh->create_new_file(
         offsets_path,
-        sizeof(unsigned long long),
-        &last_replicated_offset,
+        total_bytes,
+        buff.get(),
         offsets_key,
         true
     );

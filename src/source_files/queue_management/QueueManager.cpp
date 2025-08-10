@@ -166,12 +166,19 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 	}
 
 	if (!this->fh->check_if_exists(off_path)) {
-		unsigned long long replicated_message_offset = 0;
+		unsigned int total_bytes = sizeof(unsigned long long) + sizeof(unsigned int);
+
+		unsigned long long zero_val = 0;
+
+		std::unique_ptr<char> buff = std::unique_ptr<char>(new char[total_bytes]);
+
+		memcpy_s(buff.get(), sizeof(unsigned long long), &zero_val, sizeof(unsigned long long));
+		memcpy_s(buff.get() + sizeof(unsigned long long), sizeof(unsigned int), &zero_val, sizeof(unsigned int));
 
 		this->fh->create_new_file(
 			off_path,
-			sizeof(unsigned long long),
-			&replicated_message_offset,
+			total_bytes,
+			buff.get(),
 			off_key,
 			true
 		);
