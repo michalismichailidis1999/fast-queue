@@ -232,6 +232,7 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 
 			unsigned int total_bytes = message_bytes;
 			unsigned int total_messages = 1;
+			unsigned long long message_id = 0;
 
 			read_from_message_id++;
 
@@ -244,8 +245,11 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 				if (cached_message == nullptr) break;
 
 				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, cached_message.get() + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+				memcpy_s(&message_id, MESSAGE_ID_SIZE, cached_message.get() + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
 				if (total_bytes + message_bytes > READ_MESSAGES_BATCH_SIZE) break;
+
+				if (message_id >= maximum_messages_to_read) break;
 
 				memcpy_s(cached_messages_batch.get() + total_bytes, message_bytes, cached_message.get(), message_bytes);
 
