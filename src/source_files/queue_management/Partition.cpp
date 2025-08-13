@@ -12,6 +12,7 @@ Partition::Partition(unsigned int partition_id, const std::string& queue_name) {
 	this->message_map_path = "";
 	this->offsets_key = "";
 	this->offsets_path = "";
+	this->consumer_offsets_flushed_bytes = 0;
 	this->consumer_offset_updates_count = 0;
 }
 

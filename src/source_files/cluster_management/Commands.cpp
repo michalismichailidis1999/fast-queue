@@ -534,7 +534,7 @@ RegisterConsumerGroupCommand::RegisterConsumerGroupCommand(void* metadata) {
 	memcpy_s(&group_id_length, RCG_COMMAND_GROUP_ID_LENGTH_SIZE, (char*)metadata + RCG_COMMAND_GROUP_ID_LENGTH_OFFSET, RCG_COMMAND_GROUP_ID_LENGTH_SIZE);
 
 	this->queue_name = std::string((char*)metadata + RCG_COMMAND_QUEUE_NAME_OFFSET, queue_name_length);
-	this->group_id = std::string((char*)metadata + RCG_COMMAND_GROUP_ID_LENGTH_OFFSET, group_id_length);
+	this->group_id = std::string((char*)metadata + RCG_COMMAND_GROUP_ID_OFFSET, group_id_length);
 
 	memcpy_s(&this->partition_id, RCG_COMMAND_PARTITION_ID_SIZE, (char*)metadata + RCG_COMMAND_PARTITION_ID_OFFSET, RCG_COMMAND_PARTITION_ID_SIZE);
 	memcpy_s(&this->consumer_id, RCG_COMMAND_CONSUMER_ID_SIZE, (char*)metadata + RCG_COMMAND_CONSUMER_ID_OFFSET, RCG_COMMAND_CONSUMER_ID_SIZE);
