@@ -72,6 +72,7 @@ void ClusterMetadata::apply_command(Command* command) {
 	}
 	case CommandType::DELETE_QUEUE: {
 		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+		std::lock_guard<std::mutex> lock2(this->consumers_mut);
 		DeleteQueueCommand* command_info = static_cast<DeleteQueueCommand*>(command->get_command_info());
 		this->apply_delete_queue_command(command_info);
 		return;
@@ -119,6 +120,39 @@ void ClusterMetadata::apply_create_queue_command(CreateQueueCommand* command) {
 
 void ClusterMetadata::apply_delete_queue_command(DeleteQueueCommand* command) {
 	this->remove_queue_metadata(command->get_queue_name());
+
+	if (this->partition_consumers.find(command->get_queue_name()) != this->partition_consumers.end())
+		for (auto& iter : *(this->partition_consumers[command->get_queue_name()].get()))
+			for (auto& iter2 : *(iter.second.get()))
+			{
+				this->consumers_consume_init_point.erase(iter2.second);
+				this->consumers_partition_counts->remove(iter2.second);
+				this->consumers_partition_counts_inverse->remove(iter2.second);
+			}
+
+	this->partition_consumers.erase(command->get_queue_name());
+
+	if (this->owned_partitions.find(command->get_queue_name()) != this->owned_partitions.end())
+		for (auto& iter : *(this->owned_partitions[command->get_queue_name()].get()))
+			for (int node_id : *(iter.second.get()))
+				if (this->nodes_partitions.find(node_id) != this->nodes_partitions.end()) {
+					this->nodes_partitions[node_id].get()->erase(command->get_queue_name());
+
+					this->nodes_partition_counts->insert(
+						node_id,
+						this->nodes_partition_counts->get(node_id) - 1
+					);
+				}
+
+	if (this->partition_leader_nodes.find(command->get_queue_name()) != this->partition_leader_nodes.end())
+		for (auto& iter : *(this->partition_leader_nodes[command->get_queue_name()].get()))
+			this->nodes_leader_partition_counts->insert(
+				iter.second,
+				this->nodes_leader_partition_counts->get(iter.second) - 1
+			);
+
+	this->owned_partitions.erase(command->get_queue_name());
+	this->partition_leader_nodes.erase(command->get_queue_name());
 }
 
 void ClusterMetadata::apply_partition_assignment_command(PartitionAssignmentCommand* command) {

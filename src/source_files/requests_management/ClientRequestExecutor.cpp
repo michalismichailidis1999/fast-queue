@@ -144,7 +144,7 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 		return;
 	}
 
-	if (queue == nullptr) {
+	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
@@ -221,7 +221,7 @@ void ClientRequestExecutor::handle_get_queue_partitions_info_request(SOCKET_ID s
 		return;
 	}
 
-	if (queue == nullptr) {
+	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
@@ -307,7 +307,7 @@ void ClientRequestExecutor::handle_register_consumer_request(SOCKET_ID socket, S
 		return;
 	}
 
-	if (queue == nullptr) {
+	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
@@ -350,7 +350,7 @@ void ClientRequestExecutor::handle_get_consumer_assigned_partitions_request(SOCK
 		return;
 	}
 
-	if (queue == nullptr) {
+	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
@@ -393,7 +393,7 @@ void ClientRequestExecutor::handle_consume_request(SOCKET_ID socket, SSL* ssl, C
 		return;
 	}
 
-	if (queue == nullptr) {
+	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
@@ -476,7 +476,7 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SOCKET_ID socket, 
 		return;
 	}
 
-	if (queue == nullptr) {
+	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}

@@ -888,8 +888,6 @@ ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<Queue
 void Controller::assign_queue_for_deletion(std::string& queue_name) {
 	if (this->future_cluster_metadata->get_queue_metadata(queue_name) == NULL) return;
 
-	this->future_cluster_metadata->remove_queue_metadata(queue_name);
-
 	QueueMetadata* metadata = this->cluster_metadata->get_queue_metadata(queue_name);
 
 	metadata->set_status(Status::PENDING_DELETION);
@@ -901,6 +899,8 @@ void Controller::assign_queue_for_deletion(std::string& queue_name) {
 		this->util->get_current_time_milli().count(),
 		std::shared_ptr<DeleteQueueCommand>(new DeleteQueueCommand(queue_name))
 	);
+
+	this->future_cluster_metadata->apply_command(&(commands[0]));
 
 	this->store_commands(&commands);
 }
