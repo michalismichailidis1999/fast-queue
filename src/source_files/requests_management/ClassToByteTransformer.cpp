@@ -344,7 +344,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 }
 
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(CreateQueueResponse* obj) {
-	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(bool) + 2 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -352,6 +352,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	int offset = 0;
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
+	ResponseValueKey queue_created_type = ResponseValueKey::QUEUE_CREATED;
 
 	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
@@ -363,12 +364,19 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	offset += sizeof(ResponseValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
+	offset += sizeof(bool);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &queue_created_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->created, sizeof(bool));
+	offset += sizeof(bool);
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(DeleteQueueResponse* obj) {
-	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(bool) + 2 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -376,6 +384,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	int offset = 0;
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
+	ResponseValueKey queue_deleted_type = ResponseValueKey::QUEUE_DELETED;
 
 	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
@@ -387,6 +396,13 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	offset += sizeof(ResponseValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
+	offset += sizeof(bool);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &queue_deleted_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->deleted, sizeof(bool));
+	offset += sizeof(bool);
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }

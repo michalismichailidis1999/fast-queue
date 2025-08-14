@@ -76,6 +76,8 @@ void ClientRequestExecutor::handle_create_queue_request(SOCKET_ID socket, SSL* s
 
 	ErrorCode err = this->controller->assign_new_queue_partitions_to_nodes(queue_metadata);
 
+	bool queue_created = true;
+
 	if (err != ErrorCode::NONE)
 		switch (err)
 		{
@@ -87,12 +89,16 @@ void ClientRequestExecutor::handle_create_queue_request(SOCKET_ID socket, SSL* s
 				"There are not enough active nodes to handle replication factor of " + std::to_string(request->replication_factor)
 			);
 			return;
+		case ErrorCode::QUEUE_ALREADY_EXISTS:
+			queue_created = false;
+			break;
 		default:
 			break;
 		}
 
 	std::unique_ptr<CreateQueueResponse> res = std::make_unique<CreateQueueResponse>();
 	res.get()->ok = true;
+	res.get()->created = queue_created;
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
@@ -121,7 +127,9 @@ void ClientRequestExecutor::handle_delete_queue_request(SOCKET_ID socket, SSL* s
 	if (queue != nullptr && queue.get()->get_metadata()->get_status() != Status::PENDING_DELETION) {
 		this->controller->assign_queue_for_deletion(queue_name);
 		queue.get()->get_metadata()->set_status(Status::PENDING_DELETION);
+		res.get()->deleted = true;
 	}
+	else res.get()->deleted = false;
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 

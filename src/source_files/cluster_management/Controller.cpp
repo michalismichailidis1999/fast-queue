@@ -835,7 +835,7 @@ ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<Queue
 	std::lock_guard<std::mutex> partitions_lock(this->future_cluster_metadata->nodes_partitions_mut);
 
 	if (this->future_cluster_metadata->get_queue_metadata(queue_metadata.get()->get_name()) != NULL)
-		return ErrorCode::NONE;
+		return ErrorCode::QUEUE_ALREADY_EXISTS;
 
 	if (queue_metadata.get()->get_replication_factor() > this->data_nodes_heartbeats.size() + 1)
 		return ErrorCode::TOO_FEW_AVAILABLE_NODES;

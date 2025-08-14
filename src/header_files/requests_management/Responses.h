@@ -32,10 +32,12 @@ struct RequestVoteResponse {
 
 struct CreateQueueResponse {
 	bool ok;
+	bool created;
 };
 
 struct DeleteQueueResponse {
 	bool ok;
+	bool deleted;
 };
 
 struct GetControllerConnectionInfoResponse {
