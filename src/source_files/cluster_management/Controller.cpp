@@ -1106,7 +1106,7 @@ void Controller::check_for_commit_and_last_applied_diff() {
 
 		try
 		{
-			auto& res = this->mh->read_partition_messages(partition, this->last_applied.load() + 1, 0, false, true);
+			auto res = this->mh->read_partition_messages(partition, this->last_applied.load() + 1, 0, false, true);
 
 			unsigned int total_commands = std::get<4>(res);
 
