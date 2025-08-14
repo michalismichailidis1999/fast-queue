@@ -65,7 +65,7 @@ void MessageOffsetAckHandler::flush_partition_consumer_offsets(Partition* partit
 		this->fh->write_to_file(
 			"",
 			temp_offsets_path,
-			total_consumer_offsets_bytes,
+			buff_bytes,
 			sizeof(unsigned long long),
 			consumer_offsets_bytes.get(),
 			true
@@ -82,10 +82,18 @@ void MessageOffsetAckHandler::flush_partition_consumer_offsets(Partition* partit
 	if (!this->fh->check_if_exists(partition->get_offsets_path())) {
 		unsigned long long last_replicated_offset = partition->get_last_replicated_offset();
 
+		unsigned int starting_bytes_size = sizeof(unsigned long long) + sizeof(unsigned int);
+		unsigned int zero_val = 0;
+
+		std::unique_ptr<char> starting_bytes = std::unique_ptr<char>(new char[starting_bytes_size]);
+
+		memcpy_s(starting_bytes.get(), sizeof(unsigned long long), &last_replicated_offset, sizeof(unsigned long long));
+		memcpy_s(starting_bytes.get() + sizeof(unsigned long long), sizeof(unsigned int), &zero_val, sizeof(unsigned int));
+
 		this->fh->create_new_file(
 			partition->get_offsets_path(),
-			sizeof(unsigned long long),
-			&last_replicated_offset,
+			starting_bytes_size,
+			starting_bytes.get(),
 			partition->get_offsets_key(),
 			true
 		);
@@ -94,7 +102,7 @@ void MessageOffsetAckHandler::flush_partition_consumer_offsets(Partition* partit
 	this->fh->write_to_file(
 		partition->get_offsets_key(),
 		partition->get_offsets_path(),
-		total_consumer_offsets_bytes,
+		buff_bytes,
 		sizeof(unsigned long long),
 		consumer_offsets_bytes.get(),
 		true

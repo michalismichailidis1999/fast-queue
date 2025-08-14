@@ -9,7 +9,7 @@ ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, Conne
 	this->logger = logger;
 }
 
-void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction, std::unordered_map<int, Command>* registered_nodes, std::unordered_map<unsigned long long, Command>* registered_consumers, ClusterMetadata* future_cluster_metadata) {
+void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction, std::unordered_map<int, Command>* registered_nodes, std::unordered_map<std::string, Command>* registered_consumers, ClusterMetadata* future_cluster_metadata) {
 	std::unique_ptr<char> batch_size = std::unique_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
 
 	std::string segment_key = this->pm->get_file_key(CLUSTER_METADATA_QUEUE_NAME, segment_id, -1);
@@ -71,15 +71,19 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 				RegisterConsumerGroupCommand* register_info = NULL;
 				UnregisterConsumerGroupCommand* unregister_info = NULL;
 
+				std::string key = "";
+
 				switch (command.get_command_type())
 				{
 				case CommandType::REGISTER_CONSUMER_GROUP:
 					register_info = (RegisterConsumerGroupCommand*)command.get_command_info();
-					(*registered_consumers)[register_info->get_consumer_id()] = command;
+					key = std::to_string(register_info->get_consumer_id()) + "_" + std::to_string(register_info->get_partition_id());
+					(*registered_consumers)[key] = command;
 					break;
 				case CommandType::UNREGISTER_CONSUMER_GROUP:
 					unregister_info = (UnregisterConsumerGroupCommand*)command.get_command_info();
-					registered_consumers->erase(unregister_info->get_consumer_id());
+					key = std::to_string(unregister_info->get_consumer_id()) + "_" + std::to_string(unregister_info->get_partition_id());
+					registered_consumers->erase(key);
 					break;
 				default:
 					break;

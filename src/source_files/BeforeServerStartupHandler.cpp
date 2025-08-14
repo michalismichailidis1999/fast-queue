@@ -41,7 +41,7 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     unsigned long long current_segment_id = partition->get_current_segment_id();
 
     std::unordered_map<int, Command> registered_nodes;
-    std::unordered_map<unsigned long long, Command> registered_consumers;
+    std::unordered_map<std::string, Command> registered_consumers;
 
     while (smallest_segment_id > 0 && smallest_segment_id <= current_segment_id) {
         this->cmah->apply_commands_from_segment(
