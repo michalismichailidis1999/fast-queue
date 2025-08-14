@@ -317,7 +317,7 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 				memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + message_offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 				memcpy_s(&is_message_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + message_offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
 
-				if (is_message_active && message_bytes + message_offset > batch_size) {
+				if (is_message_active && message_bytes > batch_size) {
 					batch_size = message_bytes;
 					read_batch = std::shared_ptr<char>(new char[batch_size]);
 					message_pos += message_offset;
@@ -404,9 +404,7 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 			memcpy_s(&current_message_id, MESSAGE_ID_SIZE, read_batch.get() + new_read_end + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 			memcpy_s(&is_message_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + new_read_end + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
 
-			if (current_message_id < maximum_message_id) break;
-
-			if (!is_message_active) break;
+			if (!is_message_active || current_message_id > maximum_message_id) break;
 
 			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + new_read_end + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 			new_read_end += message_bytes;
@@ -559,6 +557,8 @@ std::shared_ptr<char> MessagesHandler::get_last_active_message_less_than_message
 			last_message_offset = offset;
 		}
 
+		if (message_id < last_message_id) break;
+
 		offset += message_bytes;
 	}
 
@@ -613,13 +613,13 @@ unsigned int MessagesHandler::get_last_message_offset_from_batch(void* read_batc
 
 		memcpy_s(&is_active, MESSAGE_IS_ACTIVE_SIZE, (char*)read_batch + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
 
-		if (is_active)
+		if (is_active || !only_active_messages)
 			last_active_offset = offset;
 
 		offset += message_bytes;
 	}
 
-	return only_active_messages ? last_active_offset : offset;
+	return last_active_offset;
 }
 
 unsigned int MessagesHandler::get_second_last_message_offset_from_batch(void* read_batch, unsigned int batch_size, unsigned int starting_offset, unsigned int ending_offset) {
