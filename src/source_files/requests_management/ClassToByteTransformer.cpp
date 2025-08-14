@@ -651,7 +651,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	memcpy_s(buf.get() + offset, sizeof(int), &obj->messages_total_bytes, sizeof(int));
 	offset += sizeof(int);
 
-	memcpy_s(buf.get() + offset, obj->messages_total_bytes, &obj->messages_data, obj->messages_total_bytes);
+	memcpy_s(buf.get() + offset, obj->messages_total_bytes, obj->messages_data, obj->messages_total_bytes);
 	offset += obj->messages_total_bytes;
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
