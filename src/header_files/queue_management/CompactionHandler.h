@@ -17,6 +17,8 @@
 #include "../cluster_management/ClusterMetadataApplyHandler.h"
 #include "../cluster_management/Controller.h"
 
+#include "../__linux/memcpy_s.h"
+
 class CompactionHandler {
 private:
 	Controller* controller;

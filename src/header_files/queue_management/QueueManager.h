@@ -12,6 +12,8 @@
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../logging/Logger.h"
 
+#include "../__linux/memcpy_s.h"
+
 class QueueManager {
 private:
 	SegmentMessageMap* smm;

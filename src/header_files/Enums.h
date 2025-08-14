@@ -1,5 +1,7 @@
 #pragma once
 
+#include "./__linux/memcpy_s.h"
+
 enum class RequestType {
 	CREATE_QUEUE = 1,
 	DELETE_QUEUE,

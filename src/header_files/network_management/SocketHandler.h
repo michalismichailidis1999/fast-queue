@@ -1,5 +1,5 @@
 #pragma once
-#ifdef _WIN32 
+#if defined(_WIN32) || defined(_WIN64)
 	#include <winsock2.h>  // For Winsock functions
 	#include <ws2tcpip.h>  // For IPv6 support (if needed)
 
@@ -41,6 +41,8 @@
 #include "./Connection.h"
 #include "../Settings.h"
 #include "../logging/Logger.h"
+
+#include "../__linux/memcpy_s.h"
 
 class SocketHandler {
 private:

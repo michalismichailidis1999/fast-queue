@@ -12,6 +12,8 @@
 #include "../Settings.h"
 #include "../Constants.h"
 
+#include "../__linux/memcpy_s.h"
+
 class FileHandler {
 private:
 	Cache<std::string, std::shared_ptr<FileStream>>* cache;

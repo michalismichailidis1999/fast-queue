@@ -8,6 +8,8 @@
 #include "../Settings.h"
 #include "../logging/Logger.h"
 
+#include "../__linux/memcpy_s.h"
+
 class SslContextHandler {
 private:
 	Settings* settings;

@@ -7,6 +7,8 @@
 #include "./InternalRequestExecutor.h"
 #include "../network_management/ConnectionsManager.h"
 
+#include "../__linux/memcpy_s.h"
+
 class RequestManager {
 private:
 	ConnectionsManager* cm;

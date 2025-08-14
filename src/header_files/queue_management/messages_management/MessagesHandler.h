@@ -16,6 +16,8 @@
 #include "../../requests_management/Requests.h"
 #include "../../util/Util.h"
 
+#include "../../__linux/memcpy_s.h"
+
 class MessagesHandler {
 private:
 	DiskFlusher* disk_flusher;

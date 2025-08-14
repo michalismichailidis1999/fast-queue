@@ -10,6 +10,8 @@
 #include "../Settings.h"
 #include "../logging/Logger.h"
 
+#include "../__linux/memcpy_s.h"
+
 class ClusterMetadataApplyHandler {
 private:
 	QueueManager* qm;

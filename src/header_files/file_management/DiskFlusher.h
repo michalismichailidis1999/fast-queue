@@ -15,6 +15,8 @@
 #include "../queue_management/PartitionSegment.h"
 #include "../queue_management/messages_management/index_management/BTreeNode.h"
 
+#include "../__linux/memcpy_s.h"
+
 // will handle memory allocations (like buffers that need to store data for client requests etc.)
 // will handle also flushing to disk and deallocating data for new messages
 class DiskFlusher {

@@ -2,6 +2,8 @@
 #include <memory>
 #include "../Enums.h"
 
+#include "../__linux/memcpy_s.h"
+
 class DataCompressor {
 private:
 	CompressionAlgorithm algorithm;

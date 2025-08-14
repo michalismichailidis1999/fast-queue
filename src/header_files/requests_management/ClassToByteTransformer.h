@@ -5,6 +5,8 @@
 #include "./Requests.h"
 #include "./Responses.h"
 
+#include "../__linux/memcpy_s.h"
+
 class ClassToByteTransformer {
 public:
     ClassToByteTransformer();

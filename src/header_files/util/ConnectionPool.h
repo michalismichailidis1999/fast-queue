@@ -4,6 +4,8 @@
 #include <memory>
 #include "../network_management/Connection.h"
 
+#include "../__linux/memcpy_s.h"
+
 class ConnectionPool {
 private:
 	int total_connections;

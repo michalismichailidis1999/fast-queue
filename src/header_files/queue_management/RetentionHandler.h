@@ -9,6 +9,8 @@
 #include "../util/Helper.h"
 #include "../util/Util.h"
 
+#include "../__linux/memcpy_s.h"
+
 class RetentionHandler {
 private:
 	QueueManager* qm;

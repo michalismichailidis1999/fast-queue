@@ -2,6 +2,8 @@
 #include <vector>
 #include <memory>
 
+#include "../__linux/memcpy_s.h"
+
 // Internal Requests
 
 struct AppendEntriesRequest {

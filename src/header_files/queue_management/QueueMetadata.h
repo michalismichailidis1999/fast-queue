@@ -5,6 +5,8 @@
 #include "../Enums.h"
 #include "../util/Helper.h"
 
+#include "../__linux/memcpy_s.h"
+
 class QueueMetadata {
 private:
 	std::string name;

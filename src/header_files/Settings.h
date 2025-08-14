@@ -7,6 +7,9 @@
 #include <shared_mutex>
 #include <functional>
 
+#include "./__linux/memcpy_s.h"
+
+
 typedef struct {
 	bool controller_nodes;
 } SettingsUpdates;

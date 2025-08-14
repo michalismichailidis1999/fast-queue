@@ -2,6 +2,8 @@
 #include <string>
 #include <shared_mutex>
 
+#include "../../__linux/memcpy_s.h"
+
 class Consumer {
 private:
 	std::string group_id;

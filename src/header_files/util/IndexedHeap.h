@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include <functional>
 
+#include "../__linux/memcpy_s.h"
+
 template <typename T, typename K>
 class IndexedHeap {
 private:

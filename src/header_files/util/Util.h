@@ -5,6 +5,8 @@
 #include <iomanip>  // For std::put_time
 #include <sstream>  // For std::ostringstream
 
+#include "../__linux/memcpy_s.h"
+
 class Util {
 public:
 	Util();

@@ -10,6 +10,8 @@
 #include "./ClassToByteTransformer.h"
 #include "./Requests.h"
 
+#include "../__linux/memcpy_s.h"
+
 class InternalRequestExecutor {
 private:
 	Settings* settings;

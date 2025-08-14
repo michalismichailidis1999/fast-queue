@@ -2,6 +2,8 @@
 #include <string>
 #include <mutex>
 
+#include "../__linux/memcpy_s.h"
+
 class FileStream {
 private:
 	std::string file_path;

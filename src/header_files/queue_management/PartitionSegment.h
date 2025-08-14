@@ -5,6 +5,8 @@
 #include "../Constants.h"
 #include "../util/Helper.h"
 
+#include "../__linux/memcpy_s.h"
+
 // TODO: add starting position of last message and segment last file position index (last message starting offset & last message ending)
 class PartitionSegment {
 private:

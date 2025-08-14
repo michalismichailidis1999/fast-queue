@@ -5,6 +5,8 @@
 #include "../Settings.h"
 #include "../Enums.h"
 
+#include "../__linux/memcpy_s.h"
+
 class Logger {
 private:
 	FileHandler* fh;

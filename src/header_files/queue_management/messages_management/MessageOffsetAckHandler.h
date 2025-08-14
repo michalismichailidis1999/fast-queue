@@ -3,6 +3,8 @@
 #include "../../file_management/QueueSegmentFilePathMapper.h"
 #include "../Partition.h"
 
+#include "../../__linux/memcpy_s.h"
+
 class MessageOffsetAckHandler {
 private:
 	FileHandler* fh;

@@ -20,6 +20,8 @@
 #include "../Constants.h"
 #include "../util/Util.h"
 
+#include "../__linux/memcpy_s.h"
+
 struct AppendEntriesRequest;
 struct AppendEntriesResponse;
 struct RequestVoteRequest;

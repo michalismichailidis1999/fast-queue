@@ -4,6 +4,8 @@
 #include <thread>
 #include <mutex>
 
+#include "../__linux/memcpy_s.h"
+
 class ThreadPool {
 private:
 	std::vector<std::thread> workers;

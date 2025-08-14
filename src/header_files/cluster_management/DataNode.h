@@ -11,6 +11,8 @@
 #include "../Enums.h"
 #include "../logging/Logger.h"
 
+#include "../__linux/memcpy_s.h"
+
 struct Connection;
 
 class DataNode {

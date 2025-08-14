@@ -6,6 +6,8 @@
 #include "../../PartitionSegment.h"
 #include "../../../exceptions/CurruptionException.h"
 
+#include "../../../__linux/memcpy_s.h"
+
 class SegmentMessageMap {
 private:
 	DiskFlusher* df;

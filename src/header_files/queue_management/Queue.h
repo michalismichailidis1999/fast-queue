@@ -5,6 +5,8 @@
 #include "./Partition.h"
 #include "./QueueMetadata.h"
 
+#include "../__linux/memcpy_s.h"
+
 class Queue {
 private:
 	std::shared_ptr<QueueMetadata> metadata;

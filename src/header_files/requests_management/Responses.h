@@ -3,6 +3,8 @@
 #include <tuple>
 #include "../network_management/Connection.h"
 
+#include "../__linux/memcpy_s.h"
+
 struct ErrorResponse {
 	int error_message_size;
 	char* error_message;

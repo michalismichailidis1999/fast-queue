@@ -8,6 +8,8 @@
 #include "./messages_management/Consumer.h"
 #include "../Constants.h"
 
+#include "../__linux/memcpy_s.h"
+
 class Partition {
 private:
 	std::string queue_name;

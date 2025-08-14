@@ -7,6 +7,8 @@
 #include "../logging/Logger.h"
 #include "../Settings.h"
 
+#include "../__linux/memcpy_s.h"
+
 class SocketListenerHandler {
 private:
 	ConnectionsManager* cm;

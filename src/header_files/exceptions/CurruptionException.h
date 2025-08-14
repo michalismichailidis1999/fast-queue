@@ -2,6 +2,8 @@
 #include <string>
 #include <exception>
 
+#include "../__linux/memcpy_s.h"
+
 // TODO: Keep corruption information in this class to know which part of data to fix
 class CorruptionException : public std::exception {
 private:

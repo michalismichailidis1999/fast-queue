@@ -6,6 +6,8 @@
 #include "./Partition.h"
 #include "./PartitionSegment.h"
 
+#include "../__linux/memcpy_s.h"
+
 typedef struct {
 	std::shared_mutex mut;
 	int references;

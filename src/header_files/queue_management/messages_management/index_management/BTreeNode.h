@@ -5,6 +5,8 @@
 #include "../../../Constants.h"
 #include "../../../util/Helper.h"
 
+#include "../../../__linux/memcpy_s.h"
+
 typedef struct {
 	unsigned long long key;
 	unsigned long long val_pos;

@@ -2,7 +2,9 @@
 #include <chrono>
 #include <string>
 
-#ifdef _WIN32
+#include "./__linux/memcpy_s.h"
+
+#if defined(_WIN32) || defined(_WIN64)
 #else
 
 #include <climits>  // C++ way

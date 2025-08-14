@@ -4,6 +4,8 @@
 #include "./Requests.h"
 #include "../logging/Logger.h"
 
+#include "../__linux/memcpy_s.h"
+
 class RequestMapper {
 private:
 	Logger* logger;

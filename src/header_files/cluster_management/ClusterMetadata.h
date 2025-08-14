@@ -10,6 +10,8 @@
 #include "../queue_management/QueueMetadata.h"
 #include "../exceptions/CurruptionException.h"
 
+#include "../__linux/memcpy_s.h"
+
 class ClusterMetadata {
 private:
 	std::atomic<unsigned long long> metadata_version;

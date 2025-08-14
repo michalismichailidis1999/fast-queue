@@ -10,6 +10,8 @@
 #include "../util/Cache.h"
 #include "../util/Util.h"
 
+#include "../__linux/memcpy_s.h"
+
 struct CacheKeyInfo {
 	std::string queue_name;
 	int partition;

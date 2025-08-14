@@ -4,6 +4,8 @@
 #include "../Constants.h"
 #include "../Enums.h"
 
+#include "../__linux/memcpy_s.h"
+
 class Helper {
 public:
 	static void add_common_metadata_values(void* metadata, long total_bytes);

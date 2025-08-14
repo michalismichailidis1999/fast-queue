@@ -11,6 +11,8 @@
 #include "./ClassToByteTransformer.h"
 #include "./Requests.h"
 
+#include "../__linux/memcpy_s.h"
+
 class ClientRequestExecutor {
 private:
 	MessagesHandler* mh;

@@ -21,6 +21,8 @@
 #include "./Constants.h"
 #include "./Enums.h"
 
+#include "./__linux/memcpy_s.h"
+
 class BeforeServerStartupHandler {
 private:
 	Controller* controller;

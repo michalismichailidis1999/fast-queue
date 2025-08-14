@@ -4,6 +4,8 @@
 #include <unordered_set>
 #include <mutex>
 
+#include "../__linux/memcpy_s.h"
+
 template <typename K, typename V>
 class CacheNode {
 public:

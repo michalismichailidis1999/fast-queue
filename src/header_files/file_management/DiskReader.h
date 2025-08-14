@@ -6,6 +6,8 @@
 #include "./CacheHandler.h"
 #include "../logging/Logger.h"
 
+#include "../__linux/memcpy_s.h"
+
 class DiskReader {
 private:
 	FileHandler* fh;

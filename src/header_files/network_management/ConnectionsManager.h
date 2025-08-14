@@ -17,6 +17,8 @@
 #include "../Enums.h"
 #include "../util/Util.h"
 
+#include "../__linux/memcpy_s.h"
+
 struct ConnectionInfo;
 struct Connection;
 

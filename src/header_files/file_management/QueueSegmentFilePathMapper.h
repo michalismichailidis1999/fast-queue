@@ -4,6 +4,8 @@
 #include "../Settings.h"
 #include "../Constants.h"
 
+#include "../__linux/memcpy_s.h"
+
 class QueueSegmentFilePathMapper {
 private:
 	Util* util;

@@ -6,6 +6,8 @@
 #include "../../queue_management/messages_management/index_management/SegmentMessageMap.h"
 #include "../../logging/Logger.h"
 
+#include "../../__linux/memcpy_s.h"
+
 class SegmentAllocator {
 private:
 	SegmentMessageMap* smm;
