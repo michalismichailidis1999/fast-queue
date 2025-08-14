@@ -9,6 +9,19 @@
 #include <tuple>
 #include <filesystem>
 
+#ifdef _WIN32
+
+int ____ = 0;
+
+#else
+
+#include <cstring>
+#include <errno.h>
+
+errno_t memcpy_s(void* dest, size_t destsz, const void* src, size_t count);
+
+#endif
+
 #include "./src/header_files/Enums.h"
 #include "./src/header_files/Constants.h"
 #include "./src/header_files/logging/Logger.h"

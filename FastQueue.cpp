@@ -1,5 +1,24 @@
 ﻿#include "FastQueue.h"
 
+#ifdef _WIN32
+
+int ________ = 1;
+
+#else
+
+errno_t memcpy_s(void* dest, size_t destsz, const void* src, size_t count) {
+    if (!dest || !src) return EINVAL;
+    if (count > destsz) {
+        // buffer too small
+        memset(dest, 0, destsz); // optional
+        return ERANGE;
+    }
+    memcpy(dest, src, count);
+    return 0;
+}
+
+#endif
+
 std::atomic_bool should_terminate(false);
 
 Logger* _logger;

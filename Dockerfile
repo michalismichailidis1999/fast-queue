@@ -7,7 +7,9 @@ RUN apt-get update && apt-get install -y \
     cmake \
     git \
     curl \
+    zip \
     unzip \
+    tar \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
@@ -18,11 +20,8 @@ WORKDIR /app
 RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg \
     && /opt/vcpkg/bootstrap-vcpkg.sh
 
-# Copy vcpkg dependencies file
-COPY vcpkg_rf.txt /app/vcpkg_rf.txt
-
-# Install packages from vcpkg_rf.txt
-RUN xargs -a /app/vcpkg_rf.txt -I {} /opt/vcpkg/vcpkg install {}
+# Install required packages
+RUN /opt/vcpkg/vcpkg install openssl zlib
 
 # Copy source code
 COPY . .

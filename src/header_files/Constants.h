@@ -2,6 +2,15 @@
 #include <chrono>
 #include <string>
 
+#ifdef _WIN32
+#else
+
+#include <climits>  // C++ way
+#include <limits.h> // C way
+
+#endif
+
+
 static const std::string VERSION = "1.0.0";
 static const unsigned long VERSION_INT_FORMAT = 0b00000000'00000001'00000000'00000000;
 
@@ -43,7 +52,7 @@ static const unsigned int MESSAGES_LOC_MAP_PAGE_SIZE = 4096; // 4KB
 // first position will hold starting segment id of the next N segments contained in the page 
 static const unsigned int MAPPED_SEGMENTS_PER_PAGE = MESSAGES_LOC_MAP_PAGE_SIZE / sizeof(unsigned long long) - 1;
 
-static const unsigned long long MAX_SEGMENT_SIZE = 1073741824 * 2; // 2 GB
+static const unsigned long long MAX_SEGMENT_SIZE = (long long)(1073741824) * 2; // 2 GB
 static const unsigned long long MAX_COMPACTED_SEGMENT_SIZE = LLONG_MAX; // 8192 PB
 
 static const unsigned int TOTAL_METADATA_BYTES = sizeof(unsigned int);

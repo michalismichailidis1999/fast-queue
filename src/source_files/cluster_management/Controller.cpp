@@ -252,7 +252,7 @@ void Controller::append_entries_to_followers() {
 						std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
 						this->follower_indexes[iter.first] = std::tuple<unsigned long long, unsigned long long>(prev_log_term, prev_log_index);
 					}
-					else throw std::exception("Something went wrong while trying to append entries to follower");
+					else throw std::runtime_error("Something went wrong while trying to append entries to follower");
 				}
 				else {
 					std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
@@ -388,10 +388,10 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 				: request->prev_log_index - 1;
 
 			if (this->commit_index > message_to_delete_from)
-				throw std::exception("Node has commit index larger than current leader");
+				throw std::runtime_error("Node has commit index larger than current leader");
 
 			if (!this->mh->remove_messages_after_message_id(partition.get(), message_to_delete_from))
-				throw std::exception("Failed to remove uncommited logs");
+				throw std::runtime_error("Failed to remove uncommited logs");
 
 			if (message_to_delete_from > 1) {
 				auto messages_res = this->mh->read_partition_messages(partition.get(), message_to_delete_from);
@@ -1285,7 +1285,7 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 						prev_log_term, prev_log_index
 					);
 				}
-				else throw std::exception("Something went wrong while trying to send cluster metadata updates to data node");
+				else throw std::runtime_error("Something went wrong while trying to send cluster metadata updates to data node");
 			}
 			else this->follower_indexes[request->node_id] = std::tuple<unsigned long long, unsigned long long>(0, 0);
 		}
