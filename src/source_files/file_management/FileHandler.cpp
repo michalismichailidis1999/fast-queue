@@ -115,7 +115,7 @@ long long FileHandler::write_to_file(std::string key, const std::string& path, u
 	if (!this->check_if_exists(path)) {
 		const std::string err_msg = "Invalid path " + path;
 		printf("Tried to write to invalid path %s\n", path.c_str());
-		throw std::exception(err_msg.c_str());
+		throw std::runtime_error(err_msg.c_str());
 	}
 
 	std::shared_ptr<FileStream> fs = key == ""
@@ -148,7 +148,7 @@ unsigned long FileHandler::read_from_file(std::string key, const std::string& pa
 	if (!this->check_if_exists(path)) {
 		const std::string err_msg = "Invalid path " + path;
 		printf("Tried to read from invalid path %s\n", path.c_str());
-		throw std::exception(err_msg.c_str());
+		throw std::runtime_error(err_msg.c_str());
 	}
 
 	std::shared_ptr<FileStream> fs = key == ""
@@ -193,8 +193,8 @@ long long  FileHandler::write_to_file(FileStream* fs, unsigned long buffer_size,
 
 	long long prev_end_pos = fs->end_pos;
 
-	if (pos == -1) fseek(fs->file, 0, SEEK_END);
-	else fseek(fs->file, pos, SEEK_SET);
+	if (pos == -1) FILE_SEEK(fs->file, 0, SEEK_END);
+	else FILE_SEEK(fs->file, pos, SEEK_SET);
 
 	fwrite((char*)data, sizeof(char), buffer_size, fs->file);
 
@@ -214,7 +214,7 @@ unsigned long FileHandler::read_from_file(FileStream* fs, unsigned long buffer_s
 
 	if (buffer_size == 0 || dest == NULL) return 0;
 
-	fseek(fs->file, pos, SEEK_SET);
+	FILE_SEEK(fs->file, pos, SEEK_SET);
 	fread(dest, sizeof(char), buffer_size, fs->file);
 
 	bool feof_occured = feof(fs->file) != 0;
@@ -233,7 +233,7 @@ void FileHandler::open_file(FileStream* fs, const std::string& path, bool is_new
 	FILE* file = fopen(path.c_str(), mode.c_str());
 
 	if (file == nullptr)
-		throw std::exception("Could not open file");
+		throw std::runtime_error("Could not open file");
 
 	fs->set_file(path, file);
 
@@ -310,5 +310,5 @@ void FileHandler::rename_file(const std::string& current_key, const std::string&
 	this->close_file(current_key);
 
 	if (rename(current_name.c_str(), new_name.c_str()) != 0)
-		throw std::exception("Error renaming file");
+		throw std::runtime_error("Error renaming file");
 }

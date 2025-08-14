@@ -7,12 +7,27 @@
 #include <functional>
 #include <filesystem>
 #include <mutex>
+
+#if defined(_WIN32) || defined(_WIN64)
+
+#define FILE_TELL _ftelli64
+#define FILE_SEEK _fseeki64
+
+#else
+
+#define FILE_TELL ftello64
+#define FILE_SEEK fseeko64
+
+#endif
+
 #include "../util/Cache.h"
 #include "./FileStream.h"
 #include "../Settings.h"
 #include "../Constants.h"
 
 #include "../__linux/memcpy_s.h"
+
+
 
 class FileHandler {
 private:

@@ -30,7 +30,7 @@ Settings::Settings(char* conf, long total_conf_chars) {
 
 	if (this->segment_size > MAX_SEGMENT_SIZE) {
 		std::string err_msg = "Segment cannot be larger than " + std::to_string(MAX_SEGMENT_SIZE) + " bytes";
-		throw std::exception(err_msg.c_str());
+		throw std::runtime_error(err_msg.c_str());
 	}
 
 	this->is_controller_node = false;
@@ -47,7 +47,7 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 	int rhs_size = var_end_pos - equal_pos;
 
 	if (lhs_size == 0)
-		throw std::exception("Incorrect syntax near = in configuration file");
+		throw std::runtime_error("Incorrect syntax near = in configuration file");
 
 	std::string lhs = lhs_size > 0 ? std::string(conf + var_start_pos, lhs_size) : "";
 	std::string rhs = rhs_size > 0 ? std::string(conf + equal_pos + 1, rhs_size) : "";
@@ -155,7 +155,7 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 							break;
 
 					if (j == server_url.size())
-						throw std::exception();
+						throw std::runtime_error("No controller url found");
 
 					std::string address = server_url.substr(0, j);
 					int port = std::atoi(server_url.substr(j + 1, server_url.size() - address.size() - 1 - (rhs[i] == ',' || rhs[i] == '&' ? 1 : 0)).c_str());
@@ -188,7 +188,7 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			}
 
 			if(nodes->size() == 0)
-				throw std::exception();
+				throw std::runtime_error("No controller node found");
 		}
 		else if (
 			lhs == "internal_ssl_enabled"
@@ -208,7 +208,7 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 	}
 	catch (const std::exception&)
 	{
-		throw std::exception(("Invalid " + lhs + " value in configuration file").c_str());
+		throw std::runtime_error(("Invalid " + lhs + " value in configuration file").c_str());
 	}
 }
 

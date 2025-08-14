@@ -15,6 +15,6 @@ void FileStream::set_file(const std::string& file_path, FILE* file) {
 
 	this->fd = fileno(file);
 
-	fseek(file, 0, SEEK_END);
-	this->end_pos = _ftelli64(file);
+	FILE_SEEK(file, 0, SEEK_END);
+	this->end_pos = FILE_TELL(file);
 }

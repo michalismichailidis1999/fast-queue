@@ -1,24 +1,5 @@
 ﻿#include "FastQueue.h"
 
-#ifdef _WIN32
-
-int ________ = 1;
-
-#else
-
-errno_t memcpy_s(void* dest, size_t destsz, const void* src, size_t count) {
-    if (!dest || !src) return EINVAL;
-    if (count > destsz) {
-        // buffer too small
-        memset(dest, 0, destsz); // optional
-        return ERANGE;
-    }
-    memcpy(dest, src, count);
-    return 0;
-}
-
-#endif
-
 std::atomic_bool should_terminate(false);
 
 Logger* _logger;
@@ -42,7 +23,7 @@ void terminationSignalHandler(int signum) {
 std::unique_ptr<Settings> setup_settings(FileHandler* fh, const std::string& config_path) {
     if (!fh->check_if_exists(config_path)) {
         printf("Invalid configuration file path %s\n", config_path.c_str());
-        throw std::exception("Could not find configuration file path");
+        throw std::runtime_error("Could not find configuration file path");
     }
 
     printf("Setting up server using configuration file %s...\n", config_path.c_str());
@@ -57,7 +38,7 @@ std::unique_ptr<Settings> setup_settings(FileHandler* fh, const std::string& con
 std::string get_config_path(int argc, char* argv[]) {
     const char* settings_path = std::getenv("CONFIGURATION_PATH");
 
-    if (argc <= 1 && settings_path == NULL) throw std::exception("Configuration file path is missing");
+    if (argc <= 1 && settings_path == NULL) throw std::runtime_error("Configuration file path is missing");
     else return argc > 1 ? std::string(argv[1]) : std::string(settings_path);
 }
 
