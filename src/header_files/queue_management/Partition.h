@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 #include <memory>
 #include <shared_mutex>
 #include <unordered_set>

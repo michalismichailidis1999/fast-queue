@@ -18,7 +18,7 @@ PartitionSegment::PartitionSegment(unsigned long long id, const std::string& seg
 
 PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_key, const std::string& segment_path) {
 	if (metadata == NULL)
-		throw std::exception("Partition metadata was NULL");
+		throw std::runtime_error("Partition metadata was NULL");
 
 	this->segment_key = segment_key;
 	this->segment_path = segment_path;

@@ -310,7 +310,7 @@ void Controller::append_entries_to_followers() {
 	if (replication_count >= this->half_quorum_nodes_count) {
 		unsigned long long largest_replicated_index = !this->is_the_only_controller_node 
 			? this->get_largest_replicated_index(&largest_versions_sent)
-			: this->last_log_index;
+			: this->last_log_index.load();
 
 		if (largest_replicated_index > 0 && largest_replicated_index > this->commit_index) {
 			this->commit_index = largest_replicated_index;
@@ -1106,7 +1106,7 @@ void Controller::check_for_commit_and_last_applied_diff() {
 
 		try
 		{
-			auto& res = this->mh->read_partition_messages(partition, this->last_applied + 1, 0, false, true);
+			auto& res = this->mh->read_partition_messages(partition, this->last_applied.load() + 1, 0, false, true);
 
 			unsigned int total_commands = std::get<4>(res);
 
@@ -1180,8 +1180,8 @@ std::shared_ptr<AppendEntriesRequest> Controller::prepare_append_entries_request
 	req.get()->leader_id = this->settings->get_node_id();
 	req.get()->term = this->term;
 	req.get()->leader_commit = this->commit_index;
-	req.get()->prev_log_term = follower_is_registered ? std::get<0>(this->follower_indexes[follower_id]) : this->last_log_term;
-	req.get()->prev_log_index = follower_is_registered ? std::get<1>(this->follower_indexes[follower_id]) : this->last_log_index;
+	req.get()->prev_log_term = follower_is_registered ? std::get<0>(this->follower_indexes[follower_id]) : this->last_log_term.load();
+	req.get()->prev_log_index = follower_is_registered ? std::get<1>(this->follower_indexes[follower_id]) : this->last_log_index.load();
 
 	unsigned long long index_to_send = req.get()->prev_log_index + 1;
 

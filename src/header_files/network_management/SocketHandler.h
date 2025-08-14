@@ -18,10 +18,11 @@
 	constexpr int invalid_socket = INVALID_SOCKET;
 	constexpr int poll_error = -1;
 #else
+	#include <sys/types.h>
 	#include <sys/socket.h>
 	#include <netinet/in.h>
-	#include <unistd.h> // For close()
-	#include <poll.h>
+	#include <arpa/inet.h>
+	#include <unistd.h>
 
 	typedef int SOCKET_ID;
 	typedef struct pollfd POLLED_FD;
@@ -31,6 +32,8 @@
 	#define POLLERR_EVENT POLLERR
 	#define POLLHUP_EVENT POLLHUP
 	#define POLLNVAL_EVENT POLLNVAL
+
+	#define SOCKET_ERROR -1
 
 	constexpr int close_command = SHUT_WR;
 	constexpr int invalid_socket = -1;

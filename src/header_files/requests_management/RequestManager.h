@@ -18,7 +18,7 @@ private:
 	Settings* settings;
 	Logger* logger;
 
-	bool RequestManager::is_user_authorized_for_action(AuthRequest* request);
+	bool is_user_authorized_for_action(AuthRequest* request);
 public:
 	RequestManager(ConnectionsManager* cm, Settings* settings, ClientRequestExecutor* client_request_executor, InternalRequestExecutor* internal_request_executor, RequestMapper* mapper, Logger* logger);
 

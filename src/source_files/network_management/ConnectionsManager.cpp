@@ -258,7 +258,7 @@ bool ConnectionsManager::create_node_connection_pool(int node_id, ConnectionPool
 			bool connection_added = this->add_connection_to_pool(pool);
 
 			if (!connection_added) {
-				if (--retries == 0) throw std::exception();
+				if (--retries == 0) throw std::runtime_error("Retries went to 0");
 				std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds_to_wait));
 				continue;
 			}
