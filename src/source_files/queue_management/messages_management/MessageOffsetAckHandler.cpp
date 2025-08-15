@@ -16,7 +16,7 @@ void MessageOffsetAckHandler::flush_consumer_offset_ack(Partition* partition, Co
 	unsigned long long consumer_id = consumer->get_id();
 
 	memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_LENGTH_OFFSET, CONSUMER_GROUP_ID_LENGTH_SIZE, &group_id_size, CONSUMER_GROUP_ID_LENGTH_SIZE);
-	memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_LENGTH_OFFSET, group_id_size, consumer->get_group_id().c_str(), group_id_size);
+	memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_OFFSET, group_id_size, consumer->get_group_id().c_str(), group_id_size);
 	memcpy_s(message_ack.get() + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE, &consumer_id, CONSUMER_ID_SIZE);
 	memcpy_s(message_ack.get() + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE, &offset, CONSUMER_MESSAGE_ACK_SIZE);
 
@@ -73,7 +73,7 @@ void MessageOffsetAckHandler::compact_partition_offsets(Partition* partition) {
 	unsigned int read_pos = sizeof(unsigned long long);
 
 	unsigned long long consumer_id = 0;
-	unsigned long long offset = 0;
+	unsigned long long message_offset = 0;
 
 	while (true) {
 		unsigned int bytes_read = this->fh->read_from_file(
@@ -90,9 +90,9 @@ void MessageOffsetAckHandler::compact_partition_offsets(Partition* partition) {
 
 		while (offset < bytes_read) {
 			memcpy_s(&consumer_id, CONSUMER_ID_SIZE, read_batch.get() + offset + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE);
-			memcpy_s(&offset, CONSUMER_MESSAGE_ACK_SIZE, read_batch.get() + offset + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE);
+			memcpy_s(&message_offset, CONSUMER_MESSAGE_ACK_SIZE, read_batch.get() + offset + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE);
 
-			consumer_offsets[consumer_id] = offset;
+			consumer_offsets[consumer_id] = message_offset;
 
 			offset += CONSUMER_ACK_TOTAL_BYTES;
 		}
@@ -105,14 +105,14 @@ void MessageOffsetAckHandler::compact_partition_offsets(Partition* partition) {
 	std::unique_ptr<char> message_ack = std::unique_ptr<char>(new char[CONSUMER_ACK_TOTAL_BYTES]);
 
 	for (auto& iter : consumer_offsets) {
-		std::shared_ptr<Consumer> consumer = partition->get_consumer(iter.first);
+		std::shared_ptr<Consumer> consumer = partition->get_consumer_with_nolock(iter.first);
 
 		if (consumer == nullptr) continue;
 
 		int group_id_size = consumer->get_group_id().size();
 
 		memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_LENGTH_OFFSET, CONSUMER_GROUP_ID_LENGTH_SIZE, &group_id_size, CONSUMER_GROUP_ID_LENGTH_SIZE);
-		memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_LENGTH_OFFSET, group_id_size, consumer->get_group_id().c_str(), group_id_size);
+		memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_OFFSET, group_id_size, consumer->get_group_id().c_str(), group_id_size);
 		memcpy_s(message_ack.get() + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE, &iter.first, CONSUMER_ID_SIZE);
 		memcpy_s(message_ack.get() + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE, &iter.second, CONSUMER_MESSAGE_ACK_SIZE);
 
@@ -139,7 +139,7 @@ void MessageOffsetAckHandler::assign_latest_offset_to_partition_consumers(Partit
 	unsigned int read_pos = sizeof(unsigned long long);
 
 	unsigned long long consumer_id = 0;
-	unsigned long long offset = 0;
+	unsigned long long message_offset = 0;
 
 	while (true) {
 		unsigned int bytes_read = this->fh->read_from_file(
@@ -156,9 +156,9 @@ void MessageOffsetAckHandler::assign_latest_offset_to_partition_consumers(Partit
 
 		while (offset < bytes_read) {
 			memcpy_s(&consumer_id, CONSUMER_ID_SIZE, read_batch.get() + offset + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE);
-			memcpy_s(&offset, CONSUMER_MESSAGE_ACK_SIZE, read_batch.get() + offset + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE);
+			memcpy_s(&message_offset, CONSUMER_MESSAGE_ACK_SIZE, read_batch.get() + offset + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE);
 
-			consumer_offsets[consumer_id] = offset;
+			consumer_offsets[consumer_id] = message_offset;
 
 			offset += CONSUMER_ACK_TOTAL_BYTES;
 		}

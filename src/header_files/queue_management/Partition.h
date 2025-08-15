@@ -40,6 +40,8 @@ private:
 
 	std::shared_mutex mut;
 	std::shared_mutex consumers_mut;
+
+	std::shared_ptr<Consumer> get_consumer_with_nolock(unsigned long long consumer_id);
 public:
 	Partition(unsigned int partition_id, const std::string& queue_name);
 

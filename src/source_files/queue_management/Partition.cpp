@@ -140,6 +140,10 @@ std::shared_ptr<Consumer> Partition::get_consumer(unsigned long long consumer_id
 	return this->consumers[consumer_id];
 }
 
+std::shared_ptr<Consumer> Partition::get_consumer_with_nolock(unsigned long long consumer_id) {
+	return this->consumers[consumer_id];
+}
+
 void Partition::remove_consumer(unsigned long long consumer_id) {
 	std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
 	this->consumers.erase(consumer_id);
