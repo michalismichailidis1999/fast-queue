@@ -240,6 +240,8 @@ void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderA
 }
 
 void ClusterMetadata::apply_register_consuer_group_command(RegisterConsumerGroupCommand* command) {
+	this->last_consumer_id = command->get_consumer_id();
+
 	auto queue_consumer_groups = this->partition_consumers[command->get_queue_name()];
 
 	if (queue_consumer_groups == nullptr) {
