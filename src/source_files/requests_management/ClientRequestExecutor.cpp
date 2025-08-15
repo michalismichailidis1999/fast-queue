@@ -525,12 +525,7 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SOCKET_ID socket, 
 		return;
 	}
 
-	consumer.get()->set_offset(request->message_offset);
-	
-	if (partition.get()->increase_consumers_offset_update_count() >= MAX_PARTITION_CONSUMER_OFFSET_UPDATES_COUNT_BEFORE_FLUSH) {
-		this->oah->flush_partition_consumer_offsets(partition.get());
-		partition.get()->init_consumers_offset_update_count();
-	}
+	this->oah->flush_consumer_offset_ack(partition.get(), consumer.get(), request->message_offset);
 
 	std::unique_ptr<AckMessageOffsetResponse> res = std::make_unique<AckMessageOffsetResponse>();
 	res.get()->ok = true;

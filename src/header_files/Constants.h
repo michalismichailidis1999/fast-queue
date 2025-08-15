@@ -42,7 +42,7 @@ static const unsigned int CONSUMER_OFFSETS_REWRITE_BYTES_DIFF = 4096 * 4; // 16K
 
 static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
-static const unsigned int MAX_PARTITION_CONSUMER_OFFSET_UPDATES_COUNT_BEFORE_FLUSH = 10;
+static const unsigned int MAX_PARTITION_OFFSETS_SIZE = 4096 * 100000; // 100MB
 
 static const unsigned int MAX_ADDRESS_CHARS = 39;
 
@@ -256,9 +256,8 @@ static const unsigned int CONSUMER_GROUP_ID_SIZE = sizeof(char) * MAX_CONSUMER_G
 static const unsigned int CONSUMER_GROUP_ID_OFFSET = CONSUMER_GROUP_ID_LENGTH_SIZE + CONSUMER_GROUP_ID_LENGTH_OFFSET;
 static const unsigned int CONSUMER_ID_SIZE = sizeof(unsigned long long);
 static const unsigned int CONSUMER_ID_OFFSET = CONSUMER_GROUP_ID_SIZE + CONSUMER_GROUP_ID_OFFSET;
-static const unsigned int CONSUMER_LAST_CONSUMED_MESSAGE_ID_SIZE = sizeof(unsigned long long);
-static const unsigned int CONSUMER_LAST_CONSUMED_MESSAGE_ID_OFFSET = CONSUMER_ID_SIZE + CONSUMER_ID_OFFSET;
-static const unsigned int CONSUMER_TOTAL_BYTES = CONSUMER_GROUP_ID_LENGTH_SIZE + CONSUMER_GROUP_ID_SIZE + CONSUMER_ID_SIZE
-+ CONSUMER_LAST_CONSUMED_MESSAGE_ID_SIZE;
+static const unsigned int CONSUMER_MESSAGE_ACK_SIZE = sizeof(unsigned long long);
+static const unsigned int CONSUMER_MESSAGE_ACK_OFFSET = CONSUMER_ID_SIZE + CONSUMER_ID_OFFSET;
+static const unsigned int CONSUMER_ACK_TOTAL_BYTES = CONSUMER_GROUP_ID_LENGTH_SIZE + CONSUMER_GROUP_ID_SIZE + CONSUMER_ID_SIZE + CONSUMER_MESSAGE_ACK_SIZE;
 
 // =================================================================

@@ -5,106 +5,174 @@ MessageOffsetAckHandler::MessageOffsetAckHandler(FileHandler* fh, QueueSegmentFi
 	this->pm = pm;
 }
 
-void MessageOffsetAckHandler::flush_partition_consumer_offsets(Partition* partition, bool from_server_startup) {
-	std::vector<std::shared_ptr<Consumer>> partition_consumers = partition->get_all_consumers();
+void MessageOffsetAckHandler::flush_consumer_offset_ack(Partition* partition, Consumer* consumer, unsigned long long offset) {
+	std::lock_guard<std::shared_mutex> lock(partition->consumers_mut);
 
-	unsigned int total_consumers = partition_consumers.size();
+	consumer->set_offset(offset);
 
-	if (total_consumers == 0) return;
+	std::unique_ptr<char> message_ack = std::unique_ptr<char>(new char[CONSUMER_ACK_TOTAL_BYTES]);
 
-	int total_consumer_offsets_bytes = CONSUMER_TOTAL_BYTES * total_consumers;
-	int current_partition_consumer_offset_bytes = partition->get_consumer_offsets_flushed_bytes();
+	int group_id_size = consumer->get_group_id().size();
+	unsigned long long consumer_id = consumer->get_id();
 
-	if (current_partition_consumer_offset_bytes < total_consumer_offsets_bytes)
-		partition->set_consumer_offsets_flushed_bytes(total_consumer_offsets_bytes);
+	memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_LENGTH_OFFSET, CONSUMER_GROUP_ID_LENGTH_SIZE, &group_id_size, CONSUMER_GROUP_ID_LENGTH_SIZE);
+	memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_LENGTH_OFFSET, group_id_size, consumer->get_group_id().c_str(), group_id_size);
+	memcpy_s(message_ack.get() + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE, &consumer_id, CONSUMER_ID_SIZE);
+	memcpy_s(message_ack.get() + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE, &offset, CONSUMER_MESSAGE_ACK_SIZE);
 
-	unsigned int buff_bytes = sizeof(unsigned int) + total_consumer_offsets_bytes;
+	if (!this->fh->check_if_exists(partition->get_offsets_path())) {
+		std::string temp_offsets = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id(), true);
 
-	std::unique_ptr<char> consumer_offsets_bytes = std::unique_ptr<char>(new char[buff_bytes]);
+		if (this->fh->check_if_exists(temp_offsets)) {
+			this->fh->delete_dir_or_file(partition->get_offsets_path(), partition->get_offsets_key());
+			this->fh->rename_file("", temp_offsets, partition->get_offsets_path());
+		}
+		else {
+			unsigned long long last_replicated_offset = partition->get_last_replicated_offset();
 
-	unsigned int offset = 0;
-
-	memcpy_s(consumer_offsets_bytes.get() + offset, sizeof(unsigned int), &total_consumers, sizeof(unsigned int));
-	offset += sizeof(unsigned int);
-
-	for (auto& consumer : partition_consumers) {
-		unsigned int group_id_length = consumer.get()->get_group_id().size();
-		unsigned long long consumer_id = consumer.get()->get_id();
-		unsigned long long last_consumed_message_offset = consumer.get()->get_offset();
-
-		memcpy_s(consumer_offsets_bytes.get() + offset + CONSUMER_GROUP_ID_LENGTH_OFFSET, CONSUMER_GROUP_ID_LENGTH_SIZE, &group_id_length, CONSUMER_GROUP_ID_LENGTH_SIZE);
-		memcpy_s(consumer_offsets_bytes.get() + offset + CONSUMER_GROUP_ID_OFFSET, group_id_length, consumer.get()->get_group_id().c_str(), group_id_length);
-		memcpy_s(consumer_offsets_bytes.get() + offset + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE, &consumer_id, CONSUMER_ID_SIZE);
-		memcpy_s(consumer_offsets_bytes.get() + offset + CONSUMER_LAST_CONSUMED_MESSAGE_ID_OFFSET, CONSUMER_LAST_CONSUMED_MESSAGE_ID_SIZE, &last_consumed_message_offset, CONSUMER_LAST_CONSUMED_MESSAGE_ID_SIZE);
-
-		offset += CONSUMER_TOTAL_BYTES;
+			this->fh->create_new_file(
+				partition->get_offsets_path(),
+				sizeof(unsigned long long),
+				&last_replicated_offset,
+				partition->get_offsets_key(),
+				true
+			);
+		}
 	}
 
-	// If after unregistering many consumers the bytes diff is larger than 16KB then rewrite the __offsets file of the partition
-	if (Helper::abs(total_consumer_offsets_bytes - current_partition_consumer_offset_bytes) >= (from_server_startup ? 0 : CONSUMER_OFFSETS_REWRITE_BYTES_DIFF)) {
-		std::string temp_offsets_path = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id(), true);
+	long long written_pos = this->fh->write_to_file(
+		partition->get_offsets_key(),
+		partition->get_offsets_path(),
+		CONSUMER_ACK_TOTAL_BYTES,
+		-1,
+		message_ack.get(),
+		true
+	);
 
-		unsigned long long last_replicated_offset = partition->get_last_replicated_offset();
+	if (written_pos >= MAX_PARTITION_OFFSETS_SIZE) this->compact_partition_offsets(partition);
+}
 
-		unsigned int starting_bytes_size = sizeof(unsigned long long) + sizeof(unsigned int);
-		unsigned int zero_val = 0;
+void MessageOffsetAckHandler::compact_partition_offsets(Partition* partition) {
+	std::string temp_offsets = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id(), true);
 
-		std::unique_ptr<char> starting_bytes = std::unique_ptr<char>(new char[starting_bytes_size]);
+	unsigned long long last_replicated_offset = partition->get_last_replicated_offset();
 
-		memcpy_s(starting_bytes.get(), sizeof(unsigned long long), &last_replicated_offset, sizeof(unsigned long long));
-		memcpy_s(starting_bytes.get() + sizeof(unsigned long long), sizeof(unsigned int), &zero_val, sizeof(unsigned int));
+	this->fh->create_new_file(
+		temp_offsets,
+		sizeof(unsigned long long),
+		&last_replicated_offset,
+		"",
+		true
+	);
 
-		this->fh->create_new_file(
-			temp_offsets_path,
-			starting_bytes_size,
-			starting_bytes.get(),
-			"",
-			true
+	std::unordered_map<unsigned long long, unsigned long long> consumer_offsets;
+
+	unsigned int batch_size = CONSUMER_ACK_TOTAL_BYTES * (READ_MESSAGES_BATCH_SIZE / CONSUMER_ACK_TOTAL_BYTES - 1);
+	std::unique_ptr<char> read_batch = std::unique_ptr<char>(new char[batch_size]);
+
+	unsigned int read_pos = sizeof(unsigned long long);
+
+	unsigned long long consumer_id = 0;
+	unsigned long long offset = 0;
+
+	while (true) {
+		unsigned int bytes_read = this->fh->read_from_file(
+			partition->get_offsets_key(),
+			partition->get_offsets_path(),
+			batch_size,
+			read_pos,
+			read_batch.get()
 		);
+
+		if (bytes_read == 0) break;
+
+		unsigned int offset = 0;
+
+		while (offset < bytes_read) {
+			memcpy_s(&consumer_id, CONSUMER_ID_SIZE, read_batch.get() + offset + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE);
+			memcpy_s(&offset, CONSUMER_MESSAGE_ACK_SIZE, read_batch.get() + offset + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE);
+
+			consumer_offsets[consumer_id] = offset;
+
+			offset += CONSUMER_ACK_TOTAL_BYTES;
+		}
+
+		if (bytes_read < batch_size) break;
+
+		read_pos += bytes_read;
+	}
+
+	std::unique_ptr<char> message_ack = std::unique_ptr<char>(new char[CONSUMER_ACK_TOTAL_BYTES]);
+
+	for (auto& iter : consumer_offsets) {
+		std::shared_ptr<Consumer> consumer = partition->get_consumer(iter.first);
+
+		if (consumer == nullptr) continue;
+
+		int group_id_size = consumer->get_group_id().size();
+
+		memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_LENGTH_OFFSET, CONSUMER_GROUP_ID_LENGTH_SIZE, &group_id_size, CONSUMER_GROUP_ID_LENGTH_SIZE);
+		memcpy_s(message_ack.get() + CONSUMER_GROUP_ID_LENGTH_OFFSET, group_id_size, consumer->get_group_id().c_str(), group_id_size);
+		memcpy_s(message_ack.get() + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE, &iter.first, CONSUMER_ID_SIZE);
+		memcpy_s(message_ack.get() + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE, &iter.second, CONSUMER_MESSAGE_ACK_SIZE);
 
 		this->fh->write_to_file(
 			"",
-			temp_offsets_path,
-			buff_bytes,
-			sizeof(unsigned long long),
-			consumer_offsets_bytes.get(),
+			temp_offsets,
+			CONSUMER_ACK_TOTAL_BYTES,
+			-1,
+			message_ack.get(),
 			true
 		);
-
-		this->fh->delete_dir_or_file(partition->get_offsets_path(), partition->get_offsets_key());
-		this->fh->rename_file("", temp_offsets_path, partition->get_offsets_path());
-
-		partition->set_consumer_offsets_flushed_bytes(total_consumer_offsets_bytes);
-
-		return;
 	}
 
-	if (!this->fh->check_if_exists(partition->get_offsets_path())) {
-		unsigned long long last_replicated_offset = partition->get_last_replicated_offset();
+	this->fh->delete_dir_or_file(partition->get_offsets_path(), partition->get_offsets_key());
+	this->fh->rename_file("", temp_offsets, partition->get_offsets_path());
+}
 
-		unsigned int starting_bytes_size = sizeof(unsigned long long) + sizeof(unsigned int);
-		unsigned int zero_val = 0;
+void MessageOffsetAckHandler::assign_latest_offset_to_partition_consumers(Partition* partition) {
+	std::unordered_map<unsigned long long, unsigned long long> consumer_offsets;
 
-		std::unique_ptr<char> starting_bytes = std::unique_ptr<char>(new char[starting_bytes_size]);
+	unsigned int batch_size = CONSUMER_ACK_TOTAL_BYTES * (READ_MESSAGES_BATCH_SIZE / CONSUMER_ACK_TOTAL_BYTES - 1);
+	std::unique_ptr<char> read_batch = std::unique_ptr<char>(new char[batch_size]);
 
-		memcpy_s(starting_bytes.get(), sizeof(unsigned long long), &last_replicated_offset, sizeof(unsigned long long));
-		memcpy_s(starting_bytes.get() + sizeof(unsigned long long), sizeof(unsigned int), &zero_val, sizeof(unsigned int));
+	unsigned int read_pos = sizeof(unsigned long long);
 
-		this->fh->create_new_file(
-			partition->get_offsets_path(),
-			starting_bytes_size,
-			starting_bytes.get(),
+	unsigned long long consumer_id = 0;
+	unsigned long long offset = 0;
+
+	while (true) {
+		unsigned int bytes_read = this->fh->read_from_file(
 			partition->get_offsets_key(),
-			true
+			partition->get_offsets_path(),
+			batch_size,
+			read_pos,
+			read_batch.get()
 		);
+
+		if (bytes_read == 0) break;
+
+		unsigned int offset = 0;
+
+		while (offset < bytes_read) {
+			memcpy_s(&consumer_id, CONSUMER_ID_SIZE, read_batch.get() + offset + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE);
+			memcpy_s(&offset, CONSUMER_MESSAGE_ACK_SIZE, read_batch.get() + offset + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE);
+
+			consumer_offsets[consumer_id] = offset;
+
+			offset += CONSUMER_ACK_TOTAL_BYTES;
+		}
+
+		if (bytes_read < batch_size) break;
+
+		read_pos += bytes_read;
 	}
 
-	this->fh->write_to_file(
-		partition->get_offsets_key(),
-		partition->get_offsets_path(),
-		buff_bytes,
-		sizeof(unsigned long long),
-		consumer_offsets_bytes.get(),
-		true
-	);
+	for (auto& iter : consumer_offsets) {
+		std::shared_ptr<Consumer> consumer = partition->get_consumer(iter.first);
+
+		if (consumer == nullptr) continue;
+
+		consumer.get()->set_offset(iter.second);
+	}
 }

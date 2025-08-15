@@ -89,4 +89,5 @@ public:
 
 	friend class RetentionHandler;
 	friend class CompactionHandler;
+	friend class MessageOffsetAckHandler;
 };
