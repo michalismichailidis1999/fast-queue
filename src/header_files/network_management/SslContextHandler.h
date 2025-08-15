@@ -10,6 +10,10 @@
 
 #include "../__linux/memcpy_s.h"
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <string.h>
+#endif
+
 class SslContextHandler {
 private:
 	Settings* settings;

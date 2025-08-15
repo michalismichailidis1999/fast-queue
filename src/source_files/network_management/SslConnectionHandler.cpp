@@ -2,7 +2,13 @@
 
 static int password_callback(char* buf, int size, int rwflag, void* userdata) {
     const char* password = static_cast<const char*>(userdata);
+
+    #if defined(_WIN32) || defined(_WIN64)
     int len = strnlen_s(password, size - 1);
+    #else
+    int len = strnlen(password, size - 1);
+    #endif
+
     memcpy_s(buf, size, password, len);
     buf[len] = '\0';
     return len;

@@ -7,6 +7,7 @@
 #include <tuple>
 #include <functional>
 #include <chrono>
+#include <thread>
 #include "../logging/Logger.h"
 #include "./SocketHandler.h"
 #include "./SslContextHandler.h"

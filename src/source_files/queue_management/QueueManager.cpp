@@ -83,7 +83,7 @@ void QueueManager::delete_queue(const std::string& queue_name) {
 
 	queue->get_metadata()->set_status(Status::PENDING_DELETION);
 
-	std::string& queue_folder = this->pm->get_queue_folder_path(queue_name);
+	std::string queue_folder = this->pm->get_queue_folder_path(queue_name);
 
 	this->fh->delete_dir_or_file(queue_folder, "", queue_name);
 
@@ -100,7 +100,7 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 
 	if (queue == nullptr) {
 		std::string err_msg = "Could not assign partition to queue " + queue_name + ". Queue not found";
-		throw std::exception(err_msg.c_str());
+		throw std::runtime_error(err_msg.c_str());
 	}
 
 	this->fh->create_directory(this->pm->get_partition_folder_path(queue_name, partition_id));
@@ -197,7 +197,7 @@ void QueueManager::remove_assigned_partition_from_queue(const std::string& queue
 
 	if (queue == nullptr) {
 		std::string err_msg = "Could not assign partition to queue " + queue_name + ". Queue not found";
-		throw std::exception(err_msg.c_str());
+		throw std::runtime_error(err_msg.c_str());
 	}
 
 	std::string part_key = this->pm->get_partition_folder_key(queue_name, partition_id);

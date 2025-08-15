@@ -23,6 +23,8 @@
 	#include <netinet/in.h>
 	#include <arpa/inet.h>
 	#include <unistd.h>
+	#include <poll.h>
+	#include <errno.h>
 
 	typedef int SOCKET_ID;
 	typedef struct pollfd POLLED_FD;

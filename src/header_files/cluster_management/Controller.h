@@ -5,6 +5,7 @@
 #include <memory>
 #include <tuple>
 #include <chrono>
+#include <thread>
 #include "../logging/Logger.h"
 #include "../Settings.h"
 #include "../network_management/ConnectionsManager.h"
