@@ -433,7 +433,11 @@ void ClientRequestExecutor::handle_consume_request(SOCKET_ID socket, SSL* ssl, C
 	std::shared_ptr<Consumer> consumer = partition.get()->get_consumer(request->consumer_id);
 
 	if (consumer == nullptr) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::CONSUMER_NOT_FOUND, "Consumer not found");
+		ErrorCode err_code = this->controller->get_last_registered_consumer_id() >= request->consumer_id
+			? ErrorCode::CONSUMER_UNREGISTERED
+			: ErrorCode::CONSUMER_NOT_FOUND;
+
+		this->cm->respond_to_socket_with_error(socket, ssl, err_code, "Consumer not found");
 		return;
 	}
 
@@ -516,7 +520,11 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SOCKET_ID socket, 
 	std::shared_ptr<Consumer> consumer = partition.get()->get_consumer(request->consumer_id);
 
 	if (consumer == nullptr) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::CONSUMER_NOT_FOUND, "Consumer not found");
+		ErrorCode err_code = this->controller->get_last_registered_consumer_id() >= request->consumer_id
+			? ErrorCode::CONSUMER_UNREGISTERED
+			: ErrorCode::CONSUMER_NOT_FOUND;
+
+		this->cm->respond_to_socket_with_error(socket, ssl, err_code, "Consumer not found");
 		return;
 	}
 

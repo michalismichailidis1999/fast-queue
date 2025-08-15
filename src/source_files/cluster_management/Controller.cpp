@@ -1532,3 +1532,8 @@ void Controller::find_consumer_assigned_partitions(const std::string& queue_name
 		if (iter.second == consumer_id)
 			partitions_list->emplace_back(iter.first);
 }
+
+unsigned long long Controller::get_last_registered_consumer_id() {
+	std::lock_guard<std::mutex> lock(this->cluster_metadata->consumers_mut);
+	return this->cluster_metadata->last_consumer_id;
+}
