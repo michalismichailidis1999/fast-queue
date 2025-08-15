@@ -1,10 +1,11 @@
 #include "../../header_files/cluster_management/DataNode.h"
 
-DataNode::DataNode(Controller* controller, ConnectionsManager* cm, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
+DataNode::DataNode(Controller* controller, ConnectionsManager* cm, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
 	this->controller = controller;
 	this->cm = cm;
 	this->response_mapper = response_mapper;
 	this->transformer = transformer;
+	this->util = util;
 	this->settings = settings;
 	this->logger = logger;
 }
@@ -220,5 +221,42 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_cluster_update_receive_ms()));
+	}
+}
+
+void DataNode::update_consumer_heartbeat(std::shared_ptr<Consumer> consumer) {
+	std::lock_guard<std::mutex> lock(this->consumers_mut);
+
+	this->consumer_heartbeats[consumer->get_id()] = std::tuple<std::chrono::milliseconds, std::shared_ptr<Consumer>>(
+		this->util->get_current_time_milli(),
+		consumer
+	);
+}
+
+bool DataNode::has_consumer_expired(unsigned long long consumer_id) {
+	std::lock_guard<std::mutex> lock(this->consumers_mut);
+
+	bool expired = false;
+
+	if (this->expired_consumers.find(consumer_id) != this->expired_consumers.end()) {
+		expired = true;
+		this->expired_consumers.erase(consumer_id);
+	}
+
+	return expired;
+}
+
+void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
+	while (!(*should_terminate)) {
+		try {
+			// TODO: Complete this method
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while checking for dead consumers. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 	}
 }

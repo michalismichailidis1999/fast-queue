@@ -1,11 +1,12 @@
 #include "../../header_files/requests_management/ClientRequestExecutor.h"
 
-ClientRequestExecutor::ClientRequestExecutor(MessagesHandler* mh, MessageOffsetAckHandler* oah, ConnectionsManager* cm, QueueManager* qm, Controller* controller, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
+ClientRequestExecutor::ClientRequestExecutor(MessagesHandler* mh, MessageOffsetAckHandler* oah, ConnectionsManager* cm, QueueManager* qm, Controller* controller, DataNode* data_node, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
 	this->mh = mh;
 	this->oah = oah;
 	this->cm = cm;
 	this->qm = qm;
 	this->controller = controller;
+	this->data_node = data_node;
 	this->settings = settings;
 	this->transformer = transformer;
 	this->logger = logger;
@@ -432,6 +433,13 @@ void ClientRequestExecutor::handle_consume_request(SOCKET_ID socket, SSL* ssl, C
 
 	std::shared_ptr<Consumer> consumer = partition.get()->get_consumer(request->consumer_id);
 
+	bool consumer_expired = this->data_node->has_consumer_expired(request->consumer_id);
+
+	if (consumer != nullptr && consumer_expired) {
+		partition->remove_consumer(request->consumer_id);
+		consumer = nullptr;
+	}
+
 	if (consumer == nullptr) {
 		ErrorCode err_code = this->controller->get_last_registered_consumer_id() >= request->consumer_id
 			? ErrorCode::CONSUMER_UNREGISTERED
@@ -445,6 +453,8 @@ void ClientRequestExecutor::handle_consume_request(SOCKET_ID socket, SSL* ssl, C
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_CONSUMER_GROUP_ID, "Incorrect consumer group id " + group_id);
 		return;
 	}
+
+	this->data_node->update_consumer_heartbeat(consumer);
 
 	std::unique_ptr<ConsumeResponse> res = std::make_unique<ConsumeResponse>();
 
@@ -519,6 +529,13 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SOCKET_ID socket, 
 
 	std::shared_ptr<Consumer> consumer = partition.get()->get_consumer(request->consumer_id);
 
+	bool consumer_expired = this->data_node->has_consumer_expired(request->consumer_id);
+
+	if (consumer != nullptr && consumer_expired) {
+		partition->remove_consumer(request->consumer_id);
+		consumer = nullptr;
+	}
+
 	if (consumer == nullptr) {
 		ErrorCode err_code = this->controller->get_last_registered_consumer_id() >= request->consumer_id
 			? ErrorCode::CONSUMER_UNREGISTERED
@@ -532,6 +549,8 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SOCKET_ID socket, 
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_CONSUMER_GROUP_ID, "Incorrect consumer group id " + group_id);
 		return;
 	}
+
+	this->data_node->update_consumer_heartbeat(consumer);
 
 	this->oah->flush_consumer_offset_ack(partition.get(), consumer.get(), request->message_offset);
 
