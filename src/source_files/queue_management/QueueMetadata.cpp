@@ -12,7 +12,7 @@ QueueMetadata::QueueMetadata(const std::string& name, unsigned int partitions, u
 
 QueueMetadata::QueueMetadata(void* metadata) {
 	if (metadata == NULL)
-		throw std::exception("Queue metadata was NULL");
+		throw std::runtime_error("Queue metadata was NULL");
 
 	char* queue_name = NULL;
 	int queue_name_length = 0;

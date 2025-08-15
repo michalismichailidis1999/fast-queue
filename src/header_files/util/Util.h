@@ -5,6 +5,16 @@
 #include <iomanip>  // For std::put_time
 #include <sstream>  // For std::ostringstream
 
+#if defined(_WIN32) || defined(_WIN64)
+
+#define GMTIME(tm_ptr, time_ptr) gmtime_s((tm_ptr), (time_ptr))
+
+#else
+
+#define GMTIME(tm_ptr, time_ptr) gmtime_r((time_ptr), (tm_ptr))
+
+#endif
+
 #include "../__linux/memcpy_s.h"
 
 class Util {

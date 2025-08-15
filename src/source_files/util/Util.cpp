@@ -11,7 +11,7 @@ std::string Util::get_current_time_in_str() {
 
     std::tm utc_tm;
 
-    gmtime_s(&utc_tm , &currentTime);  // gmtime gives UTC
+    GMTIME(&utc_tm , &currentTime);  // gmtime gives UTC
 
     // Create a string stream to format the time
     std::ostringstream oss;

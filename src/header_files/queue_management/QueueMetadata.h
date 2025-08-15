@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <shared_mutex>
+#include <memory>
 #include "../Constants.h"
 #include "../Enums.h"
 #include "../util/Helper.h"

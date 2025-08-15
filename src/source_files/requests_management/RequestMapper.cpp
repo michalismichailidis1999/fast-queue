@@ -34,7 +34,7 @@ std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char*
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type CreateQueueRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -66,7 +66,7 @@ std::unique_ptr<DeleteQueueRequest> RequestMapper::to_delete_queue_request(char*
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type DeleteQueueRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -125,7 +125,7 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type ProduceMessagesRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -149,7 +149,7 @@ std::unique_ptr<GetQueuePartitionsInfoRequest> RequestMapper::to_get_queue_parti
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type GetQueuePartitionsInfoRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -195,7 +195,7 @@ std::unique_ptr<AppendEntriesRequest> RequestMapper::to_append_entries_request(c
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type AppendEntriesRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -228,7 +228,7 @@ std::unique_ptr<RequestVoteRequest> RequestMapper::to_request_vote_request(char*
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type RequestVoteRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -271,7 +271,7 @@ std::unique_ptr<DataNodeHeartbeatRequest> RequestMapper::to_data_node_heartbeat_
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type DataNodeHeartbeatRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -308,7 +308,7 @@ std::unique_ptr<GetClusterMetadataUpdateRequest> RequestMapper::to_get_cluster_m
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type DataNodeHeartbeatRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -353,7 +353,7 @@ std::unique_ptr<RegisterConsumerRequest> RequestMapper::to_register_consumer_req
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type ProduceMessagesRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -397,7 +397,7 @@ std::unique_ptr<GetConsumerAssignedPartitionsRequest> RequestMapper::to_get_cons
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type GetConsumerAssignedPartitionsRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -455,7 +455,7 @@ std::unique_ptr<ConsumeRequest> RequestMapper::to_consume_request(char* recvbuf,
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type ConsumeRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 
@@ -508,7 +508,7 @@ std::unique_ptr<AckMessageOffsetRequest> RequestMapper::to_ack_message_offset_re
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type AckMessageOffsetRequest");
-			throw std::exception("Invalid request value");
+			throw std::runtime_error("Invalid request value");
 		}
 	}
 

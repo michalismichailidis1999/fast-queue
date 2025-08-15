@@ -78,7 +78,8 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 
 	if (parent_node == nullptr) {
 		parent_node = this->add_new_parent_to_node(segment, node_to_insert.get());
-		parent_node.get()->insert(BTreeNodeRow{ node_to_insert.get()->max_key, node_to_insert.get()->page_offset });
+		auto row = BTreeNodeRow{ node_to_insert.get()->max_key, node_to_insert.get()->page_offset };
+		parent_node.get()->insert(row);
 		nodes_to_flush.emplace_back(node_to_insert.get());
 	}
 
@@ -89,7 +90,8 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 	else {
 		new_node = this->create_new_child(segment, parent_node.get(), node_to_insert.get());
 		new_node.get()->insert(row_to_insert);
-		parent_node.get()->insert(BTreeNodeRow{ new_node.get()->max_key, new_node.get()->page_offset });
+		auto row = BTreeNodeRow{ new_node.get()->max_key, new_node.get()->page_offset };
+		parent_node.get()->insert(row);
 
 		if(nodes_to_flush.size() == 1) 
 			nodes_to_flush.emplace_back(node_to_insert.get());
