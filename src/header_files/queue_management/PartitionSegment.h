@@ -28,8 +28,6 @@ private:
 
 	unsigned long long total_written_bytes;
 
-	bool ignore_segment_allocation;
-
 	std::mutex mut;
 public:
 	PartitionSegment(unsigned long long id, const std::string& segment_key, const std::string& segment_path);
@@ -62,9 +60,6 @@ public:
 
 	unsigned long long add_written_bytes(unsigned long bytes);
 	void set_total_written_bytes(unsigned long long total_written_bytes);
-
-	bool should_ignore_segment_allocation();
-	void set_ignore_segment_allocation_to_true();
 
 	std::tuple<long, std::shared_ptr<char>> get_metadata_bytes();
 };

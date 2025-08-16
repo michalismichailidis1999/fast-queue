@@ -101,8 +101,8 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 		unsigned long total_segment_bytes = active_segment.get()->add_written_bytes(total_bytes);
 
 		if (this->settings->get_segment_size() < total_segment_bytes) {
-			this->sa->allocate_new_segment(partition);
 			this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
+			this->sa->allocate_new_segment(partition);
 			return true;
 		}
 

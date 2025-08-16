@@ -28,6 +28,11 @@ BTreeNode::BTreeNode(void* metadata) {
 		memcpy_s(&this->rows[i].val_pos, INDEX_VALUE_POSITION_SIZE, (char*)metadata + offset + INDEX_VALUE_POSITION_OFFSET, INDEX_VALUE_POSITION_SIZE);
 		offset += INDEX_KEY_VALUE_METADATA_SIZE;
 	}
+
+	for (int i = this->rows_num; i < INDEX_PAGE_TOTAL_ROWS; i++) {
+		this->rows[i].key = 0;
+		this->rows[i].val_pos = 0;
+	}
 }
 
 std::tuple<std::shared_ptr<char>, unsigned int> BTreeNode::get_page_bytes() {

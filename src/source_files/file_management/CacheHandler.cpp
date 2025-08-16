@@ -70,10 +70,15 @@ void CacheHandler::cache_messages(std::vector<std::string>* keys, void* messages
 
 		std::string key = (*keys)[i];
 
-		if (is_unflushed_data) this->unflushed_data_cache[key] = std::tuple<std::shared_ptr<char>, bool>(message, true);
-		else this->messages_cache->put(key, message);
-
-		this->keys_insertion_time[key] = this->util->get_current_time_milli().count();
+		if (is_unflushed_data) {
+			this->unflushed_data_cache[key] = std::tuple<std::shared_ptr<char>, bool>(message, true);
+			this->messages_cache->remove(key);
+			this->keys_insertion_time.erase(key);
+		}
+		else {
+			this->messages_cache->put(key, message);
+			this->keys_insertion_time[key] = this->util->get_current_time_milli().count();
+		}
 
 		offset += message_bytes;
 		i++;
@@ -87,10 +92,15 @@ void CacheHandler::cache_index_page(const std::string& key, void* page_data, boo
 
 	memcpy_s(page.get(), INDEX_PAGE_SIZE, page_data, INDEX_PAGE_SIZE);
 
-	if (is_unflushed_data) this->unflushed_data_cache[key] = std::tuple<std::shared_ptr<char>, bool>(page, false);
-	else this->index_pages_cache->put(key, page);
-
-	this->keys_insertion_time[key] = this->util->get_current_time_milli().count();
+	if (is_unflushed_data) {
+		this->unflushed_data_cache[key] = std::tuple<std::shared_ptr<char>, bool>(page, false);
+		this->index_pages_cache->remove(key);
+		this->keys_insertion_time.erase(key);
+	}
+	else {
+		this->index_pages_cache->put(key, page);
+		this->keys_insertion_time[key] = this->util->get_current_time_milli().count();
+	}
 }
 
 // Transition recently flushed data to LRU cache before clearing it from unflushed_data_cache map

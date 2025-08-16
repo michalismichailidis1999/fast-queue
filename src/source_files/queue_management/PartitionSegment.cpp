@@ -12,8 +12,6 @@ PartitionSegment::PartitionSegment(unsigned long long id, const std::string& seg
 	this->index_path = "";
 	this->total_written_bytes = 0;
 	this->last_index_page_offset = 0;
-
-	this->ignore_segment_allocation = false;
 }
 
 PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_key, const std::string& segment_path) {
@@ -118,16 +116,6 @@ unsigned long long PartitionSegment::add_written_bytes(unsigned long bytes) {
 void PartitionSegment::set_total_written_bytes(unsigned long long total_written_bytes) {
 	std::lock_guard<std::mutex> lock(this->mut);
 	this->total_written_bytes = total_written_bytes;
-}
-
-bool PartitionSegment::should_ignore_segment_allocation() {
-	std::lock_guard<std::mutex> lock(this->mut);
-	return this->ignore_segment_allocation;
-}
-
-void PartitionSegment::set_ignore_segment_allocation_to_true() {
-	std::lock_guard<std::mutex> lock(this->mut);
-	this->ignore_segment_allocation = true;
 }
 
 std::tuple<long, std::shared_ptr<char>> PartitionSegment::get_metadata_bytes() {

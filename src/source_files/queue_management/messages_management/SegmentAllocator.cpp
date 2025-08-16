@@ -14,14 +14,8 @@ bool SegmentAllocator::allocate_new_segment(Partition* partition) {
 	std::shared_ptr<PartitionSegment> segment = partition->get_active_segment_ref();
 	std::shared_ptr<PartitionSegment> old_active_segment = nullptr;
 
-	if (segment != nullptr) {
+	if (segment != nullptr)
 		this->lock_manager->lock_segment(partition, segment.get(), true);
-
-		if (segment.get()->should_ignore_segment_allocation()) {
-			this->lock_manager->release_segment_lock(partition, segment.get(), true);
-			return false;
-		}
-	}
 
 	try
 	{
@@ -83,11 +77,8 @@ bool SegmentAllocator::allocate_new_segment(Partition* partition) {
 		throw ex;
 	}
 
-	if (segment != nullptr) {
-		segment.get()->set_ignore_segment_allocation_to_true();
-
+	if (segment != nullptr)
 		this->lock_manager->release_segment_lock(partition, segment.get(), true);
-	}
 
 	return true;
 }

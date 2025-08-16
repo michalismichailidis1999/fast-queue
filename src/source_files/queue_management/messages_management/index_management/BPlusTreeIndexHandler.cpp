@@ -52,6 +52,7 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(Partition* parti
 	return this->find_message_location(node.get(), read_from_message_id);
 }
 
+// TODO: Needs fixing
 void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned long long message_id, unsigned long long message_pos, bool cache_pages) {
 	PartitionSegment* segment = partition->get_active_segment();
 
