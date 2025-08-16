@@ -97,9 +97,12 @@ int main(int argc, char* argv[])
     std::unique_ptr<RetentionHandler> rh = std::unique_ptr<RetentionHandler>(new RetentionHandler(qm.get(), lm.get(), fh.get(), pm.get(), util.get(), server_logger.get(), settings.get()));
     std::unique_ptr<CompactionHandler> ch = std::unique_ptr<CompactionHandler>(new CompactionHandler(controller.get(), qm.get(), mh.get(), lm.get(), cmah.get(), fh.get(), pm.get(), server_logger.get(), settings.get()));
 
+    std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), request_mapper.get(), response_mapper.get(), transformer.get(), util.get(), settings.get(), server_logger.get()));
+
     std::unique_ptr<BeforeServerStartupHandler> startup_handler = std::unique_ptr<BeforeServerStartupHandler>(
         new BeforeServerStartupHandler(
             controller.get(),
+            data_node.get(),
             cmah.get(),
             qm.get(),
             oah.get(),
@@ -121,8 +124,6 @@ int main(int argc, char* argv[])
     startup_handler.get()->rebuild_cluster_metadata();
     
     controller.get()->update_quorum_communication_values();
-
-    std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), request_mapper.get(), response_mapper.get(), transformer.get(), util.get(), settings.get(), server_logger.get()));
 
     std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(mh.get(), oah.get(), cm.get(), qm.get(), controller.get(), data_node.get(), transformer.get(), settings.get(), server_logger.get()));
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), transformer.get()));

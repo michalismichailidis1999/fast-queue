@@ -1,7 +1,8 @@
 #include "../header_files/BeforeServerStartupHandler.h"
 
-BeforeServerStartupHandler::BeforeServerStartupHandler(Controller* controller, ClusterMetadataApplyHandler* cmah, QueueManager* qm, MessageOffsetAckHandler* oah, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
+BeforeServerStartupHandler::BeforeServerStartupHandler(Controller* controller, DataNode* data_node, ClusterMetadataApplyHandler* cmah, QueueManager* qm, MessageOffsetAckHandler* oah, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
     this->controller = controller;
+    this->data_node = data_node;
     this->cmah = cmah;
     this->qm = qm;
     this->oah = oah;
@@ -84,6 +85,11 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
             if (partition == nullptr) continue;
 
             this->oah->assign_latest_offset_to_partition_consumers(partition.get());
+
+            auto consumers = partition.get()->get_all_consumers();
+
+            for (auto& consumer : consumers)
+                this->data_node->update_consumer_heartbeat(queue_name, consumer.get()->get_group_id(), consumer.get()->get_id());
         }
     }
 

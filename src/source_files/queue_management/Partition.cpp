@@ -137,10 +137,12 @@ void Partition::add_consumer(std::shared_ptr<Consumer> consumer) {
 
 std::shared_ptr<Consumer> Partition::get_consumer(unsigned long long consumer_id) {
 	std::shared_lock<std::shared_mutex> lock(this->consumers_mut);
+	if (this->consumers.find(consumer_id) == this->consumers.end()) return nullptr;
 	return this->consumers[consumer_id];
 }
 
 std::shared_ptr<Consumer> Partition::get_consumer_with_nolock(unsigned long long consumer_id) {
+	if (this->consumers.find(consumer_id) == this->consumers.end()) return nullptr;
 	return this->consumers[consumer_id];
 }
 
@@ -153,6 +155,8 @@ std::vector<std::shared_ptr<Consumer>> Partition::get_all_consumers() {
 	std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
 
 	std::vector<std::shared_ptr<Consumer>> consumers;
+
+	if (this->consumers.size() == 0) return consumers;
 
 	for (auto& iter : this->consumers)
 		consumers.emplace_back(iter.second);

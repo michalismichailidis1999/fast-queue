@@ -14,9 +14,6 @@ QueueMetadata::QueueMetadata(void* metadata) {
 	if (metadata == NULL)
 		throw std::runtime_error("Queue metadata was NULL");
 
-	if (!Helper::has_valid_checksum(metadata))
-		throw CorruptionException("Queue's metadata has been corrupted");
-
 	char* queue_name = NULL;
 	int queue_name_length = 0;
 

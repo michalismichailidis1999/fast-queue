@@ -35,6 +35,7 @@ void ClusterMetadata::add_queue_metadata(std::shared_ptr<QueueMetadata> queue_me
 
 QueueMetadata* ClusterMetadata::get_queue_metadata(const std::string& queue_name) {
 	std::lock_guard<std::mutex> lock(this->queues_mut);
+	if (this->queues.find(queue_name) == this->queues.end()) return NULL;
 	return this->queues[queue_name].get();
 }
 
@@ -96,12 +97,12 @@ void ClusterMetadata::apply_command(Command* command, bool with_lock) {
 		return;
 	}
 	case CommandType::UNREGISTER_CONSUMER_GROUP: {
-		RegisterConsumerGroupCommand* command_info = static_cast<RegisterConsumerGroupCommand*>(command->get_command_info());
+		UnregisterConsumerGroupCommand* command_info = static_cast<UnregisterConsumerGroupCommand*>(command->get_command_info());
 
 		if (with_lock) {
 			std::lock_guard<std::mutex> lock(this->consumers_mut);
-			this->apply_register_consuer_group_command(command_info);
-		} else this->apply_register_consuer_group_command(command_info);
+			this->apply_unregister_consuer_group_command(command_info);
+		} else this->apply_unregister_consuer_group_command(command_info);
 		
 		return;
 	}

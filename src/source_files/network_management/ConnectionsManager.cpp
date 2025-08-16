@@ -401,6 +401,7 @@ std::map<int, std::shared_ptr<ConnectionPool>>* ConnectionsManager::get_controll
 
 // will be called after mutex locking, no lock required here
 std::shared_ptr<ConnectionPool> ConnectionsManager::get_controller_node_connection(int node_id) {
+	if (this->controller_node_connections.find(node_id) == this->controller_node_connections.end()) return nullptr;
 	return this->controller_node_connections[node_id];
 }
 

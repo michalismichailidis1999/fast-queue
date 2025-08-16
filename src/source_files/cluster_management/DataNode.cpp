@@ -248,9 +248,9 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 
 	while (!(should_terminate->load())) {
 		try {
-			pool = pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
+			pool = leader_id != this->settings->get_node_id() && pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
 
-			if (pool == nullptr) {
+			if (leader_id != this->settings->get_node_id() && pool == nullptr) {
 				this->logger->log_error("Something went wrong while checking for dead consumers. Could not retrieve leader connection pool for cluster metadata updates fetching");
 				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
 				continue;
@@ -320,7 +320,9 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 std::shared_ptr<ConnectionPool> DataNode::get_leader_connection_pool(int leader_id) {
 	std::shared_lock<std::shared_mutex> lock(*(this->cm->get_controller_node_connections_mut()));
 
-	auto controller_node_connections = this->cm->get_controller_node_connections();
+	std::map<int, std::shared_ptr<ConnectionPool>>* controller_node_connections = this->cm->get_controller_node_connections();
+
+	if (controller_node_connections->find(leader_id) == controller_node_connections->end()) return nullptr;
 
 	return (*controller_node_connections)[leader_id];
 }
