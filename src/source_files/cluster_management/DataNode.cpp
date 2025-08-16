@@ -281,6 +281,12 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 				continue;
 			}
 
+			if (leader_id == this->settings->get_node_id()) {
+				this->controller->handle_consumers_expiration(req.get());
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
+				continue;
+			}
+
 			std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
 
 			auto res = this->cm->send_request_to_socket(
