@@ -155,6 +155,8 @@ std::string MessagesHandler::get_queue_partition_key(Partition* partition) {
 }
 
 unsigned long MessagesHandler::remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned int bytes_written) {
+	return 0;
+
 	std::lock_guard<std::mutex> lock(this->remaining_bytes_mut);
 
 	unsigned long remaining_bytes = this->remaining_bytes[queue_partition_key];
@@ -404,6 +406,9 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 			memcpy_s(&current_message_id, MESSAGE_ID_SIZE, read_batch.get() + new_read_end + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 			memcpy_s(&is_message_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + new_read_end + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
 
+			if (!Helper::has_valid_checksum(read_batch.get() + new_read_end))
+				throw CorruptionException("Correpted message detected");
+
 			if (!is_message_active || current_message_id > maximum_message_id) break;
 
 			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + new_read_end + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
@@ -451,6 +456,9 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 		memcpy_s(&is_active, MESSAGE_IS_ACTIVE_SIZE, (char*)current_batch + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
 		memcpy_s(&current_message_id, MESSAGE_ID_SIZE, (char*)current_batch + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
+		if (offset + message_bytes <= current_batch_size && !Helper::has_valid_checksum((char*)current_batch + offset))
+			throw CorruptionException("Corrupted message detected");
+
 		if (message_id < current_message_id && is_active && message_bytes + offset < current_batch_size - MESSAGE_TOTAL_BYTES) {
 			this->lock_manager->release_segment_lock(partition, segment);
 			std::shared_ptr<char> active_message = std::shared_ptr<char>(new char[message_bytes]);
@@ -496,6 +504,9 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 			memcpy_s(&is_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
 
 			if (offset + message_bytes >= batch_size - MESSAGE_TOTAL_BYTES) break;
+
+			if (!Helper::has_valid_checksum(read_batch.get() + offset))
+				throw CorruptionException("Corrupted message detected");
 
 			if (is_active) {
 				if (!first_active_found) start_pos = offset;
@@ -579,6 +590,9 @@ unsigned int MessagesHandler::get_message_offset(void* read_batch, unsigned int 
 	while (offset <= batch_size - MESSAGE_TOTAL_BYTES) {
 		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)read_batch + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 		memcpy_s(&current_message_id, MESSAGE_ID_SIZE, (char*)read_batch + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+		if (offset + message_bytes <= batch_size && !Helper::has_valid_checksum((char*)read_batch + offset))
+			throw CorruptionException("Corrupted message detected");
 
 		if (message_id == current_message_id) {
 			*message_found = true;
@@ -708,6 +722,9 @@ bool MessagesHandler::remove_messages_after_message_id(Partition* partition, uns
 					memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 					memcpy_s(&is_message_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
 					memcpy_s(&current_message_id, MESSAGE_ID_SIZE, read_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+					if (offset + message_bytes <= batch_size && !Helper::has_valid_checksum(read_batch.get() + offset))
+						throw CorruptionException("Corrupted message detected");
 
 					if (is_message_active && current_message_id > message_id) {
 						is_message_active = false;

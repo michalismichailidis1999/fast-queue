@@ -20,6 +20,9 @@ PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_ke
 	if (metadata == NULL)
 		throw std::runtime_error("Partition metadata was NULL");
 
+	if (!Helper::has_valid_checksum(metadata))
+		throw CorruptionException("Partition's segment has been corrupted");
+
 	this->segment_key = segment_key;
 	this->segment_path = segment_path;
 	this->index_key = "";

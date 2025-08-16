@@ -4,6 +4,7 @@
 #include <mutex>
 #include "../Constants.h"
 #include "../util/Helper.h"
+#include "../exceptions/CurruptionException.h"
 
 #include "../__linux/memcpy_s.h"
 

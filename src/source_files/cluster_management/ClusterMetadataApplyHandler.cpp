@@ -31,6 +31,9 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 
 			if (offset + command_total_bytes > bytes_read) break;
 
+			if (!Helper::has_valid_checksum(batch_size.get() + offset))
+				throw CorruptionException("Corrupted message detected while applying segment commands");
+
 			if (!is_command_active) {
 				offset += command_total_bytes;
 				continue;

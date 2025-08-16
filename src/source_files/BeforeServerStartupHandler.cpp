@@ -485,6 +485,9 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
                 index_page.get()
             );
 
+            if (!Helper::has_valid_checksum(index_page.get()))
+                throw CorruptionException("Corrupted index page detected while setting segment index");
+
             node = std::unique_ptr<BTreeNode>(new BTreeNode(index_page.get()));
 
             if (node.get()->get_next_page_offset() == 0) {
@@ -541,6 +544,9 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
 
         while (offset <= bytes_read - MESSAGE_TOTAL_BYTES) {
             memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+
+            if (offset + message_bytes <= batch_size && !Helper::has_valid_checksum(read_batch.get() + offset))
+                throw CorruptionException("Corrupted messages detected while setting segment's last message offset and timestamp");
 
             if (offset + message_bytes > bytes_read - MESSAGE_TOTAL_BYTES) break;
 
