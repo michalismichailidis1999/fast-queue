@@ -17,6 +17,7 @@ enum class RequestType {
 	// Internal
 	DATA_NODE_HEARTBEAT,
 	GET_CLUSTER_METADATA_UPDATES,
+	EXPIRE_CONSUMERS,
 
 	// Raft
 	REQUEST_VOTE,
@@ -69,6 +70,7 @@ enum class RequestValueKey {
 	NODE_EXTERNAL_PORT,
 	COMMAND_ID,
 	REGISTER_NODE,
+	EXPIRED_CONSUMERS,
 
 	// Raft
 	LEADER_ID,

@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <string>
+#include <tuple>
 
 #include "../__linux/memcpy_s.h"
 
@@ -48,6 +50,10 @@ struct GetClusterMetadataUpdateRequest {
 	unsigned long long prev_log_index;
 	unsigned long long prev_log_term;
 	bool is_first_request;
+};
+
+struct ExpireConsumersRequest {
+	std::shared_ptr<std::vector<std::tuple<std::string, std::string, unsigned long long>>> expired_consumers;
 };
 
 // ======================================================================

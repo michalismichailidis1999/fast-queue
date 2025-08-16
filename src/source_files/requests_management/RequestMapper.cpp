@@ -514,3 +514,44 @@ std::unique_ptr<AckMessageOffsetRequest> RequestMapper::to_ack_message_offset_re
 
 	return req;
 }
+
+std::unique_ptr<ExpireConsumersRequest> RequestMapper::to_expire_consumers_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<ExpireConsumersRequest> req = std::make_unique<ExpireConsumersRequest>();
+
+	req.get()->expired_consumers = std::make_shared<std::vector<std::tuple<std::string, std::string, unsigned long long>>>();
+	
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::EXPIRED_CONSUMERS) {
+			int total_consumers_to_expire = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(int) + sizeof(RequestValueKey);
+
+			for (int i = 0; i < total_consumers_to_expire; i++) {
+				int queue_name_size = *(int*)(recvbuf + offset);
+				offset += sizeof(int);
+
+				std::string queue_name = std::string(recvbuf + offset, queue_name_size);
+				offset += queue_name_size;
+
+				int group_id_size = *(int*)(recvbuf + offset);
+				offset += sizeof(int);
+
+				std::string group_id = std::string(recvbuf + offset, group_id_size);
+				offset += group_id_size;
+
+				unsigned long long consumer_id = *(unsigned long long*)(recvbuf + offset);
+				offset += sizeof(unsigned long long);
+			}
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type AckMessageOffsetRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}

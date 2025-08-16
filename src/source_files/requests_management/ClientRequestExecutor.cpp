@@ -327,6 +327,9 @@ void ClientRequestExecutor::handle_register_consumer_request(SOCKET_ID socket, S
 	res.get()->consumer_id = this->controller->assign_consumer_group_to_partitions(request, queue.get(), group_id);
 	res.get()->ok = res.get()->consumer_id != 0;
 
+	if(res.get()->ok)
+		this->data_node->update_consumer_heartbeat(queue_name, group_id, res.get()->consumer_id);
+
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
@@ -374,6 +377,9 @@ void ClientRequestExecutor::handle_get_consumer_assigned_partitions_request(SOCK
 		request->consumer_id,
 		&res.get()->partitions
 	);
+
+	if (res.get()->partitions.size() > 0)
+		this->data_node->update_consumer_heartbeat(queue_name, group_id, request->consumer_id);
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
@@ -454,7 +460,7 @@ void ClientRequestExecutor::handle_consume_request(SOCKET_ID socket, SSL* ssl, C
 		return;
 	}
 
-	this->data_node->update_consumer_heartbeat(consumer);
+	this->data_node->update_consumer_heartbeat(queue_name, group_id, request->consumer_id);
 
 	std::unique_ptr<ConsumeResponse> res = std::make_unique<ConsumeResponse>();
 
@@ -550,7 +556,7 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SOCKET_ID socket, 
 		return;
 	}
 
-	this->data_node->update_consumer_heartbeat(consumer);
+	this->data_node->update_consumer_heartbeat(queue_name, group_id, request->consumer_id);
 
 	this->oah->flush_consumer_offset_ack(partition.get(), consumer.get(), request->message_offset);
 

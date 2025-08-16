@@ -1,5 +1,6 @@
 #pragma once
 #include <tuple>
+#include <string>
 #include <memory>
 #include "../Enums.h"
 #include "./Requests.h"
@@ -19,6 +20,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(DataNodeHeartbeatRequest* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(GetClusterMetadataUpdateRequest* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(ExpireConsumersRequest* obj);
     // ------------------
 
     // Responses
@@ -29,6 +32,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(RequestVoteResponse* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(DataNodeHeartbeatResponse* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(ExpireConsumersResponse* obj);
     // --
 
     // -- External

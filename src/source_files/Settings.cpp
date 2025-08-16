@@ -72,6 +72,8 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "data_node_expire_ms"
 			|| lhs == "heartbeat_to_leader_ms"
 			|| lhs == "cluster_update_receive_ms"
+			|| lhs == "dead_consumer_check_ms"
+			|| lhs == "dead_consumer_expire_ms"
 		) {
 			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
@@ -89,7 +91,9 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 				: lhs == "dead_data_node_check_ms" ? &this->dead_data_node_check_ms
 				: lhs == "data_node_expire_ms" ? &this->data_node_expire_ms
 				: lhs == "heartbeat_to_leader_ms" ? &this->heartbeat_to_leader_ms
-				: &this->cluster_update_receive_ms;
+				: lhs == "cluster_update_receive_ms" ? &this->cluster_update_receive_ms
+				: lhs == "dead_consumer_check_ms" ? &this->dead_consumer_check_ms
+				: &this->dead_consumer_expire_ms;
 
 			*(val) = rhs_size > 0 ? std::atoi(rhs.c_str()) : 0;
 		}
@@ -293,6 +297,16 @@ unsigned int Settings::get_heartbeat_to_leader_ms() {
 unsigned int Settings::get_cluster_update_receive_ms() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->cluster_update_receive_ms;
+}
+
+unsigned int Settings::get_dead_consumer_check_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->dead_consumer_check_ms;
+}
+
+unsigned int Settings::get_dead_consumer_expire_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->dead_consumer_expire_ms;
 }
 
 const std::string& Settings::get_log_path() {

@@ -67,7 +67,7 @@ void Controller::init_commit_index_and_last_applied() {
 void Controller::run_controller_quorum_communication() {
 	if (!this->settings->get_is_controller_node()) return;
 
-	while (!(*this->should_terminate)) {
+	while (!(this->should_terminate->load())) {
 		try
 		{
 			switch (this->get_state())
@@ -910,7 +910,7 @@ void Controller::check_for_dead_data_nodes() {
 
 	std::vector<int> expired_nodes;
 
-	while (!(*this->should_terminate)) {
+	while (!(this->should_terminate->load())) {
 		expired_nodes.clear();
 
 		try
@@ -1096,7 +1096,7 @@ void Controller::check_for_commit_and_last_applied_diff() {
 	Partition* partition = queue.get()->get_partition(0).get();
 	queue.reset();
 
-	while (!(*this->should_terminate)) {
+	while (!(this->should_terminate->load())) {
 		unsigned long long commit_index = this->commit_index;
 
 		if (commit_index <= this->last_applied) {
@@ -1536,4 +1536,46 @@ void Controller::find_consumer_assigned_partitions(const std::string& queue_name
 unsigned long long Controller::get_last_registered_consumer_id() {
 	std::lock_guard<std::mutex> lock(this->cluster_metadata->consumers_mut);
 	return this->cluster_metadata->last_consumer_id;
+}
+
+void Controller::handle_consumers_expiration(ExpireConsumersRequest* request) {
+	if (request->expired_consumers->size() == 0) return;
+
+	std::unique_lock<std::mutex> lock(this->future_cluster_metadata->consumers_mut);
+
+	std::vector<Command> commands;
+
+	long long timestamp = this->util->get_current_time_milli().count();
+
+	for (auto& iter : *(request->expired_consumers.get())) {
+		std::string queue_name = std::get<0>(iter);
+		std::string group_id = std::get<1>(iter);
+		unsigned long long consumer_id = std::get<2>(iter);
+
+		auto queue_consumer_groups = this->future_cluster_metadata->partition_consumers[queue_name];
+
+		if (queue_consumer_groups == nullptr) continue;
+
+		auto group_consumers = (*(queue_consumer_groups.get()))[group_id];
+
+		for (auto& iter2 : (*(group_consumers.get())))
+			if(iter2.second == consumer_id)
+				commands.emplace_back(
+					Command(
+						CommandType::UNREGISTER_CONSUMER_GROUP,
+						this->term.load(),
+						timestamp,
+						std::shared_ptr<UnregisterConsumerGroupCommand>(
+							new UnregisterConsumerGroupCommand(queue_name, iter2.first, group_id, consumer_id)
+						)
+					)
+				);
+	}
+
+	for (auto& command : commands)
+		this->future_cluster_metadata->apply_command(&command, false);
+
+	lock.unlock();
+
+	this->store_commands(&commands);
 }

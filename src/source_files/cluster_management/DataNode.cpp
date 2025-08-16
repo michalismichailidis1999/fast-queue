@@ -14,6 +14,8 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 	if (this->settings->get_is_controller_node()) return;
 
 	std::shared_ptr<ConnectionPool> pool = nullptr;
+	int leader_id = 0;
+	int prev_leader_id = leader_id;
 
 	std::unique_ptr<DataNodeHeartbeatRequest> req = std::make_unique<DataNodeHeartbeatRequest>();
 	req.get()->node_id = this->settings->get_node_id();
@@ -30,21 +32,13 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
 
-	while (!(*should_terminate)) {
+	while (!(should_terminate->load())) {
 		try
 		{
-			int leader_id = this->controller->get_cluster_metadata()->get_leader_id();
-
-			if (leader_id == 0)
+			if (leader_id <= 0)
 				leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
 
-			if (pool == nullptr) {
-				std::shared_lock<std::shared_mutex> lock(*(this->cm->get_controller_node_connections_mut()));
-
-				auto controller_node_connections = this->cm->get_controller_node_connections();
-
-				pool = (*controller_node_connections)[leader_id];
-			}
+			pool = pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
 
 			if (pool != nullptr && !this->send_heartbeat_to_leader(&leader_id, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), pool.get()))
 			{
@@ -149,18 +143,14 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 	bool index_matched = true;
 	bool is_first_request = true;
 
-	while (!(*should_terminate)) {
+	while (!(should_terminate->load())) {
 		try
 		{
 			{
-				std::shared_lock<std::shared_mutex> lock(*(this->cm->get_controller_node_connections_mut()));
-
-				pool = pool != nullptr 
-					? pool 
-					: this->cm->get_controller_node_connection(leader_id);
+				pool = pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
 
 				if (pool == nullptr) {
-					this->logger->log_error("Something went wrong. Could not retrieve leader connection pool for cluster metadata updates fetching");
+					this->logger->log_error("Something went wrong while trying to fetch cluster updates. Could not retrieve leader connection pool for cluster metadata updates fetching");
 					goto end;
 				}
 
@@ -224,12 +214,13 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 	}
 }
 
-void DataNode::update_consumer_heartbeat(std::shared_ptr<Consumer> consumer) {
+void DataNode::update_consumer_heartbeat(const std::string& queue_name, const std::string& group_id, unsigned long long consumer_id) {
 	std::lock_guard<std::mutex> lock(this->consumers_mut);
 
-	this->consumer_heartbeats[consumer->get_id()] = std::tuple<std::chrono::milliseconds, std::shared_ptr<Consumer>>(
+	this->consumer_heartbeats[consumer_id] = std::tuple<std::chrono::milliseconds, std::string, std::string>(
 		this->util->get_current_time_milli(),
-		consumer
+		group_id,
+		queue_name
 	);
 }
 
@@ -247,9 +238,68 @@ bool DataNode::has_consumer_expired(unsigned long long consumer_id) {
 }
 
 void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
-	while (!(*should_terminate)) {
+	std::unique_ptr<ExpireConsumersRequest> req = std::make_unique<ExpireConsumersRequest>();
+	req.get()->expired_consumers = std::make_shared<std::vector<std::tuple<std::string, std::string, unsigned long long>>>();
+
+	std::shared_ptr<ExpireConsumersResponse> expire_consumers_res = nullptr;
+
+	std::shared_ptr<ConnectionPool> pool = nullptr;
+	int leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
+
+	while (!(should_terminate->load())) {
 		try {
-			// TODO: Complete this method
+			pool = pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
+
+			if (pool == nullptr) {
+				this->logger->log_error("Something went wrong while checking for dead consumers. Could not retrieve leader connection pool for cluster metadata updates fetching");
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
+				continue;
+			}
+
+			if (expire_consumers_res != nullptr && expire_consumers_res.get()->leader_id > 0 && expire_consumers_res.get()->leader_id != leader_id) {
+				pool = nullptr;
+				leader_id = expire_consumers_res.get()->leader_id;
+				expire_consumers_res = nullptr;
+				continue;
+			}
+			else {
+				req.get()->expired_consumers->clear();
+
+				{
+					std::lock_guard<std::mutex> lock(this->consumers_mut);
+
+					for (auto& iter : this->consumer_heartbeats)
+						if (this->util->has_timeframe_expired(std::get<0>(iter.second), this->settings->get_dead_consumer_expire_ms())) {
+							this->expired_consumers.insert(iter.first);
+							req.get()->expired_consumers->emplace_back(std::get<2>(iter.second), std::get<1>(iter.second), iter.first);
+						}
+				}
+			}
+
+			if (req.get()->expired_consumers->size() == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
+				continue;
+			}
+
+			std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
+
+			auto res = this->cm->send_request_to_socket(
+				pool.get(),
+				3,
+				std::get<1>(buf_tup).get(),
+				std::get<0>(buf_tup),
+				"ExpireConsumers"
+			);
+
+			if (std::get<1>(res) == -1 && std::get<2>(res)) {
+				this->logger->log_error("Network issue occured while trying to send expire consumers request to leader node");
+			} else if (std::get<1>(res) == -1 && !std::get<2>(res)) {
+				this->logger->log_error("Error occured while trying to send expire consumers request to leader node");
+			}
+			else expire_consumers_res = this->response_mapper->to_expire_consumers_response(
+				std::get<0>(res).get(),
+				std::get<1>(res)
+			);
 		}
 		catch (const std::exception& ex)
 		{
@@ -257,6 +307,14 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 			this->logger->log_error(err_msg);
 		}
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
 	}
+}
+
+std::shared_ptr<ConnectionPool> DataNode::get_leader_connection_pool(int leader_id) {
+	std::shared_lock<std::shared_mutex> lock(*(this->cm->get_controller_node_connections_mut()));
+
+	auto controller_node_connections = this->cm->get_controller_node_connections();
+
+	return (*controller_node_connections)[leader_id];
 }

@@ -59,7 +59,7 @@ void SocketListenerHandler::create_and_run_socket_listener(bool internal_communi
 
     try
     {
-        while (!(*should_terminate)) {
+        while (!(should_terminate->load())) {
             int pollResult = this->socket_handler->poll_events(&fds);
 
             if (pollResult > 0)

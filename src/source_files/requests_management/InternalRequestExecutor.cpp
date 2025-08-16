@@ -70,13 +70,29 @@ void InternalRequestExecutor::handle_get_cluster_metadata_update_request(SOCKET_
 
 	std::shared_ptr<AppendEntriesRequest> res = this->controller->get_cluster_metadata_updates(request);
 
-	if (res == nullptr) {
-		// TODO: Fix this
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INTERNAL_SERVER_ERROR, "No data node registration yet");
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get(), true);
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
+
+void InternalRequestExecutor::handle_expire_consumers_request(SOCKET_ID socket, SSL* ssl, ExpireConsumersRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Consumer expiration can only be handled by a controller node");
 		return;
 	}
 
-	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get(), true);
+	if (this->controller->get_leader_id() == 0) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNASSIGNED_LEADERSHIP, "No controller node leader elected yet");
+		return;
+	}
+
+	std::unique_ptr<ExpireConsumersResponse> res = std::make_unique<ExpireConsumersResponse>();
+	res.get()->leader_id = this->controller->get_leader_id();
+	res.get()->ok = res.get()->leader_id == this->settings->get_node_id();
+
+	if (res.get()->ok) this->controller->handle_consumers_expiration(request);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }

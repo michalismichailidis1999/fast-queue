@@ -28,6 +28,11 @@ struct RequestVoteResponse {
 	bool vote_granted;
 };
 
+struct ExpireConsumersResponse {
+	bool ok;
+	int leader_id;
+};
+
 // =======================================================
 
 // External Responses

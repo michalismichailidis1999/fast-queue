@@ -37,7 +37,9 @@ private:
 
 	int get_next_leader_id(int leader_id);
 
-	std::unordered_map<unsigned long long, std::tuple<std::chrono::milliseconds, std::shared_ptr<Consumer>>> consumer_heartbeats;
+	std::shared_ptr<ConnectionPool> get_leader_connection_pool(int leader_id);
+
+	std::unordered_map<unsigned long long, std::tuple<std::chrono::milliseconds, std::string, std::string>> consumer_heartbeats;
 	std::unordered_set<unsigned long long> expired_consumers;
 	std::mutex consumers_mut;
 public:
@@ -47,7 +49,7 @@ public:
 
 	void retrieve_cluster_metadata_updates(std::atomic_bool* should_terminate);
 
-	void update_consumer_heartbeat(std::shared_ptr<Consumer> consumer);
+	void update_consumer_heartbeat(const std::string& queue_name, const std::string& group_id, unsigned long long consumer_id);
 
 	bool has_consumer_expired(unsigned long long consumer_id);
 

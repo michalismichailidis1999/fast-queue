@@ -151,4 +151,6 @@ public:
 	void find_consumer_assigned_partitions(const std::string& queue_name, const std::string& group_id, unsigned long long consumer_id, std::vector<int>* partitions_list);
 
 	unsigned long long get_last_registered_consumer_id();
+
+	void handle_consumers_expiration(ExpireConsumersRequest* request);
 };

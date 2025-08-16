@@ -343,6 +343,37 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(ExpireConsumersResponse* obj) {
+	long buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+
+	ResponseValueKey ok_type = ResponseValueKey::OK;
+	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
+
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
+	offset += sizeof(ErrorCode);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &ok_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
+	offset += sizeof(bool);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &leader_id_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->leader_id, sizeof(int));
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(CreateQueueResponse* obj) {
 	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(bool) + 2 * sizeof(ResponseValueKey);
 
@@ -678,6 +709,61 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
 	offset += sizeof(bool);
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(ExpireConsumersRequest* obj) {
+	int total_consumers = obj->expired_consumers->size();
+
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + sizeof(RequestValueKey) + sizeof(int) + total_consumers * (2 * sizeof(int) + sizeof(unsigned long long));
+
+	for (auto& iter : *(obj->expired_consumers.get()))
+		buf_size += std::get<0>(iter).size() + std::get<1>(iter).size();
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	RequestType req_type = RequestType::EXPIRE_CONSUMERS;
+
+	RequestValueKey expired_consumers_type = RequestValueKey::EXPIRED_CONSUMERS;
+
+	int offset = 0;
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
+	offset += sizeof(RequestType);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &expired_consumers_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &total_consumers, sizeof(int));
+	offset += sizeof(int);
+
+	for (auto& iter : *(obj->expired_consumers.get())) {
+		std::string queue_name = std::get<0>(iter);
+		std::string group_id = std::get<1>(iter);
+		unsigned long long consumer_id = std::get<2>(iter);
+
+		int queue_name_size = queue_name.size();
+		int group_id_size = group_id.size();
+
+		memcpy_s(buf.get() + offset, sizeof(int), &queue_name_size, sizeof(int));
+		offset += sizeof(int);
+
+		memcpy_s(buf.get() + offset, queue_name_size, queue_name.c_str(), queue_name_size);
+		offset += queue_name_size;
+
+		memcpy_s(buf.get() + offset, sizeof(int), &group_id_size, sizeof(int));
+		offset += sizeof(int);
+
+		memcpy_s(buf.get() + offset, group_id_size, group_id.c_str(), group_id_size);
+		offset += group_id_size;
+
+		memcpy_s(buf.get() + offset, sizeof(unsigned long long), &consumer_id, sizeof(unsigned long long));
+		offset += sizeof(unsigned long long);
+	}
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }

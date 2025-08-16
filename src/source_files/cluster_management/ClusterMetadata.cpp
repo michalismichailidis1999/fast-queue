@@ -58,7 +58,7 @@ bool ClusterMetadata::has_node_partitions(int node_id) {
 	return this->nodes_partitions.find(node_id) != this->nodes_partitions.end();
 }
 
-void ClusterMetadata::apply_command(Command* command) {
+void ClusterMetadata::apply_command(Command* command, bool with_lock) {
 	this->metadata_version = command->get_metadata_version();
 	this->current_term = command->get_term();
 
@@ -96,9 +96,13 @@ void ClusterMetadata::apply_command(Command* command) {
 		return;
 	}
 	case CommandType::UNREGISTER_CONSUMER_GROUP: {
-		std::lock_guard<std::mutex> lock(this->consumers_mut);
 		RegisterConsumerGroupCommand* command_info = static_cast<RegisterConsumerGroupCommand*>(command->get_command_info());
-		this->apply_register_consuer_group_command(command_info);
+
+		if (with_lock) {
+			std::lock_guard<std::mutex> lock(this->consumers_mut);
+			this->apply_register_consuer_group_command(command_info);
+		} else this->apply_register_consuer_group_command(command_info);
+		
 		return;
 	}
 	default:

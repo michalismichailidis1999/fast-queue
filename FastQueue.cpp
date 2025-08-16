@@ -122,9 +122,9 @@ int main(int argc, char* argv[])
     
     controller.get()->update_quorum_communication_values();
 
-    std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), request_mapper.get(), response_mapper.get(), transformer.get(), settings.get(), server_logger.get()));
+    std::unique_ptr data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), request_mapper.get(), response_mapper.get(), transformer.get(), util.get(), settings.get(), server_logger.get()));
 
-    std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(mh.get(), oah.get(), cm.get(), qm.get(), controller.get(), transformer.get(), settings.get(), server_logger.get()));
+    std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(mh.get(), oah.get(), cm.get(), qm.get(), controller.get(), data_node.get(), transformer.get(), settings.get(), server_logger.get()));
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), transformer.get()));
     std::unique_ptr<RequestManager> rm = std::unique_ptr<RequestManager>(new RequestManager(cm.get(), settings.get(), client_request_executor.get(), internal_request_executor.get(), request_mapper.get(), server_logger.get()));
 
@@ -193,6 +193,10 @@ int main(int argc, char* argv[])
             data_node.get()->retrieve_cluster_metadata_updates(&should_terminate);
         };
 
+        auto check_for_dead_consumers = [&]() {
+            data_node.get()->check_for_dead_consumer(&should_terminate);
+        };
+
         std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, true);
         std::thread external_listener_thread = std::thread(create_and_run_socket_listener, false);
 
@@ -208,6 +212,7 @@ int main(int argc, char* argv[])
         //std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
         //std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
         std::thread retrieve_cluster_metadata_updates_thread = std::thread(retrieve_cluster_metadata_updates);
+        std::thread check_for_dead_consumers_thread = std::thread(check_for_dead_consumers);
 
         internal_listener_thread.join();
         external_listener_thread.join();
@@ -221,6 +226,7 @@ int main(int argc, char* argv[])
         //compact_closed_segments_thread.join();
         //remove_expired_segments_thread.join();
         retrieve_cluster_metadata_updates_thread.join();
+        check_for_dead_consumers_thread.join();
     }
     catch (const std::exception&) {
         should_terminate = true;

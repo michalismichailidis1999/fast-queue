@@ -346,7 +346,7 @@ bool ConnectionsManager::connect_to_data_node(int node_id, std::shared_ptr<Conne
 }
 
 void ConnectionsManager::keep_pool_connections_to_maximum() {
-	while (!(*this->should_terminate)) {
+	while (!(this->should_terminate->load())) {
 		try
 		{
 			this->add_connections_to_pools(&this->controllers_mut, &this->controller_node_connections);
@@ -481,7 +481,7 @@ void ConnectionsManager::update_socket_heartbeat(SOCKET_ID socket) {
 void ConnectionsManager::check_connections_heartbeats() {
 	std::vector<SOCKET_ID> to_expire;
 
-	while (!(*this->should_terminate)) {
+	while (!(this->should_terminate->load())) {
 		to_expire.clear();
 
 		try

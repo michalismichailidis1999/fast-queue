@@ -22,6 +22,8 @@ public:
 
 	std::unique_ptr<GetClusterMetadataUpdateRequest> to_get_cluster_metadata_update_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<ExpireConsumersRequest> to_expire_consumers_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 
 	// External Requests

@@ -41,6 +41,9 @@ private:
 
 	unsigned int cluster_update_receive_ms;
 
+	unsigned int dead_consumer_check_ms;
+	unsigned int dead_consumer_expire_ms;
+
 	std::string log_path;
 	std::string trace_log_path;
 	// -------------------------------------------
@@ -103,6 +106,9 @@ public:
 	unsigned int get_heartbeat_to_leader_ms();
 
 	unsigned int get_cluster_update_receive_ms();
+
+	unsigned int get_dead_consumer_check_ms();
+	unsigned int get_dead_consumer_expire_ms();
 
 	const std::string& get_log_path();
 	const std::string& get_trace_log_path();
