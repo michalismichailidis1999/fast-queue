@@ -6,9 +6,9 @@ BTreeNode::BTreeNode(PageType type) {
 	this->min_key = 0;
 	this->max_key = 0;
 	this->rows_num = 0;
-	this->parent_offset = 0;
-	this->prev_page_offset = 0;
-	this->next_page_offset = 0;
+	this->parent_offset = -1;
+	this->prev_page_offset = -1;
+	this->next_page_offset = -1;
 }
 
 BTreeNode::BTreeNode(void* metadata) {
@@ -93,19 +93,19 @@ PageType BTreeNode::get_page_type() {
 	return this->type;
 }
 
-unsigned long long BTreeNode::get_page_offset() {
+long long BTreeNode::get_page_offset() {
 	return this->page_offset;
 }
 
-unsigned long long BTreeNode::get_parent_offset() {
+long long BTreeNode::get_parent_offset() {
 	return this->parent_offset;
 }
 
-unsigned long long BTreeNode::get_prev_page_offset() {
+long long BTreeNode::get_prev_page_offset() {
 	return this->prev_page_offset;
 }
 
-unsigned long long BTreeNode::get_next_page_offset() {
+long long BTreeNode::get_next_page_offset() {
 	return this->next_page_offset;
 }
 

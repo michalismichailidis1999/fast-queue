@@ -42,5 +42,5 @@ public:
 
 	unsigned long long find_message_location(Partition* partition, PartitionSegment* segment, unsigned long long read_from_message_id, bool remove_everything_after_match = false);
 	
-	void add_message_to_index(Partition* partition, unsigned long long message_id, unsigned long long message_pos, bool cache_pages = true);
+	void add_message_to_index(Partition* partition, unsigned long long message_id, long long message_pos, bool cache_pages = true);
 };

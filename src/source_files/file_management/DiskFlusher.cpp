@@ -38,7 +38,7 @@ void DiskFlusher::flush_to_disk_periodically() {
 	}
 }
 
-unsigned long long DiskFlusher::append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly, bool data_is_messages, CacheKeyInfo* cache_key_info) {
+long long DiskFlusher::append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly, bool data_is_messages, CacheKeyInfo* cache_key_info) {
 	if (cache_key_info != NULL) this->cache_data(data, total_bytes, flush_immediatelly, data_is_messages, cache_key_info);
 	
 	return this->write_data_to_file(key, path, data, total_bytes, -1, flush_immediatelly);
@@ -93,10 +93,10 @@ void DiskFlusher::flush_metadata_updates_to_disk(const std::string& key, const s
 	);
 }
 
-unsigned long long DiskFlusher::write_data_to_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly) {
+long long DiskFlusher::write_data_to_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly) {
 	std::unique_lock<std::mutex> lock(this->flush_mut);
 
-	unsigned long long begin_written_pos = this->fh->write_to_file(
+	long long begin_written_pos = this->fh->write_to_file(
 		key,
 		path,
 		total_bytes,

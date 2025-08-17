@@ -36,13 +36,13 @@ private:
 
 	void cache_data(void* data, unsigned long total_bytes, bool flush_immediatelly, bool data_is_messages, CacheKeyInfo* cache_key_info);
 
-	unsigned long long write_data_to_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1, bool flush_immediatelly = false);
+	long long write_data_to_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos = -1, bool flush_immediatelly = false);
 public:
 	DiskFlusher(FileHandler* fh, CacheHandler* ch, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
 
 	void flush_to_disk_periodically();
 
-	unsigned long long append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly = false, bool data_is_messages = true, CacheKeyInfo* cache_key_info = NULL);
+	long long append_data_to_end_of_file(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, bool flush_immediatelly = false, bool data_is_messages = true, CacheKeyInfo* cache_key_info = NULL);
 
 	void write_data_to_specific_file_location(const std::string& key, const std::string& path, void* data, unsigned long total_bytes, long long pos, bool flush_immediatelly = false, bool data_is_messages = false, CacheKeyInfo* cache_key_info = NULL);
 
