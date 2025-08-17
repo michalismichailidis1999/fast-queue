@@ -141,6 +141,6 @@ std::string CacheHandler::get_message_cache_key(const std::string& queue_name, i
 	return queue_name + "_" + std::to_string(partition) + "_" + std::to_string(segment_id) + "_m_" + std::to_string(message_id);
 }
 
-std::string CacheHandler::get_index_page_cache_key(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long page_offset) {
-	return queue_name + "_" + std::to_string(partition) + "_" + std::to_string(segment_id) + "_i_" + std::to_string(page_offset);
+std::string CacheHandler::get_index_page_cache_key(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long page_offset, bool compaction_segment) {
+	return queue_name + "_" + std::to_string(partition) + "_" + std::to_string(segment_id) + "_i_" + std::to_string(page_offset) + (compaction_segment ? "_c" : "");
 }

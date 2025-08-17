@@ -51,5 +51,5 @@ public:
 
 	static std::string get_message_cache_key(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long message_id);
 
-	static std::string get_index_page_cache_key(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long page_offset);
+	static std::string get_index_page_cache_key(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long page_offset, bool compaction_segment = false);
 };

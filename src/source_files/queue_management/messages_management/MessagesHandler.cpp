@@ -72,12 +72,13 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 	{
 		active_segment = active_segment == nullptr ? partition->get_active_segment_ref() : active_segment;
 
-		if (active_segment.get()->get_is_read_only() && !partition->get_active_segment()->is_segment_compacted()) {
+		if (segment_to_write == nullptr && active_segment.get()->get_is_read_only() && !partition->get_active_segment()->is_segment_compacted()) {
 			bool changed = this->sa->allocate_new_segment(partition);
 			if(!changed) active_segment = partition->get_active_segment_ref();
 		}
 
-		this->lock_manager->lock_segment(partition, active_segment.get(), true);
+		if(segment_to_write == nullptr)
+			this->lock_manager->lock_segment(partition, active_segment.get(), true);
 
 		this->set_last_message_id_and_timestamp(active_segment.get(), messages, total_bytes);
 
@@ -100,8 +101,9 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 
 		unsigned long total_segment_bytes = active_segment.get()->add_written_bytes(total_bytes);
 
-		if (this->settings->get_segment_size() < total_segment_bytes) {
-			this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
+		if (segment_to_write == nullptr && this->settings->get_segment_size() < total_segment_bytes) {
+			if (segment_to_write == nullptr)
+				this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
 			this->sa->allocate_new_segment(partition);
 			return true;
 		}
@@ -112,19 +114,22 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 			this->index_handler->add_message_to_index(partition, first_message_id, first_message_pos, cache_messages);
 		}
 
-		this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
+		if (segment_to_write == nullptr)
+			this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
 
 		return true;
 	}
 	catch (const CorruptionException& ex)
 	{
-		this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
+		if (segment_to_write == nullptr)
+			this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
 		this->logger->log_error(ex.what());
 		return false;
 	}
 	catch (const std::exception& ex)
 	{
-		this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
+		if (segment_to_write == nullptr)
+			this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
 		this->logger->log_error(ex.what());
 		return false;
 	}

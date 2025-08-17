@@ -55,8 +55,8 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(Partition* parti
 	return this->find_message_location(node.get(), read_from_message_id);
 }
 
-void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned long long message_id, long long message_pos, bool cache_pages) {
-	PartitionSegment* segment = partition->get_active_segment();
+void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned long long message_id, long long message_pos, bool cache_pages, PartitionSegment* segment_to_write) {
+	PartitionSegment* segment = segment_to_write != NULL ? segment_to_write : partition->get_active_segment();
 
 	bool is_internal_queue = Helper::is_internal_queue(partition->get_queue_name());
 

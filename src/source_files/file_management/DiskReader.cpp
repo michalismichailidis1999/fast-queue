@@ -1,7 +1,5 @@
 #include "../../header_files/file_management/DiskReader.h"
 
-// TODO: Implement caching for index page retrievals
-
 DiskReader::DiskReader(FileHandler* fh, CacheHandler* ch, Logger* logger, Settings* settings) {
 	this->fh = fh;
 	this->ch = ch;
@@ -26,7 +24,8 @@ std::shared_ptr<char> DiskReader::read_index_page_from_cache(Partition* partitio
 			partition->get_queue_name(),
 			partition->get_partition_id(),
 			segment->get_id(),
-			page_offset
+			page_offset,
+			segment->get_is_for_compaction()
 		)
 	);
 }

@@ -12,6 +12,7 @@ PartitionSegment::PartitionSegment(unsigned long long id, const std::string& seg
 	this->index_path = "";
 	this->total_written_bytes = 0;
 	this->last_index_page_offset = 0;
+	this->is_for_compaction = false;
 }
 
 PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_key, const std::string& segment_path) {
@@ -29,6 +30,8 @@ PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_ke
 	memcpy_s(&this->last_message_offset, SEGMENT_LAST_MESSAGE_OFF_SIZE, (char*)metadata + SEGMENT_LAST_MESSAGE_OFF_OFFSET, SEGMENT_LAST_MESSAGE_OFF_SIZE);
 	memcpy_s(&this->is_read_only, SEGMENT_IS_READ_ONLY_SIZE, (char*)metadata + SEGMENT_IS_READ_ONLY_OFFSET, SEGMENT_IS_READ_ONLY_SIZE);
 	memcpy_s(&this->compacted, SEGMENT_IS_COMPACTED_SIZE, (char*)metadata + SEGMENT_IS_COMPACTED_OFFSET, SEGMENT_IS_COMPACTED_SIZE);
+
+	this->is_for_compaction = false;
 }
 
 unsigned long long PartitionSegment::get_id() {
@@ -115,6 +118,14 @@ unsigned long long PartitionSegment::add_written_bytes(unsigned long bytes) {
 void PartitionSegment::set_total_written_bytes(unsigned long long total_written_bytes) {
 	std::lock_guard<std::mutex> lock(this->mut);
 	this->total_written_bytes = total_written_bytes;
+}
+
+void PartitionSegment::set_is_for_compaction() {
+	this->is_for_compaction = true;
+}
+
+bool PartitionSegment::get_is_for_compaction() {
+	return this->is_for_compaction;
 }
 
 std::tuple<long, std::shared_ptr<char>> PartitionSegment::get_metadata_bytes() {

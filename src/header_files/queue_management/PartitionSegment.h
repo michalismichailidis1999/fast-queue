@@ -28,6 +28,8 @@ private:
 
 	unsigned long long total_written_bytes;
 
+	bool is_for_compaction;
+
 	std::mutex mut;
 public:
 	PartitionSegment(unsigned long long id, const std::string& segment_key, const std::string& segment_path);
@@ -60,6 +62,9 @@ public:
 
 	unsigned long long add_written_bytes(unsigned long bytes);
 	void set_total_written_bytes(unsigned long long total_written_bytes);
+
+	void set_is_for_compaction();
+	bool get_is_for_compaction();
 
 	std::tuple<long, std::shared_ptr<char>> get_metadata_bytes();
 };

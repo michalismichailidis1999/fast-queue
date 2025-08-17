@@ -15,7 +15,7 @@ CompactionHandler::CompactionHandler(Controller* controller, QueueManager* qm, M
 void CompactionHandler::compact_closed_segments(std::atomic_bool* should_terminate) {
 	std::vector<std::string> queue_names;
 
-	while (!(*should_terminate)) {
+	while (!should_terminate->load()) {
 		try
 		{
 			queue_names.clear();
@@ -36,16 +36,18 @@ void CompactionHandler::compact_closed_segments(std::atomic_bool* should_termina
 }
 
 void CompactionHandler::handle_queue_partitions_segment_compaction(const std::string& queue_name, std::atomic_bool* should_terminate) {
+	if (queue_name == CLUSTER_METADATA_QUEUE_NAME) return;
+
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (queue == nullptr || queue->get_metadata()->get_cleanup_policy() != CleanupPolicyType::COMPACT_SEGMENTS) return;
 
-	if (!(*should_terminate) && this->continue_compaction(queue.get())) return;
+	if (!should_terminate->load() && !this->continue_compaction(queue.get())) return;
 
 	unsigned int partitions = queue->get_metadata()->get_partitions();
 
 	for (unsigned int i = 0; i < partitions; i++) {
-		if (!(*should_terminate) && this->continue_compaction(queue.get())) return;
+		if (!should_terminate->load() && !this->continue_compaction(queue.get())) return;
 
 		std::shared_ptr<Partition> partition = queue->get_partition(i);
 
@@ -166,7 +168,7 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 		);
 
 		std::lock_guard<std::shared_mutex> lock(partition->mut);
-		partition->smallest_uncompacted_segment_id++;
+		partition->smallest_uncompacted_segment_id = segment_id + 1;
 	}
 	catch (const std::exception& ex)
 	{
@@ -230,7 +232,6 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 
 	std::unique_ptr<char> read_batch = std::unique_ptr<char>(new char[batch_size]);
 	
-	unsigned int offset = 0;
 	unsigned int message_bytes = 0;
 
 	std::string key = "";
@@ -239,6 +240,8 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 	unsigned int count = 0;
 
 	for (unsigned int i = 0; i < 2; i++) {
+		unsigned int offset = 0;
+
 		while (true) {
 			unsigned long bytes_read = this->fh->read_from_file(
 				segment->get_segment_key(),
@@ -264,9 +267,9 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 					continue;
 				}
 
-				if (i == 0) {
-					key = std::string(read_batch.get() + offset + key_offset, key_size);
+				key = std::string(read_batch.get() + offset + key_offset, key_size);
 
+				if (i == 0) {
 					bool key_exists = this->existing_keys.find(key) != this->existing_keys.end();
 					count = this->existing_keys[key];
 
@@ -321,9 +324,11 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 unsigned int CompactionHandler::get_key_offset(const std::string& queue_name, void* message_data) {
 	bool is_internal_queue = Helper::is_internal_queue(queue_name);
 
-	if (is_internal_queue) return MESSAGE_TOTAL_BYTES;
+	if (!is_internal_queue) return MESSAGE_TOTAL_BYTES;
 
 	CommandType type = CommandType::NONE;
+
+	memcpy_s(&type, COMMAND_TYPE_SIZE, (char*)message_data + COMMAND_TYPE_OFFSET, COMMAND_TYPE_SIZE);
 
 	switch (type) {
 		case CommandType::CREATE_QUEUE: return CQ_COMMAND_TOTAL_BYTES;
