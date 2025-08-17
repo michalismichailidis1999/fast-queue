@@ -26,8 +26,6 @@ private:
 	// tuple( node to insert, parent node )
 	std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> find_node_to_insert(Partition* partition, PartitionSegment* segment);
 
-	void flush_segment_updated_metadata(PartitionSegment* segment);
-
 	void flush_nodes_to_disk(Partition* partition, PartitionSegment* segment, std::vector<BTreeNode*>* nodes, bool cache_pages);
 
 	void flush_node_to_disk(Partition* partition, PartitionSegment* segment, BTreeNode* node, bool cache_page);

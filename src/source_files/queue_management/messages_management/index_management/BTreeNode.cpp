@@ -140,14 +140,11 @@ void BTreeNode::remove_from_key_and_after(unsigned long long key) {
 			end_pos = i;
 			new_max = row.key;
 			new_rows_num++;
+			continue;
 		}
-		else break;
-	}
-	
-	for (unsigned int i = end_pos + 1; i < this->rows_num; i++)
-	{
-		this->rows[i].key = 0;
-		this->rows[i].val_pos = 0;
+		
+		row.key = 0;
+		row.val_pos = 0;
 	}
 
 	this->min_key = new_rows_num > 0 ? this->min_key : 0;

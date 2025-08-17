@@ -29,7 +29,6 @@ PartitionSegment::PartitionSegment(void* metadata, const std::string& segment_ke
 	memcpy_s(&this->last_message_offset, SEGMENT_LAST_MESSAGE_OFF_SIZE, (char*)metadata + SEGMENT_LAST_MESSAGE_OFF_OFFSET, SEGMENT_LAST_MESSAGE_OFF_SIZE);
 	memcpy_s(&this->is_read_only, SEGMENT_IS_READ_ONLY_SIZE, (char*)metadata + SEGMENT_IS_READ_ONLY_OFFSET, SEGMENT_IS_READ_ONLY_SIZE);
 	memcpy_s(&this->compacted, SEGMENT_IS_COMPACTED_SIZE, (char*)metadata + SEGMENT_IS_COMPACTED_OFFSET, SEGMENT_IS_COMPACTED_SIZE);
-	memcpy_s(&this->last_index_page_offset, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE, (char*)metadata + SEGMENT_LAST_INDEX_PAGE_OFFSET_OFFSET, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE);
 }
 
 unsigned long long PartitionSegment::get_id() {
@@ -128,7 +127,6 @@ std::tuple<long, std::shared_ptr<char>> PartitionSegment::get_metadata_bytes() {
 	memcpy_s(bytes.get() + SEGMENT_LAST_MESSAGE_OFF_OFFSET, SEGMENT_LAST_MESSAGE_OFF_SIZE, &this->last_message_offset, SEGMENT_LAST_MESSAGE_OFF_SIZE);
 	memcpy_s(bytes.get() + SEGMENT_IS_READ_ONLY_OFFSET, SEGMENT_IS_READ_ONLY_SIZE, &this->is_read_only, SEGMENT_IS_READ_ONLY_SIZE);
 	memcpy_s(bytes.get() + SEGMENT_IS_COMPACTED_OFFSET, SEGMENT_IS_COMPACTED_SIZE, &this->compacted, SEGMENT_IS_READ_ONLY_SIZE);
-	memcpy_s(bytes.get() + SEGMENT_LAST_INDEX_PAGE_OFFSET_OFFSET, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE, &this->last_index_page_offset, SEGMENT_LAST_INDEX_PAGE_OFFSET_SIZE);
 
 	Helper::add_common_metadata_values((void*)(bytes.get()), SEGMENT_METADATA_TOTAL_BYTES);
 

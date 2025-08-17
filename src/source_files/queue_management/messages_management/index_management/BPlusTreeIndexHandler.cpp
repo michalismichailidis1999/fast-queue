@@ -55,7 +55,6 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(Partition* parti
 	return this->find_message_location(node.get(), read_from_message_id);
 }
 
-// TODO: Needs fixing
 void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned long long message_id, long long message_pos, bool cache_pages) {
 	PartitionSegment* segment = partition->get_active_segment();
 
@@ -71,14 +70,23 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 
 	auto row_to_insert = BTreeNodeRow{ message_id, message_pos };
 
+	std::vector<BTreeNode*> nodes_to_flush;
+
 	if (node_to_insert.get()->insert(row_to_insert)) {
-		this->flush_node_to_disk(partition, segment, node_to_insert.get(), cache_pages);
+		if (parent_node != nullptr) {
+			parent_node.get()->max_key = row_to_insert.key;
+			parent_node.get()->get_last_child()->key = row_to_insert.key;
+			nodes_to_flush.emplace_back(parent_node.get());
+		}
+
+		nodes_to_flush.emplace_back(node_to_insert.get());
+
+		this->flush_nodes_to_disk(partition, segment, &nodes_to_flush, cache_pages);
+
 		return;
 	}
 
 	std::shared_ptr<BTreeNode> new_node = nullptr;
-
-	std::vector<BTreeNode*> nodes_to_flush;
 
 	if(parent_node != nullptr)
 		nodes_to_flush.emplace_back(parent_node.get());
@@ -108,8 +116,6 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 	nodes_to_flush.emplace_back(new_node.get());
 
 	this->flush_nodes_to_disk(partition, segment, &nodes_to_flush, cache_pages);
-
-	this->flush_segment_updated_metadata(segment);
 }
 
 std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> BPlusTreeIndexHandler::find_node_to_insert(Partition* partition, PartitionSegment* segment) {
@@ -131,12 +137,10 @@ std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> BPlusTreeInde
 		if (node_to_insert.get()->get_page_type() == PageType::LEAF)
 			return std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>>(node_to_insert, parent_node);
 
-		if (node_to_insert.get()->get_next_page_offset() >= 0) {
-			page_offset = node_to_insert.get()->get_next_page_offset();
-			continue;
-		}
+		page_offset = node_to_insert.get()->get_next_page_offset() >= 0 
+			? node_to_insert.get()->get_next_page_offset() 
+			: node_to_insert.get()->get_last_child()->val_pos;
 
-		page_offset = node_to_insert.get()->get_last_child()->val_pos;
 		parent_node = node_to_insert;
 	}
 
@@ -176,10 +180,6 @@ std::shared_ptr<BTreeNode> BPlusTreeIndexHandler::create_new_node_pointer(Partit
 	current_parent->next_page_offset = new_node.get()->page_offset;
 
 	return new_node;
-}
-
-void BPlusTreeIndexHandler::flush_segment_updated_metadata(PartitionSegment* segment) {
-	this->disk_flusher->flush_metadata_updates_to_disk(segment, false);
 }
 
 void BPlusTreeIndexHandler::flush_nodes_to_disk(Partition* partition, PartitionSegment* segment, std::vector<BTreeNode*>* nodes, bool cache_pages) {
@@ -226,7 +226,7 @@ void BPlusTreeIndexHandler::read_index_page_from_disk(Partition* partition, Part
 		segment->get_index_path(),
 		node_data,
 		INDEX_PAGE_SIZE,
-		page_offset
+		page_offset * INDEX_PAGE_SIZE
 	);
 
 	if (bytes_read != INDEX_PAGE_SIZE || !Helper::has_valid_checksum(node_data))
@@ -268,11 +268,6 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node,
 }
 
 void BPlusTreeIndexHandler::clear_index_values(Partition* partition, PartitionSegment* segment, BTreeNode* parent_node, BTreeNode* node, unsigned long long message_id) {
-	unsigned long long min_key = node->get_first_child()->key;
-	unsigned long long prev_min_key = min_key;
-
-	std::unique_ptr<char> node_data = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
-
 	node->remove_from_key_and_after(message_id);
 
 	if (node->rows_num > 0 || parent_node == NULL) {
@@ -280,19 +275,13 @@ void BPlusTreeIndexHandler::clear_index_values(Partition* partition, PartitionSe
 		return;
 	}
 
-	if (node->rows_num == 0 && parent_node->get_next_page_offset() == node->page_offset) {
-		parent_node->next_page_offset = -1;
-		this->flush_node_to_disk(partition, segment, parent_node, true);
-		return;
-	}
-
 	std::shared_ptr<BTreeNode> node_ref = nullptr;
 	BTreeNode* node_to_remove_rows = parent_node;
 
+	std::unique_ptr<char> node_data = std::unique_ptr<char>(new char[INDEX_PAGE_SIZE]);
+
 	while (node_to_remove_rows != NULL) {
-		min_key = node_to_remove_rows->get_first_child()->key;
-		node_to_remove_rows->remove_from_key_and_after(prev_min_key);
-		prev_min_key = min_key;
+		node_to_remove_rows->remove_from_key_and_after(message_id);
 
 		if (node_to_remove_rows->rows_num > 0) {
 			this->flush_node_to_disk(partition, segment, node_to_remove_rows, true);
