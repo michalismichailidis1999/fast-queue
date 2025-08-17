@@ -13,7 +13,7 @@ RetentionHandler::RetentionHandler(QueueManager* qm, SegmentLockManager* lock_ma
 void RetentionHandler::remove_expired_segments(std::atomic_bool* should_terminate) {
 	std::vector<std::string> queue_names;
 
-	while (!(*should_terminate)) {
+	while (!should_terminate->load()) {
 		if (this->settings->get_retention_ms() == 0) {
 			std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_retention_worker_wait_ms()));
 			continue;
@@ -45,12 +45,12 @@ void RetentionHandler::handle_queue_partitions_segment_retention(const std::stri
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_cleanup_policy() != CleanupPolicyType::DELETE_SEGMENTS) return;
 
-	if (!(*should_terminate) && this->continue_retention(queue.get())) return;
+	if (!should_terminate->load() && !this->continue_retention(queue.get())) return;
 
 	unsigned int partitions = queue->get_metadata()->get_partitions();
 
 	for (unsigned int i = 0; i < partitions; i++) {
-		if (!(*should_terminate) && this->continue_retention(queue.get())) return;
+		if (!should_terminate->load() && !this->continue_retention(queue.get())) return;
 
 		std::shared_ptr<Partition> partition = queue->get_partition(i);
 
@@ -87,8 +87,6 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 
 	if (!data_exists && !index_exists) return true;
 
-	std::unique_ptr<char> segment_bytes = std::unique_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
-
 	std::string segment_key = this->pm->get_file_path(
 		partition->get_queue_name(),
 		segment_id,
@@ -101,6 +99,8 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 		partition->get_partition_id(),
 		true
 	);
+
+	std::unique_ptr<char> segment_bytes = std::unique_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
 
 	this->fh->read_from_file(segment_key, segment_path, SEGMENT_METADATA_TOTAL_BYTES, 0, segment_bytes.get());
 
@@ -120,11 +120,7 @@ bool RetentionHandler::handle_partition_oldest_segment_retention(Partition* part
 
 		std::lock_guard<std::shared_mutex> lock(partition->mut);
 
-		unsigned long long current_smallest_segment_id = segment_id;
 		partition->smallest_segment_id = segment_id + 1;
-
-		if (current_smallest_segment_id == partition->smallest_uncompacted_segment_id)
-			partition->smallest_uncompacted_segment_id = current_smallest_segment_id + 1;
 	}
 	catch (const std::exception& ex)
 	{

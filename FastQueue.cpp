@@ -211,7 +211,7 @@ int main(int argc, char* argv[])
         std::thread check_for_commit_and_last_applied_diff_thread = std::thread(check_for_commit_and_last_applied_diff);
         std::thread send_heartbeats_to_leader_thread = std::thread(send_heartbeats_to_leader);
         //std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
-        //std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
+        std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
         std::thread retrieve_cluster_metadata_updates_thread = std::thread(retrieve_cluster_metadata_updates);
         std::thread check_for_dead_consumers_thread = std::thread(check_for_dead_consumers);
 
@@ -225,7 +225,7 @@ int main(int argc, char* argv[])
         check_for_commit_and_last_applied_diff_thread.join();
         send_heartbeats_to_leader_thread.join();
         //compact_closed_segments_thread.join();
-        //remove_expired_segments_thread.join();
+        remove_expired_segments_thread.join();
         retrieve_cluster_metadata_updates_thread.join();
         check_for_dead_consumers_thread.join();
     }
