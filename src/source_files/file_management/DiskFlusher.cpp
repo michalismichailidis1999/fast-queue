@@ -126,7 +126,8 @@ void DiskFlusher::cache_data(void* data, unsigned long total_bytes, bool flush_i
 				cache_key_info->queue_name,
 				cache_key_info->partition,
 				cache_key_info->segment_id,
-				cache_key_info->page_offset
+				cache_key_info->page_offset,
+				cache_key_info->compaction_segment
 			),
 			data,
 			!flush_immediatelly

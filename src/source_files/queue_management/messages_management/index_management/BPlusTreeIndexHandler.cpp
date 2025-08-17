@@ -192,7 +192,8 @@ void BPlusTreeIndexHandler::flush_node_to_disk(Partition* partition, PartitionSe
 		partition->get_queue_name(),
 		partition->get_partition_id(),
 		segment->get_id(),
-		node->get_page_offset()
+		node->get_page_offset(),
+		segment->get_is_for_compaction()
 	};
 
 	this->disk_flusher->write_data_to_specific_file_location(

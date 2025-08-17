@@ -17,6 +17,7 @@ struct CacheKeyInfo {
 	int partition;
 	unsigned long long segment_id;
 	unsigned long long page_offset;
+	bool compaction_segment;
 };
 
 class CacheHandler {

@@ -111,7 +111,7 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 		if (this->remove_from_partition_remaining_bytes(this->get_queue_partition_key(partition), total_bytes) == 0) {
 			unsigned long long first_message_id = 0;
 			memcpy_s(&first_message_id, MESSAGE_ID_SIZE, (char*)messages + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
-			this->index_handler->add_message_to_index(partition, first_message_id, first_message_pos, cache_messages);
+			this->index_handler->add_message_to_index(partition, first_message_id, first_message_pos, cache_messages, segment_to_write.get());
 		}
 
 		if (segment_to_write == nullptr)

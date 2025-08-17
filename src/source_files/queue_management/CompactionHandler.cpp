@@ -99,9 +99,7 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 		return false;
 	}
 
-	std::unique_ptr<char> segment_bytes = std::unique_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
-
-	std::string segment_key = this->pm->get_file_path(
+	std::string segment_key = this->pm->get_file_key(
 		partition->get_queue_name(),
 		segment_id,
 		is_internal_queue ? -1 : partition->get_partition_id()
@@ -114,11 +112,20 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 		true
 	);
 
+	std::unique_ptr<char> segment_bytes = std::unique_ptr<char>(new char[SEGMENT_METADATA_TOTAL_BYTES]);
+
 	this->fh->read_from_file(segment_key, segment_path, SEGMENT_METADATA_TOTAL_BYTES, 0, segment_bytes.get());
 
 	PartitionSegment segment = PartitionSegment(segment_bytes.get(), segment_key, segment_path);
+	segment.set_index(index_key, index_path);
 
-	if (!segment.get_is_read_only() || segment.is_segment_compacted()) return false;
+	if (!segment.get_is_read_only()) return false;
+
+	if (segment.is_segment_compacted()) {
+		std::lock_guard<std::shared_mutex> partition_lock(partition->mut);
+		partition->smallest_uncompacted_segment_id = segment_id + 1;
+		return true;
+	}
 
 	bool success = true;
 
@@ -135,7 +142,6 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 		success = false;
 		std::string err_msg = "Error occured during segment compaction. Reason: " + std::string(ex.what());
 		this->logger->log_error(err_msg);
-		// TODO: Mark corruption for fix
 	}
 	catch (const std::exception& ex)
 	{
@@ -292,7 +298,7 @@ void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* 
 
 				if(count > 0) this->existing_keys[key]--;
 
-				if(count == 1)
+				if (count == 1)
 					this->mh->save_messages(partition, read_batch.get() + offset, message_bytes, write_segment);
 
 				offset += message_bytes;
@@ -379,6 +385,8 @@ std::shared_ptr<PartitionSegment> CompactionHandler::initialize_compacted_segmen
 	this->fh->delete_dir_or_file(compacted_index_path, compacted_index_key);
 	this->fh->delete_dir_or_file(compacted_segment_path, compacted_segment_key);
 
+	segment->set_to_compacted();
+
 	this->fh->create_new_file(
 		compacted_segment_path,
 		SEGMENT_METADATA_TOTAL_BYTES,
@@ -403,31 +411,38 @@ std::shared_ptr<PartitionSegment> CompactionHandler::initialize_compacted_segmen
 
 	write_segment.get()->set_index(compacted_index_key, compacted_index_path);
 	write_segment.get()->set_to_compacted();
+	write_segment.get()->set_to_read_only();
+	write_segment.get()->set_is_for_compaction();
+	write_segment.get()->set_last_index_page_offset(segment->get_last_index_page_offset());
+	write_segment.get()->set_last_message_offset(segment->get_last_message_offset());
+	write_segment.get()->set_last_message_timestamp(segment->get_last_message_timestamp());
 
 	return write_segment;
 }
 
 std::shared_ptr<PartitionSegment> CompactionHandler::get_prev_compacted_segment(Partition* partition, unsigned long long prev_segment_id) {
-	std::string compacted_segment_path = this->pm->get_compacted_file_path(
+	if (prev_segment_id == 0) return nullptr;
+
+	std::string compacted_segment_path = this->pm->get_file_path(
 		partition->get_queue_name(),
 		prev_segment_id,
 		partition->get_partition_id()
 	);
 
-	std::string compacted_segment_key = this->pm->get_compacted_file_path(
+	std::string compacted_segment_key = this->pm->get_file_key(
 		partition->get_queue_name(),
 		prev_segment_id,
 		partition->get_partition_id()
 	);
 
-	std::string compacted_index_path = this->pm->get_compacted_file_path(
+	std::string compacted_index_path = this->pm->get_file_path(
 		partition->get_queue_name(),
 		prev_segment_id,
 		partition->get_partition_id(),
 		true
 	);
 
-	std::string compacted_index_key = this->pm->get_compacted_file_path(
+	std::string compacted_index_key = this->pm->get_file_key(
 		partition->get_queue_name(),
 		prev_segment_id,
 		partition->get_partition_id(),
