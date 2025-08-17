@@ -487,7 +487,7 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
                 index_file_key,
                 index_file_path,
                 INDEX_PAGE_SIZE,
-                page_offset,
+                page_offset * INDEX_PAGE_SIZE,
                 index_page.get()
             );
 
@@ -496,14 +496,14 @@ void BeforeServerStartupHandler::set_segment_index(const std::string& queue_name
 
             node = std::unique_ptr<BTreeNode>(new BTreeNode(index_page.get()));
 
-            if (node.get()->get_next_page_offset() == 0) {
-                if (node.get()->get_page_type() == PageType::NON_LEAF) page_offset = node.get()->get_last_child()->val_pos;
-                break;
-            }
+            if (node.get()->get_page_type() == PageType::LEAF) break;
 
-            segment->set_last_index_page_offset(page_offset);
-            page_offset = node.get()->get_next_page_offset();
+            page_offset = node.get()->get_next_page_offset() == -1
+                ? node.get()->get_last_child()->val_pos
+                : node.get()->get_next_page_offset();
         }
+
+        segment->set_last_index_page_offset(page_offset);
 
         this->logger->log_info("Last index page offset was set successfully");
 

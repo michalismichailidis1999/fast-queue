@@ -20,6 +20,9 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(Partition* parti
 		prev_node = node;
 		node = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
 
+		if (node.get()->get_page_type() == PageType::NON_LEAF && node.get()->rows_num == 0)
+			throw CorruptionException("Corrupted index page detected");
+
 		if (node.get()->next_page_offset == -1) break;
 
 		if (node.get()->max_key >= read_from_message_id && node.get()->min_key <= read_from_message_id) break;
@@ -83,6 +86,7 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 		parent_node = this->add_new_parent_to_node(segment, node_to_insert.get());
 		auto row = BTreeNodeRow{ node_to_insert.get()->max_key, node_to_insert.get()->page_offset };
 		parent_node.get()->insert(row);
+		nodes_to_flush.emplace_back(parent_node.get());
 		nodes_to_flush.emplace_back(node_to_insert.get());
 	}
 
@@ -97,9 +101,10 @@ void BPlusTreeIndexHandler::add_message_to_index(Partition* partition, unsigned 
 		auto row = BTreeNodeRow{ new_node.get()->max_key, new_node.get()->page_offset };
 		parent_node.get()->insert(row);
 
-		nodes_to_flush.emplace_back(node_to_insert.get());
+		if(nodes_to_flush.size() == 1)
+			nodes_to_flush.emplace_back(node_to_insert.get());
 	}
-
+	
 	nodes_to_flush.emplace_back(new_node.get());
 
 	this->flush_nodes_to_disk(partition, segment, &nodes_to_flush, cache_pages);
@@ -119,6 +124,9 @@ std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>> BPlusTreeInde
 		this->read_index_page_from_disk(partition, segment, node_data.get(), page_offset);
 
 		std::shared_ptr<BTreeNode> node_to_insert = std::shared_ptr<BTreeNode>(new BTreeNode(node_data.get()));
+
+		if (node_to_insert.get()->get_page_type() == PageType::NON_LEAF && node_to_insert.get()->rows_num == 0)
+			throw CorruptionException("Corrupted index page detected");
 
 		if (node_to_insert.get()->get_page_type() == PageType::LEAF)
 			return std::tuple<std::shared_ptr<BTreeNode>, std::shared_ptr<BTreeNode>>(node_to_insert, parent_node);
@@ -175,8 +183,8 @@ void BPlusTreeIndexHandler::flush_segment_updated_metadata(PartitionSegment* seg
 }
 
 void BPlusTreeIndexHandler::flush_nodes_to_disk(Partition* partition, PartitionSegment* segment, std::vector<BTreeNode*>* nodes, bool cache_pages) {
-	for(int i = nodes->size(); i >= 0; i--)
-		this->flush_node_to_disk(partition, segment, (*nodes)[i], cache_pages);
+	for (auto iter = nodes->rbegin(); iter != nodes->rend(); iter++)
+		this->flush_node_to_disk(partition, segment, *iter, cache_pages);
 }
 
 void BPlusTreeIndexHandler::flush_node_to_disk(Partition* partition, PartitionSegment* segment, BTreeNode* node, bool cache_page) {
