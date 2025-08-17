@@ -10,6 +10,8 @@ CompactionHandler::CompactionHandler(Controller* controller, QueueManager* qm, M
 	this->pm = pm;
 	this->logger = logger;
 	this->settings = settings;
+
+	this->compacted_count = 0;
 }
 
 void CompactionHandler::compact_closed_segments(std::atomic_bool* should_terminate) {
@@ -121,11 +123,14 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 
 	if (!segment.get_is_read_only()) return false;
 
-	if (segment.is_segment_compacted()) {
+	if (segment.is_segment_compacted() && compacted_count == 0) {
 		std::lock_guard<std::shared_mutex> partition_lock(partition->mut);
 		partition->smallest_uncompacted_segment_id = segment_id + 1;
+		compacted_count++;
 		return true;
 	}
+
+	compacted_count = 0;
 
 	bool success = true;
 

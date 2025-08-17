@@ -32,6 +32,8 @@ private:
 	Logger* logger;
 	Settings* settings;
 
+	int compacted_count;
+
 	std::unordered_map<std::string, unsigned int> existing_keys;
 
 	void handle_queue_partitions_segment_compaction(const std::string& queue_name, std::atomic_bool* should_terminate);
