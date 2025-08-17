@@ -89,6 +89,9 @@ std::shared_ptr<PartitionSegment> SegmentMessageMap::find_message_segment(Partit
 
 	if (segment_id == 0) return nullptr;
 
+	if (segment_id < partition->get_smallest_segment_id() && segment_id > 0)
+		segment_id = partition->get_smallest_segment_id();
+
 	if (segment_id < partition->get_smallest_segment_id()) {
 		*success = false;
 		return nullptr;

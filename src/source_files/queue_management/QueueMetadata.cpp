@@ -26,9 +26,6 @@ QueueMetadata::QueueMetadata(void* metadata) {
 
 	this->name = std::string((char*)metadata + QUEUE_NAME_OFFSET, queue_name_length);
 	this->status = Status::ACTIVE;
-
-	// TODO: Remove
-	this->cleanup_policy = CleanupPolicyType::COMPACT_SEGMENTS;
 }
 
 const std::string& QueueMetadata::get_name() {

@@ -229,7 +229,6 @@ unsigned int Settings::get_max_message_size() {
 }
 
 unsigned int Settings::get_segment_size() {
-	return 10000;
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->segment_size;
 }

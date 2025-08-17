@@ -130,13 +130,16 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 	bool success = true;
 
 	std::shared_ptr<PartitionSegment> compacted_segment = nullptr;
+	std::shared_ptr<PartitionSegment> prev_compacted_segment = nullptr;
 
 	// Shared lock can be used since data will only be read and written to different file
 	this->lock_manager->lock_segment(partition, &segment);
 
 	try
 	{
-		compacted_segment = this->compact_segment(partition, &segment);
+		auto tup_res = this->compact_segment(partition, &segment);
+		compacted_segment = std::get<0>(tup_res);
+		prev_compacted_segment = std::get<1>(tup_res);
 	}
 	catch (const CorruptionException& ex) {
 		success = false;
@@ -156,10 +159,18 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 
 	this->lock_manager->lock_segment(partition, &segment, true);
 
+	if(prev_compacted_segment != nullptr) 
+		this->lock_manager->lock_segment(partition, prev_compacted_segment.get(), true);
+
 	try
 	{
 		this->fh->delete_dir_or_file(segment.get_index_path(), segment.get_index_key());
 		this->fh->delete_dir_or_file(segment.get_segment_path(), segment.get_segment_key());
+
+		if (prev_compacted_segment != nullptr) {
+			this->fh->delete_dir_or_file(prev_compacted_segment.get()->get_index_path(), prev_compacted_segment.get()->get_index_key());
+			this->fh->delete_dir_or_file(prev_compacted_segment.get()->get_segment_path(), prev_compacted_segment.get()->get_segment_key());
+		}
 
 		this->fh->rename_file(
 			compacted_segment.get()->get_index_key(),
@@ -185,10 +196,13 @@ bool CompactionHandler::handle_partition_oldest_segment_compaction(Partition* pa
 
 	this->lock_manager->release_segment_lock(partition, &segment, true);
 
+	if (prev_compacted_segment != nullptr)
+		this->lock_manager->release_segment_lock(partition, prev_compacted_segment.get(), true);
+
 	return success;
 }
 
-std::shared_ptr<PartitionSegment> CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment) {
+std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<PartitionSegment>> CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment) {
 	std::shared_ptr<PartitionSegment> write_segment = this->initialize_compacted_segment_write_locations(partition, segment);
 
 	this->compact_segment(partition, segment, write_segment);
@@ -209,26 +223,11 @@ std::shared_ptr<PartitionSegment> CompactionHandler::compact_segment(Partition* 
 		}
 
 		this->lock_manager->release_segment_lock(partition, prev_compacted_segment.get());
-
-		this->lock_manager->lock_segment(partition, prev_compacted_segment.get(), true);
-
-		try
-		{
-			this->fh->delete_dir_or_file(prev_compacted_segment.get()->get_index_path(), prev_compacted_segment.get()->get_index_key());
-			this->fh->delete_dir_or_file(prev_compacted_segment.get()->get_segment_path(), prev_compacted_segment.get()->get_segment_key());
-		}
-		catch (const std::exception& ex)
-		{
-			this->lock_manager->release_segment_lock(partition, prev_compacted_segment.get(), true);
-			throw ex;
-		}
-
-		this->lock_manager->release_segment_lock(partition, prev_compacted_segment.get(), true);
 	}
 
 	this->existing_keys.clear();
 
-	return write_segment;
+	return std::tuple<std::shared_ptr<PartitionSegment>, std::shared_ptr<PartitionSegment>>(write_segment, prev_compacted_segment);
 }
 
 void CompactionHandler::compact_segment(Partition* partition, PartitionSegment* segment, std::shared_ptr<PartitionSegment> write_segment) {
@@ -362,7 +361,7 @@ std::shared_ptr<PartitionSegment> CompactionHandler::initialize_compacted_segmen
 		partition->get_partition_id()
 	);
 
-	std::string compacted_segment_key = this->pm->get_compacted_file_path(
+	std::string compacted_segment_key = this->pm->get_compacted_file_key(
 		partition->get_queue_name(),
 		segment->get_id(),
 		partition->get_partition_id()
@@ -375,7 +374,7 @@ std::shared_ptr<PartitionSegment> CompactionHandler::initialize_compacted_segmen
 		true
 	);
 
-	std::string compacted_index_key = this->pm->get_compacted_file_path(
+	std::string compacted_index_key = this->pm->get_compacted_file_key(
 		partition->get_queue_name(),
 		segment->get_id(),
 		partition->get_partition_id(),

@@ -204,28 +204,28 @@ int main(int argc, char* argv[])
         cm.get()->initialize_controller_nodes_connections();
 
         std::thread connection_pools_thread = std::thread(keep_connections_to_maximum);
-        //std::thread check_connections_heartbeat_thread = std::thread(check_connections_heartbeat);
+        std::thread check_connections_heartbeat_thread = std::thread(check_connections_heartbeat);
         std::thread disk_flushing_thread = std::thread(flush_to_disk_periodically);
         std::thread run_quorum_communication_thread = std::thread(run_controller_quorum_communication);
         std::thread check_dead_data_nodes_thread = std::thread(check_dead_data_nodes);
         std::thread check_for_commit_and_last_applied_diff_thread = std::thread(check_for_commit_and_last_applied_diff);
         std::thread send_heartbeats_to_leader_thread = std::thread(send_heartbeats_to_leader);
         std::thread compact_closed_segments_thread = std::thread(compact_closed_segments);
-        //std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
+        std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
         std::thread retrieve_cluster_metadata_updates_thread = std::thread(retrieve_cluster_metadata_updates);
         std::thread check_for_dead_consumers_thread = std::thread(check_for_dead_consumers);
 
         internal_listener_thread.join();
         external_listener_thread.join();
         connection_pools_thread.join();
-        //check_connections_heartbeat_thread.join();
+        check_connections_heartbeat_thread.join();
         disk_flushing_thread.join();
         run_quorum_communication_thread.join();
         check_dead_data_nodes_thread.join();
         check_for_commit_and_last_applied_diff_thread.join();
         send_heartbeats_to_leader_thread.join();
         compact_closed_segments_thread.join();
-        //remove_expired_segments_thread.join();
+        remove_expired_segments_thread.join();
         retrieve_cluster_metadata_updates_thread.join();
         check_for_dead_consumers_thread.join();
     }

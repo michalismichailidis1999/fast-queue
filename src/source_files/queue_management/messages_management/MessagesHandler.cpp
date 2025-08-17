@@ -160,8 +160,6 @@ std::string MessagesHandler::get_queue_partition_key(Partition* partition) {
 }
 
 unsigned long MessagesHandler::remove_from_partition_remaining_bytes(const std::string& queue_partition_key, unsigned int bytes_written) {
-	return 0;
-
 	std::lock_guard<std::mutex> lock(this->remaining_bytes_mut);
 
 	unsigned long remaining_bytes = this->remaining_bytes[queue_partition_key];

@@ -247,6 +247,8 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
     auto queue_func = [&](const std::filesystem::directory_entry& dir_entry) {
         const std::string& path = this->fh->get_dir_entry_path(dir_entry);
 
+        partitions.clear();
+
         std::smatch match;
 
         if (!std::regex_search(path, match, get_queue_name_rgx)) {
