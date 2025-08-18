@@ -60,7 +60,7 @@ public:
 
 	bool save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write = nullptr, bool cache_messages = true);
 
-	bool save_messages(Partition* partition, ProduceMessagesRequest* request, bool cache_messages = true, bool has_replication = false);
+	bool save_messages(Partition* partition, ProduceMessagesRequest* request, bool cache_messages = true, bool has_replication = false, unsigned long long leader_id = 0);
 
 	void update_cluster_metadata_commit_index(unsigned long long commit_index);
 

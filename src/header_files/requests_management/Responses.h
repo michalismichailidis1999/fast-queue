@@ -33,6 +33,16 @@ struct ExpireConsumersResponse {
 	int leader_id;
 };
 
+struct AddLaggingFollowerResponse {
+	bool ok;
+	int leader_id;
+};
+
+struct RemoveLaggingFollowerResponse {
+	bool ok;
+	int leader_id;
+};
+
 // =======================================================
 
 // External Responses

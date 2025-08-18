@@ -1,5 +1,6 @@
 #pragma once
 #include <mutex>
+#include <shared_mutex>
 #include <atomic>
 #include <unordered_map>
 #include <unordered_set>
@@ -30,6 +31,12 @@ private:
 	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, std::shared_ptr<std::unordered_set<int>>>>> owned_partitions;
 
 	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, int>>> partition_leader_nodes;
+
+	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, unsigned long long>>> queue_partition_leader_ids;
+
+	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, std::shared_ptr<std::unordered_set<int>>>>> lagging_followers;
+
+	unsigned long long last_queue_partition_leader_id;
 	// ======================================================
 
 	unsigned long long last_consumer_id;
@@ -48,9 +55,9 @@ private:
 
 	std::unordered_map<std::string, std::shared_ptr<QueueMetadata>> queues;
 
-	std::mutex nodes_partitions_mut;
+	std::shared_mutex nodes_partitions_mut;
 	std::mutex queues_mut;
-	std::mutex consumers_mut;
+	std::shared_mutex consumers_mut;
 
 	void apply_create_queue_command(CreateQueueCommand* command);
 	void apply_delete_queue_command(DeleteQueueCommand* command);
@@ -82,9 +89,11 @@ public:
 
 	int get_partition_leader(const std::string& queue, int partition);
 
-	std::mutex* get_partitions_mut();
+	std::shared_mutex* get_partitions_mut();
 
 	std::shared_ptr<std::unordered_map<int, int>> get_queue_partition_leaders(const std::string& queue_name);
+
+	unsigned long long get_queue_partition_leader_id(const std::string& queue_name, int partition);
 
 	friend class Controller;
 };

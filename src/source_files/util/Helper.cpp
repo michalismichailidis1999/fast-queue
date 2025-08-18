@@ -23,13 +23,14 @@ void Helper::update_checksum(void* metadata, long total_bytes) {
 	memcpy_s((char*)metadata + CHECKSUM_OFFSET, CHECKSUM_SIZE, &checksum, CHECKSUM_SIZE);
 }
 
-void Helper::add_message_metadata_values(void* metadata, unsigned long long message_id, unsigned long long timestamp, unsigned int key_size, const char* key, unsigned int key_offset) {
+void Helper::add_message_metadata_values(void* metadata, unsigned long long message_id, unsigned long long timestamp, unsigned int key_size, const char* key, unsigned int key_offset, unsigned long long leader_id) {
 	memcpy_s((char*)metadata + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &message_id, MESSAGE_ID_SIZE);
 	memcpy_s((char*)metadata + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE, &timestamp, MESSAGE_TIMESTAMP_SIZE);
 
 	bool is_active = true;
 
 	memcpy_s((char*)metadata + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE, &is_active, MESSAGE_IS_ACTIVE_SIZE);
+	memcpy_s((char*)metadata + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE, &leader_id, MESSAGE_LEADER_ID_SIZE);
 
 	if (key != NULL && key_size > 0)
 	{

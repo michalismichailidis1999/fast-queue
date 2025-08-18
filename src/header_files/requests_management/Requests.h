@@ -56,6 +56,20 @@ struct ExpireConsumersRequest {
 	std::shared_ptr<std::vector<std::tuple<std::string, std::string, unsigned long long>>> expired_consumers;
 };
 
+struct AddLaggingFollowerRequest {
+	int queue_name_length;
+	char* queue_name;
+	int partition;
+	int node_id;
+};
+
+struct RemoveLaggingFollowerRequest {
+	int queue_name_length;
+	char* queue_name;
+	int partition;
+	int node_id;
+};
+
 // ======================================================================
 
 // External Requests

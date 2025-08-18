@@ -767,3 +767,89 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(AddLaggingFollowerRequest* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + 3 * sizeof(RequestValueKey) + 3 * sizeof(int) + obj->queue_name_length;
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	RequestType req_type = RequestType::ADD_LAGGING_FOLLOWER;
+
+	RequestValueKey queue_name_type = RequestValueKey::QUEUE_NAME;
+	RequestValueKey partition_type = RequestValueKey::PARTITION;
+	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
+
+	int offset = 0;
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
+	offset += sizeof(RequestType);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &queue_name_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->queue_name_length, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, obj->queue_name_length, &obj->queue_name, obj->queue_name_length);
+	offset += obj->queue_name_length;
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &partition_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->partition, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &node_id_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->node_id, sizeof(int));
+	offset += sizeof(int);
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(RemoveLaggingFollowerRequest* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + 3 * sizeof(RequestValueKey) + 3 * sizeof(int) + obj->queue_name_length;
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	RequestType req_type = RequestType::ADD_LAGGING_FOLLOWER;
+
+	RequestValueKey queue_name_type = RequestValueKey::QUEUE_NAME;
+	RequestValueKey partition_type = RequestValueKey::PARTITION;
+	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
+
+	int offset = 0;
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
+	offset += sizeof(RequestType);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &queue_name_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->queue_name_length, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, obj->queue_name_length, &obj->queue_name, obj->queue_name_length);
+	offset += obj->queue_name_length;
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &partition_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->partition, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &node_id_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->node_id, sizeof(int));
+	offset += sizeof(int);
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}

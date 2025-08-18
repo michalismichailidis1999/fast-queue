@@ -24,6 +24,10 @@ public:
 
 	std::unique_ptr<ExpireConsumersRequest> to_expire_consumers_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<AddLaggingFollowerRequest> to_add_lagging_request(char* recvbuf, int recvbuflen);
+
+	std::unique_ptr<RemoveLaggingFollowerRequest> to_remove_lagging_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 
 	// External Requests

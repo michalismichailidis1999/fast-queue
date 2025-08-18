@@ -209,7 +209,20 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 		return;
 	}
 
-	this->mh->save_messages(partition.get(), request);
+	unsigned long long partition_leader_id = this->controller->get_queue_partition_unique_leader_id(queue_name, request->partition);
+
+	if (partition_leader_id == 0) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNASSIGNED_LEADERSHIP, "Leader unique id has not been assigned yet");
+		return;
+	}
+
+	this->mh->save_messages(
+		partition.get(), 
+		request, 
+		true, 
+		queue.get()->get_metadata()->get_replication_factor() > 1,
+		partition_leader_id
+	);
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
@@ -240,9 +253,9 @@ void ClientRequestExecutor::handle_get_queue_partitions_info_request(SOCKET_ID s
 
 	ClusterMetadata* cluster_metadata = this->controller->get_cluster_metadata();
 
-	std::mutex* partitions_mut = cluster_metadata->get_partitions_mut();
+	std::shared_mutex* partitions_mut = cluster_metadata->get_partitions_mut();
 
-	std::unique_lock<std::mutex> lock(*partitions_mut);
+	std::shared_lock<std::shared_mutex> lock(*partitions_mut);
 
 	auto queue_partitions_leaders = cluster_metadata->get_queue_partition_leaders(queue_name);
 

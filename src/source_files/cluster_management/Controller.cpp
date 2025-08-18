@@ -663,9 +663,23 @@ bool Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 
 	auto partitions_leaders = this->future_cluster_metadata->partition_leader_nodes[queue_name];
 
+	auto queue_lagging_followers = this->future_cluster_metadata->lagging_followers[queue_name];
+
 	if (partitions_leaders == nullptr) {
 		partitions_leaders = std::make_shared<std::unordered_map<int, int>>();
 		this->future_cluster_metadata->partition_leader_nodes[queue_name] = partitions_leaders;
+	}
+
+	if (queue_lagging_followers == nullptr) {
+		queue_lagging_followers = std::make_shared<std::unordered_map<int, std::shared_ptr<std::unordered_set<int>>>>();
+		this->future_cluster_metadata->lagging_followers[queue_name] = queue_lagging_followers;
+	}
+
+	auto partition_lagging_followers = (*(queue_lagging_followers.get()))[partition];
+
+	if (partition_lagging_followers == nullptr) {
+		partition_lagging_followers = std::make_shared<std::unordered_set<int>>();
+		(*(queue_lagging_followers.get()))[partition] = partition_lagging_followers;
 	}
 
 	if (leader_node != -1
@@ -678,6 +692,8 @@ bool Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 
 	for (auto owner_node : *(partition_owners.get())) {
 		if (leader_node == owner_node) continue;
+
+		if (partition_lagging_followers.get()->find(owner_node) != partition_lagging_followers.get()->end()) continue;
 
 		int leader_count = this->future_cluster_metadata->nodes_leader_partition_counts->get(owner_node);
 
@@ -706,16 +722,28 @@ bool Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 	(*(partitions_leaders.get()))[partition] = node_id;
 	this->future_cluster_metadata->nodes_leader_partition_counts->update(node_id, min_leader_count + 1);
 
+	unsigned long long unique_leader_id = ++this->future_cluster_metadata->last_queue_partition_leader_id;
+
 	std::shared_ptr<PartitionLeaderAssignmentCommand> change = std::shared_ptr<PartitionLeaderAssignmentCommand>(
 		new PartitionLeaderAssignmentCommand(
 			queue_name,
 			partition,
+			unique_leader_id,
 			node_id,
 			leader_node
 		)
 	);
 
 	cluster_changes->emplace_back(CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT, change);
+
+	auto queue_partition_lead_ids = this->future_cluster_metadata->queue_partition_leader_ids[queue_name];
+
+	if (queue_partition_lead_ids == nullptr) {
+		queue_partition_lead_ids = std::make_shared<std::unordered_map<int, unsigned long long>>();
+		this->future_cluster_metadata->queue_partition_leader_ids[queue_name] = queue_partition_lead_ids;
+	}
+
+	((*queue_partition_lead_ids.get()))[partition] = unique_leader_id;
 
 	if (leader_node == -1) return true;
 
@@ -751,7 +779,7 @@ bool Controller::repartition_node_data(int node_id) {
 	if (partitions_count > 0) {
 		this->logger->log_info("Reassigning node's " + std::to_string(node_id) + " partitions...");
 
-		std::lock_guard<std::mutex> node_partitions_lock(this->future_cluster_metadata->nodes_partitions_mut);
+		std::lock_guard<std::shared_mutex> node_partitions_lock(this->future_cluster_metadata->nodes_partitions_mut);
 
 		std::vector<std::tuple<CommandType, std::shared_ptr<void>>> cluster_changes;
 
@@ -832,7 +860,7 @@ bool Controller::repartition_node_data(int node_id) {
 ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata) {
 	std::lock_guard<std::mutex> partition_assignment_lock(this->partition_assignment_mut);
 	std::lock_guard<std::mutex> heatbeats_lock(this->heartbeats_mut);
-	std::lock_guard<std::mutex> partitions_lock(this->future_cluster_metadata->nodes_partitions_mut);
+	std::lock_guard<std::shared_mutex> partitions_lock(this->future_cluster_metadata->nodes_partitions_mut);
 
 	if (this->future_cluster_metadata->get_queue_metadata(queue_metadata.get()->get_name()) != NULL)
 		return ErrorCode::QUEUE_ALREADY_EXISTS;
@@ -1233,6 +1261,10 @@ int Controller::get_partition_leader(const std::string& queue, int partition) {
 	return this->cluster_metadata->get_partition_leader(queue, partition);
 }
 
+unsigned long long Controller::get_queue_partition_unique_leader_id(const std::string& queue, int partition) {
+	return this->cluster_metadata->get_queue_partition_leader_id(queue, partition);
+}
+
 std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(GetClusterMetadataUpdateRequest* request) {
 	{
 		std::lock_guard<std::shared_mutex> lock(this->follower_indexes_mut);
@@ -1318,7 +1350,7 @@ unsigned long long Controller::get_last_log_term() {
 }
 
 unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsumerRequest* request, Queue* queue, const std::string& group_id) {
-	std::lock_guard<std::mutex> lock(this->future_cluster_metadata->consumers_mut);
+	std::lock_guard<std::shared_mutex> lock(this->future_cluster_metadata->consumers_mut);
 
 	const std::string& queue_name = queue->get_metadata()->get_name();
 	int total_queue_partitions = queue->get_metadata()->get_partitions();
@@ -1432,7 +1464,7 @@ unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsu
 }
 
 void Controller::unregister_consumer(const std::string& queue_name, const std::string& group_id, unsigned long long consumer_id) {
-	std::lock_guard<std::mutex> lock(this->future_cluster_metadata->consumers_mut);
+	std::lock_guard<std::shared_mutex> lock(this->future_cluster_metadata->consumers_mut);
 
 	auto group_partition_consumers = this->future_cluster_metadata->partition_consumers[queue_name];
 
@@ -1518,11 +1550,15 @@ void Controller::unregister_consumer(const std::string& queue_name, const std::s
 }
 
 void Controller::find_consumer_assigned_partitions(const std::string& queue_name, const std::string& group_id, unsigned long long consumer_id, std::vector<int>* partitions_list) {
-	std::lock_guard<std::mutex> lock(this->cluster_metadata->consumers_mut);
+	std::shared_lock<std::shared_mutex> lock(this->cluster_metadata->consumers_mut);
+
+	if (this->cluster_metadata->partition_consumers.find(queue_name) == this->cluster_metadata->partition_consumers.end()) return;
 
 	auto queue_consumer_groups = this->cluster_metadata->partition_consumers[queue_name];
 
 	if (queue_consumer_groups == nullptr) return;
+
+	if (queue_consumer_groups.get()->find(group_id) == queue_consumer_groups.get()->end()) return;
 
 	auto group_consumers = (*(queue_consumer_groups.get()))[group_id];
 
@@ -1534,14 +1570,14 @@ void Controller::find_consumer_assigned_partitions(const std::string& queue_name
 }
 
 unsigned long long Controller::get_last_registered_consumer_id() {
-	std::lock_guard<std::mutex> lock(this->cluster_metadata->consumers_mut);
+	std::shared_lock<std::shared_mutex> lock(this->cluster_metadata->consumers_mut);
 	return this->cluster_metadata->last_consumer_id;
 }
 
 void Controller::handle_consumers_expiration(ExpireConsumersRequest* request) {
 	if (request->expired_consumers->size() == 0) return;
 
-	std::unique_lock<std::mutex> lock(this->future_cluster_metadata->consumers_mut);
+	std::unique_lock<std::shared_mutex> lock(this->future_cluster_metadata->consumers_mut);
 
 	std::vector<Command> commands;
 

@@ -127,3 +127,53 @@ std::unique_ptr<ExpireConsumersResponse> ResponseMapper::to_expire_consumers_res
 
 	return res;
 }
+
+std::unique_ptr<AddLaggingFollowerResponse> ResponseMapper::to_add_lagging_follower_response(char* res_buf, long res_buf_len) {
+	long offset = sizeof(ErrorCode); // skip error code
+
+	std::unique_ptr<AddLaggingFollowerResponse> res = std::make_unique<AddLaggingFollowerResponse>();
+
+	while (offset < res_buf_len) {
+		ResponseValueKey* key = (ResponseValueKey*)(res_buf + offset);
+
+		if (*key == ResponseValueKey::OK) {
+			res.get()->ok = *(bool*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(bool);
+		}
+		else if (*key == ResponseValueKey::LEADER_ID) {
+			res.get()->leader_id = *(int*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else {
+			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type AddLaggingFollowerResponse");
+			return nullptr;
+		}
+	}
+
+	return res;
+}
+
+std::unique_ptr<RemoveLaggingFollowerResponse> ResponseMapper::to_remove_lagging_follower_response(char* res_buf, long res_buf_len) {
+	long offset = sizeof(ErrorCode); // skip error code
+
+	std::unique_ptr<RemoveLaggingFollowerResponse> res = std::make_unique<RemoveLaggingFollowerResponse>();
+
+	while (offset < res_buf_len) {
+		ResponseValueKey* key = (ResponseValueKey*)(res_buf + offset);
+
+		if (*key == ResponseValueKey::OK) {
+			res.get()->ok = *(bool*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(bool);
+		}
+		else if (*key == ResponseValueKey::LEADER_ID) {
+			res.get()->leader_id = *(int*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else {
+			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type RemoveLaggingFollowerResponse");
+			return nullptr;
+		}
+	}
+
+	return res;
+}

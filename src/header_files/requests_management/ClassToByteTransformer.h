@@ -22,6 +22,10 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(GetClusterMetadataUpdateRequest* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(ExpireConsumersRequest* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(AddLaggingFollowerRequest* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(RemoveLaggingFollowerRequest* obj);
     // ------------------
 
     // Responses

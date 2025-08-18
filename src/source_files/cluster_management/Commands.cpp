@@ -324,9 +324,10 @@ std::string PartitionAssignmentCommand::get_command_key() {
 
 // Partition Leader Assignment Command
 
-PartitionLeaderAssignmentCommand::PartitionLeaderAssignmentCommand(const std::string& queue_name, int partition, int new_leader, int prev_leader) {
+PartitionLeaderAssignmentCommand::PartitionLeaderAssignmentCommand(const std::string& queue_name, int partition, unsigned long long leader_id, int new_leader, int prev_leader) {
 	this->queue_name = queue_name;
 	this->partition = partition;
+	this->leader_id = leader_id;
 	this->new_leader = new_leader;
 	this->prev_leader = prev_leader;
 }
@@ -339,6 +340,7 @@ PartitionLeaderAssignmentCommand::PartitionLeaderAssignmentCommand(void* metadat
 	this->queue_name = std::string((char*)metadata + PLA_COMMAND_QUEUE_NAME_OFFSET, queue_name_size);
 
 	memcpy_s(&this->partition, PLA_COMMAND_PARTITION_SIZE, (char*)metadata + PLA_COMMAND_PARTITION_OFFSET, PLA_COMMAND_PARTITION_SIZE);
+	memcpy_s(&this->leader_id, PLA_COMMAND_LEADER_ID_SIZE, (char*)metadata + PLA_COMMAND_LEADER_ID_OFFSET, PLA_COMMAND_LEADER_ID_SIZE);
 	memcpy_s(&this->new_leader, PLA_COMMAND_NEW_LEADER_SIZE, (char*)metadata + PLA_COMMAND_NEW_LEADER_OFFSET, PLA_COMMAND_NEW_LEADER_SIZE);
 	memcpy_s(&this->prev_leader, PLA_COMMAND_PREV_LEADER_SIZE, (char*)metadata + PLA_COMMAND_PREV_LEADER_OFFSET, PLA_COMMAND_PREV_LEADER_SIZE);
 }
@@ -349,6 +351,10 @@ const std::string& PartitionLeaderAssignmentCommand::get_queue_name() {
 
 int PartitionLeaderAssignmentCommand::get_partition() {
 	return this->partition;
+}
+
+unsigned long long PartitionLeaderAssignmentCommand::get_leader_id() {
+	return this->leader_id;
 }
 
 int PartitionLeaderAssignmentCommand::get_new_leader() {
@@ -367,6 +373,7 @@ std::shared_ptr<char> PartitionLeaderAssignmentCommand::get_metadata_bytes() {
 	memcpy_s(bytes.get() + PLA_COMMAND_QUEUE_NAME_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, PLA_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_size, PLA_COMMAND_QUEUE_NAME_LENGTH_SIZE);
 	memcpy_s(bytes.get() + PLA_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_size, this->queue_name.c_str(), queue_name_size);
 	memcpy_s(bytes.get() + PLA_COMMAND_PARTITION_OFFSET - COMMAND_TOTAL_BYTES, PLA_COMMAND_PARTITION_SIZE, &this->partition, PLA_COMMAND_PARTITION_SIZE);
+	memcpy_s(bytes.get() + PLA_COMMAND_LEADER_ID_OFFSET - COMMAND_TOTAL_BYTES, PLA_COMMAND_LEADER_ID_SIZE, &this->leader_id, PLA_COMMAND_LEADER_ID_SIZE);
 	memcpy_s(bytes.get() + PLA_COMMAND_NEW_LEADER_OFFSET - COMMAND_TOTAL_BYTES, PLA_COMMAND_NEW_LEADER_SIZE, &this->new_leader, PLA_COMMAND_NEW_LEADER_SIZE);
 	memcpy_s(bytes.get() + PLA_COMMAND_PREV_LEADER_OFFSET - COMMAND_TOTAL_BYTES, PLA_COMMAND_PREV_LEADER_SIZE, &this->prev_leader, PLA_COMMAND_PREV_LEADER_SIZE);
 

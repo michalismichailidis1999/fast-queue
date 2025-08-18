@@ -5,6 +5,7 @@ ClusterMetadata::ClusterMetadata() {
 	this->current_term = 0;
 	this->leader_id = 0;
 	this->last_consumer_id = 0;
+	this->last_queue_partition_leader_id = 0;
 
 	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
@@ -45,7 +46,7 @@ void ClusterMetadata::remove_queue_metadata(const std::string& queue_name) {
 }
 
 void ClusterMetadata::init_node_partitions(int node_id) {
-	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+	std::lock_guard<std::shared_mutex> lock(this->nodes_partitions_mut);
 
 	if (this->nodes_partitions.find(node_id) == this->nodes_partitions.end()) {
 		this->nodes_partitions[node_id] = std::make_shared<std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>>>();
@@ -55,7 +56,7 @@ void ClusterMetadata::init_node_partitions(int node_id) {
 }
 
 bool ClusterMetadata::has_node_partitions(int node_id) {
-	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+	std::shared_lock<std::shared_mutex> lock(this->nodes_partitions_mut);
 	return this->nodes_partitions.find(node_id) != this->nodes_partitions.end();
 }
 
@@ -66,32 +67,32 @@ void ClusterMetadata::apply_command(Command* command, bool with_lock) {
 	switch (command->get_command_type())
 	{
 	case CommandType::CREATE_QUEUE: {
-		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+		std::lock_guard<std::shared_mutex> lock(this->nodes_partitions_mut);
 		CreateQueueCommand* command_info = static_cast<CreateQueueCommand*>(command->get_command_info());
 		this->apply_create_queue_command(command_info);
 		return;
 	}
 	case CommandType::DELETE_QUEUE: {
-		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
-		std::lock_guard<std::mutex> lock2(this->consumers_mut);
+		std::lock_guard<std::shared_mutex> lock(this->nodes_partitions_mut);
+		std::lock_guard<std::shared_mutex> lock2(this->consumers_mut);
 		DeleteQueueCommand* command_info = static_cast<DeleteQueueCommand*>(command->get_command_info());
 		this->apply_delete_queue_command(command_info);
 		return;
 	}
 	case CommandType::ALTER_PARTITION_ASSIGNMENT: {
-		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+		std::lock_guard<std::shared_mutex> lock(this->nodes_partitions_mut);
 		PartitionAssignmentCommand* command_info = static_cast<PartitionAssignmentCommand*>(command->get_command_info());
 		this->apply_partition_assignment_command(command_info);
 		return;
 	}
 	case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT: {
-		std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+		std::lock_guard<std::shared_mutex> lock(this->nodes_partitions_mut);
 		PartitionLeaderAssignmentCommand* command_info = static_cast<PartitionLeaderAssignmentCommand*>(command->get_command_info());
 		this->apply_partition_leader_assignment_command(command_info);
 		return;
 	}
 	case CommandType::REGISTER_CONSUMER_GROUP: {
-		std::lock_guard<std::mutex> lock(this->consumers_mut);
+		std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
 		RegisterConsumerGroupCommand* command_info = static_cast<RegisterConsumerGroupCommand*>(command->get_command_info());
 		this->apply_register_consuer_group_command(command_info);
 		return;
@@ -100,7 +101,7 @@ void ClusterMetadata::apply_command(Command* command, bool with_lock) {
 		UnregisterConsumerGroupCommand* command_info = static_cast<UnregisterConsumerGroupCommand*>(command->get_command_info());
 
 		if (with_lock) {
-			std::lock_guard<std::mutex> lock(this->consumers_mut);
+			std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
 			this->apply_unregister_consuer_group_command(command_info);
 		} else this->apply_unregister_consuer_group_command(command_info);
 		
@@ -220,6 +221,17 @@ void ClusterMetadata::apply_partition_assignment_command(PartitionAssignmentComm
 }
 
 void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {
+	this->last_queue_partition_leader_id = command->get_leader_id();
+
+	auto queue_partition_lead_ids = this->queue_partition_leader_ids[command->get_queue_name()];
+
+	if (queue_partition_lead_ids == nullptr) {
+		queue_partition_lead_ids = std::make_shared<std::unordered_map<int, unsigned long long>>();
+		this->queue_partition_leader_ids[command->get_queue_name()] = queue_partition_lead_ids;
+	}
+
+	((*queue_partition_lead_ids.get()))[command->get_partition()] = command->get_leader_id();
+
 	auto partitions_leaders = this->partition_leader_nodes[command->get_queue_name()];
 
 	if (partitions_leaders == nullptr) {
@@ -307,17 +319,18 @@ void ClusterMetadata::apply_unregister_consuer_group_command(UnregisterConsumerG
 }
 
 void ClusterMetadata::copy_from(ClusterMetadata* obj) {
-	std::lock_guard<std::mutex> _lock1(obj->nodes_partitions_mut);
-	std::lock_guard<std::mutex> _lock2(obj->consumers_mut);
+	std::lock_guard<std::shared_mutex> _lock1(obj->nodes_partitions_mut);
+	std::lock_guard<std::shared_mutex> _lock2(obj->consumers_mut);
 
-	std::lock_guard<std::mutex> lock1(this->nodes_partitions_mut);
-	std::lock_guard<std::mutex> lock2(this->consumers_mut);
+	std::lock_guard<std::shared_mutex> lock1(this->nodes_partitions_mut);
+	std::lock_guard<std::shared_mutex> lock2(this->consumers_mut);
 
 	this->leader_id.store(obj->leader_id.load());
 	this->metadata_version.store(obj->metadata_version);
 	this->current_term.store(obj->current_term);
 
 	this->last_consumer_id = obj->last_consumer_id;
+	this->last_queue_partition_leader_id = obj->last_queue_partition_leader_id;
 
 	if(this->nodes_partition_counts != NULL)
 		free(this->nodes_partition_counts);
@@ -399,6 +412,31 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 		}
 	}
 
+	for (auto& iter : obj->queue_partition_leader_ids) {
+		auto queue_partition_leader_ids = std::make_shared<std::unordered_map<int, unsigned long long>>();
+
+		this->queue_partition_leader_ids[iter.first] = queue_partition_leader_ids;
+
+		for (auto& iter_two : *(iter.second.get())) {
+			(*(queue_partition_leader_ids.get()))[iter_two.first] = iter_two.second;
+		}
+	}
+
+	for (auto& iter : obj->lagging_followers) {
+		auto queue_partition_lagging_followers = std::make_shared<std::unordered_map<int, std::shared_ptr<std::unordered_set<int>>>>();
+
+		this->lagging_followers[iter.first] = queue_partition_lagging_followers;
+
+		for (auto& iter_two : *(iter.second.get())) {
+			auto followers = std::make_shared<std::unordered_set<int>>();
+
+			(*(iter.second.get()))[iter_two.first] = followers;
+
+			for (int node_id : *(iter_two.second.get()))
+				followers.get()->insert(node_id);
+		}
+	}
+
 	for (auto& iter : obj->partition_consumers) {
 		auto queue_consumer_groups = std::make_shared<std::unordered_map<std::string,std::shared_ptr<std::unordered_map<int, unsigned long long>>>>();
 
@@ -430,21 +468,38 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 }
 
 int ClusterMetadata::get_partition_leader(const std::string& queue, int partition) {
-	std::lock_guard<std::mutex> lock(this->nodes_partitions_mut);
+	std::shared_lock<std::shared_mutex> lock(this->nodes_partitions_mut);
 
 	if (this->partition_leader_nodes.find(queue) == this->partition_leader_nodes.end()) return -1;
 
 	auto queue_partition_leads = this->partition_leader_nodes[queue];
+
+	if (queue_partition_leads == nullptr) return -1;
 
 	if (queue_partition_leads.get()->find(partition) == queue_partition_leads.get()->end()) return -1;
 
 	return (*(queue_partition_leads.get()))[partition];
 }
 
-std::mutex* ClusterMetadata::get_partitions_mut() {
+std::shared_mutex* ClusterMetadata::get_partitions_mut() {
 	return &this->nodes_partitions_mut;
 }
 
 std::shared_ptr<std::unordered_map<int, int>> ClusterMetadata::get_queue_partition_leaders(const std::string& queue_name) {
+	if (this->partition_leader_nodes.find(queue_name) == this->partition_leader_nodes.end()) return nullptr;
 	return this->partition_leader_nodes[queue_name];
+}
+
+unsigned long long ClusterMetadata::get_queue_partition_leader_id(const std::string& queue_name, int partition) {
+	std::shared_lock<std::shared_mutex> lock(this->nodes_partitions_mut);
+
+	if (this->queue_partition_leader_ids.find(queue_name) == this->queue_partition_leader_ids.end()) return 0;
+
+	auto queue_partitions_lead_ids = this->queue_partition_leader_ids[queue_name];
+
+	if (queue_partitions_lead_ids == nullptr) return 0;
+
+	if (queue_partitions_lead_ids.get()->find(partition) == queue_partitions_lead_ids.get()->end()) return 0;
+
+	return (*(queue_partitions_lead_ids.get()))[partition];
 }

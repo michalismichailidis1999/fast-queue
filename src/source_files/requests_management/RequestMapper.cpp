@@ -555,3 +555,67 @@ std::unique_ptr<ExpireConsumersRequest> RequestMapper::to_expire_consumers_reque
 
 	return req;
 }
+
+std::unique_ptr<AddLaggingFollowerRequest> RequestMapper::to_add_lagging_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<AddLaggingFollowerRequest> req = std::make_unique<AddLaggingFollowerRequest>();
+
+	req.get()->queue_name_length = 0;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::QUEUE_NAME) {
+			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
+		}
+		else if (*key == RequestValueKey::PARTITION) {
+			req.get()->partition = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else if (*key == RequestValueKey::NODE_ID) {
+			req.get()->node_id = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type AddLaggingFollowerRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}
+
+std::unique_ptr<RemoveLaggingFollowerRequest> RequestMapper::to_remove_lagging_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<RemoveLaggingFollowerRequest> req = std::make_unique<RemoveLaggingFollowerRequest>();
+
+	req.get()->queue_name_length = 0;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::QUEUE_NAME) {
+			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
+		}
+		else if (*key == RequestValueKey::PARTITION) {
+			req.get()->partition = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else if (*key == RequestValueKey::NODE_ID) {
+			req.get()->node_id = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type RemoveLaggingFollowerRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}

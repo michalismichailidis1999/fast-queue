@@ -89,17 +89,20 @@ class PartitionLeaderAssignmentCommand {
 private:
 	std::string queue_name;
 	int partition;
+	unsigned long long leader_id;
 	int new_leader;
 	int prev_leader;
 
 public:
-	PartitionLeaderAssignmentCommand(const std::string& queue_name, int partition, int new_leader, int prev_leader = -1);
+	PartitionLeaderAssignmentCommand(const std::string& queue_name, int partition, unsigned long long leader_id, int new_leader, int prev_leader = -1);
 
 	PartitionLeaderAssignmentCommand(void* metadata);
 
 	const std::string& get_queue_name();
 
 	int get_partition();
+
+	unsigned long long get_leader_id();
 
 	int get_new_leader();
 
