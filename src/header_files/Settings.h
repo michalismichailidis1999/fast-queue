@@ -30,6 +30,8 @@ private:
 	unsigned int request_parallelism;
 	unsigned int request_polling_interval_ms;
 	unsigned int maximum_connections;
+	unsigned int idle_connection_check_ms;
+	unsigned int idle_connection_timeout_ms;
 	unsigned int request_timeout_ms;
 
 	unsigned int retention_ms;
@@ -96,6 +98,8 @@ public:
 	unsigned int get_request_parallelism();
 	unsigned int get_request_polling_interval_ms();
 	unsigned int get_maximum_connections();
+	unsigned int get_idle_connection_check_ms();
+	unsigned int get_idle_connection_timeout_ms();
 	unsigned int get_request_timeout_ms();
 
 	unsigned int get_retention_ms();

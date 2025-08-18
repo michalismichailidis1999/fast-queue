@@ -263,6 +263,16 @@ unsigned int Settings::get_maximum_connections() {
 	return this->maximum_connections;
 }
 
+unsigned int Settings::get_idle_connection_check_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->idle_connection_check_ms;
+}
+
+unsigned int Settings::get_idle_connection_timeout_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->idle_connection_timeout_ms;
+}
+
 unsigned int Settings::get_request_timeout_ms() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->request_timeout_ms;

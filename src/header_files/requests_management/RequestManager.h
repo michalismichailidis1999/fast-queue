@@ -18,6 +18,9 @@ private:
 	Settings* settings;
 	Logger* logger;
 
+	std::unique_ptr<char> ping_res;
+	unsigned int ping_res_buff_size;
+
 	bool is_user_authorized_for_action(AuthRequest* request);
 public:
 	RequestManager(ConnectionsManager* cm, Settings* settings, ClientRequestExecutor* client_request_executor, InternalRequestExecutor* internal_request_executor, RequestMapper* mapper, Logger* logger);

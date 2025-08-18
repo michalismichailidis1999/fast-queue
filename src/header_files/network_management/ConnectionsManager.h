@@ -58,8 +58,6 @@ private:
 	bool setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
 
 	bool should_wait_for_response(RequestType request_type);
-
-	void update_socket_heartbeat(SOCKET_ID socket);
 public:
 	ConnectionsManager(SocketHandler* socket_handler, SslContextHandler* ssl_context_handler, ResponseMapper* response_mapper, Util* util, Settings* settings, Logger* logger, std::atomic_bool* should_terminate);
 
@@ -82,6 +80,8 @@ public:
 
 	bool add_socket_lock(SOCKET_ID socket);
 	void remove_socket_lock(SOCKET_ID socket);
+
+	void update_socket_heartbeat(SOCKET_ID socket);
 
 	void remove_data_node_connections(int node_id);
 	void remove_controller_node_connections(int node_id);

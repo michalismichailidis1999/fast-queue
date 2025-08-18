@@ -3,7 +3,8 @@
 #include "./__linux/memcpy_s.h"
 
 enum class RequestType {
-	CREATE_QUEUE = 1,
+	NONE = 0,
+	CREATE_QUEUE,
 	DELETE_QUEUE,
 	PRODUCE,
 	CONSUME,

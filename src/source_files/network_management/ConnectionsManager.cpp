@@ -476,6 +476,11 @@ bool ConnectionsManager::socket_expired(SOCKET_ID socket) {
 
 void ConnectionsManager::update_socket_heartbeat(SOCKET_ID socket) {
 	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
+
+	if (this->connections_heartbeats.find(socket) == this->connections_heartbeats.end()) return;
+
+	if (std::get<0>(this->connections_heartbeats[socket])) return;
+
 	this->connections_heartbeats[socket] = std::tuple<bool, std::chrono::milliseconds>(false, this->util->get_current_time_milli());
 }
 
@@ -490,7 +495,7 @@ void ConnectionsManager::check_connections_heartbeats() {
 			std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 
 			for (auto iter : this->connections_heartbeats)
-				if (!std::get<0>(iter.second) && this->util->has_timeframe_expired(std::get<1>(iter.second), 60000))
+				if (!std::get<0>(iter.second) && this->util->has_timeframe_expired(std::get<1>(iter.second), this->settings->get_idle_connection_timeout_ms()))
 				{
 					SSL* ssl = this->connections_ssls[iter.first];
 
@@ -513,7 +518,7 @@ void ConnectionsManager::check_connections_heartbeats() {
 			this->logger->log_error(err_msg);
 		} 
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_idle_connection_check_ms()));
 	}
 }
 

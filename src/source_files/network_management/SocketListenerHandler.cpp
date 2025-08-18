@@ -105,6 +105,8 @@ void SocketListenerHandler::create_and_run_socket_listener(bool internal_communi
                         else {
                             SOCKET_ID socket = fds[i].fd;
 
+                            this->cm->update_socket_heartbeat(socket);
+
                             if (!this->cm->add_socket_lock(socket)) continue;
 
                             SSL* ssl = ssl_enabled ? fds_ssls[i] : NULL;
