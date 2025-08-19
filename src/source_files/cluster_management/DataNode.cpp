@@ -1,12 +1,15 @@
 #include "../../header_files/cluster_management/DataNode.h"
 
-DataNode::DataNode(Controller* controller, ConnectionsManager* cm, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
+DataNode::DataNode(Controller* controller, ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, FileHandler* fh, Settings* settings, Logger* logger) {
 	this->controller = controller;
 	this->cm = cm;
+	this->qm = qm;
+	this->mh = mh;
 	this->request_mapper = request_mapper;
 	this->response_mapper = response_mapper;
 	this->transformer = transformer;
 	this->util = util;
+	this->fh = fh;
 	this->settings = settings;
 	this->logger = logger;
 }
@@ -327,7 +330,7 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 }
 
 void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_terminate) {
-	std::vector<std::tuple<std::string, int>> queues_partitions_to_fetch_from;
+	std::vector<std::tuple<std::string, int, int>> queues_partitions_to_fetch_from;
 
 	while (!should_terminate->load()) {
 		try
@@ -348,12 +351,52 @@ void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_termin
 
 						for (auto& iter2 : *(queue_leaders.get()))
 							if (iter2.second != this->settings->get_node_id())
-								queues_partitions_to_fetch_from.emplace_back(iter.first, iter2.first);
+								queues_partitions_to_fetch_from.emplace_back(iter.first, iter2.first, iter2.second);
 					}
 			}
 
 			for (auto& fetch_from : queues_partitions_to_fetch_from) {
+				std::shared_ptr<Queue> queue = this->qm->get_queue(std::get<0>(fetch_from));
 
+				if (queue == nullptr) continue;
+
+				std::shared_ptr<Partition> partition = queue.get()->get_partition(std::get<1>(fetch_from));
+
+				if (partition == nullptr) continue;
+
+				std::shared_ptr<ConnectionPool> pool = this->cm->get_node_connection_pool(std::get<2>(fetch_from));
+
+				if (pool == nullptr) continue;
+
+				std::unique_ptr<FetchMessagesRequest> req = std::make_unique<FetchMessagesRequest>();
+				req.get()->queue_name = (char*)std::get<0>(fetch_from).c_str();
+				req.get()->queue_name_length = std::get<0>(fetch_from).size();
+				req.get()->partition = std::get<1>(fetch_from);
+				req.get()->node_id = this->settings->get_node_id();
+				req.get()->message_offset = partition.get()->get_message_offset() + 1;
+
+				std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
+
+				auto res = this->cm->send_request_to_socket(
+					pool.get(),
+					3,
+					std::get<1>(buf_tup).get(),
+					std::get<0>(buf_tup),
+					"ExpireConsumers"
+				);
+
+				if (std::get<1>(res) == -1 && std::get<2>(res)) {
+					this->logger->log_error("Network issue occured while trying to send fetch messages request to partition leader node");
+				}
+				else if (std::get<1>(res) == -1 && !std::get<2>(res)) {
+					this->logger->log_error("Error occured while trying to send fetch messages request to partition leader node");
+				}
+				else this->handle_fetch_messages_res(
+					partition.get(), 
+					this->response_mapper->to_fetch_messages_response(
+						std::get<0>(res).get(), std::get<1>(res)
+					).get()
+				);
 			}
 		}
 		catch (const std::exception& ex)
@@ -390,4 +433,79 @@ std::shared_ptr<ConnectionPool> DataNode::get_leader_connection_pool(int leader_
 	if (controller_node_connections->find(leader_id) == controller_node_connections->end()) return nullptr;
 
 	return (*controller_node_connections)[leader_id];
+}
+
+void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResponse* res) {
+	if (res->total_messages == 0) return;
+
+	unsigned long long first_message_offset = 0;
+	unsigned long long first_message_leader_epoch = 0;
+	unsigned long long last_message_offset = 0;
+	unsigned long long last_message_leader_epoch = 0;
+
+	unsigned int message_bytes = 0;
+	unsigned int offset = 0;
+
+	for (int i = 0; i < res->total_messages; i++) {
+		memcpy_s((char*)res->messages_data + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES, &message_bytes, TOTAL_METADATA_BYTES_OFFSET);
+		memcpy_s((char*)res->messages_data + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &last_message_offset, MESSAGE_ID_SIZE);
+		memcpy_s((char*)res->messages_data + offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE, &last_message_leader_epoch, MESSAGE_LEADER_ID_SIZE);
+
+		if (i == 0) {
+			first_message_offset = last_message_offset;
+			first_message_leader_epoch = last_message_leader_epoch;
+		}
+
+		offset += message_bytes;
+	}
+
+	if (partition->get_message_offset() > first_message_offset) {
+		if (!this->mh->remove_messages_after_message_id(partition, first_message_offset - 1)) {
+			this->logger->log_error("Could not remove previous leadership uncommited messages");
+			return;
+		}
+
+		auto messages_res = this->mh->read_partition_messages(partition, first_message_offset - 1);
+
+		if (std::get<4>(messages_res) != 1) {
+			this->logger->log_error("Something went wrong while trying to fix follower messages offset to match the partition leader");
+			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+			exit(EXIT_FAILURE);
+		}
+
+		char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+		unsigned long long current_last_message_offset = 0;
+		unsigned long long current_last_message_leader = 0;
+
+		memcpy_s(message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &current_last_message_offset, MESSAGE_ID_SIZE);
+		memcpy_s(message_offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE, &current_last_message_leader, MESSAGE_LEADER_ID_SIZE);
+
+		partition->set_last_message_offset(current_last_message_offset);
+		partition->set_last_message_leader_epoch(current_last_message_leader);
+	}
+
+	if (partition->get_message_offset() > 0 && partition->get_message_offset() == first_message_offset - 1 && partition->get_last_message_leader_epoch() != first_message_leader_epoch) {
+		this->mh->remove_messages_after_message_id(partition, partition->get_message_offset() - 1);
+		return;
+	}
+
+	this->mh->save_messages(partition, res->messages_data, res->total_messages, nullptr, true);
+
+	partition->set_last_replicated_offset(res->commited_offset);
+	partition->set_last_message_offset(last_message_offset);
+	partition->set_last_message_leader_epoch(last_message_leader_epoch);
+
+	std::lock_guard<std::shared_mutex> lock(partition->consumers_mut);
+
+	if (!this->fh->check_if_exists(partition->get_offsets_path())) return;
+
+	this->fh->write_to_file(
+		partition->get_offsets_key(),
+		partition->get_offsets_path(),
+		sizeof(unsigned long long),
+		0,
+		&res->commited_offset,
+		true
+	);
 }

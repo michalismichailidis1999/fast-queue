@@ -30,6 +30,7 @@ private:
 	std::string offsets_path;
 
 	unsigned long long last_message_offset;
+	unsigned long long last_message_leader_epoch;
 
 	unsigned long long last_replicated_offset;
 
@@ -65,6 +66,9 @@ public:
 	unsigned long long get_message_offset();
 	void set_last_message_offset(unsigned long long last_message_offset);
 
+	unsigned long long get_last_message_leader_epoch();
+	void set_last_message_leader_epoch(unsigned long long last_message_leader_epoch);
+
 	unsigned long long get_last_replicated_offset();
 	void set_last_replicated_offset(unsigned long long last_replicated_offset);
 
@@ -92,4 +96,5 @@ public:
 	friend class RetentionHandler;
 	friend class CompactionHandler;
 	friend class MessageOffsetAckHandler;
+	friend class DataNode;
 };

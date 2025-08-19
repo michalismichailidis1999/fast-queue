@@ -8,12 +8,19 @@
 #include <mutex>
 #include "./Controller.h"
 #include "../network_management/ConnectionsManager.h"
+#include "../queue_management/QueueManager.h"
+#include "../queue_management/Queue.h"
+#include "../queue_management/Partition.h"
+#include "../queue_management/messages_management/MessagesHandler.h"
 #include "./ClusterMetadata.h"
 #include "../util/ConnectionPool.h"
 #include "../util/Util.h"
+#include "../requests_management/Responses.h"
+#include "../requests_management/Requests.h"
 #include "../requests_management/ResponseMapper.h"
 #include "../requests_management/RequestMapper.h"
 #include "../requests_management/ClassToByteTransformer.h"
+#include "../file_management/FileHandler.h"
 #include "../Settings.h"
 #include "../Enums.h"
 #include "../logging/Logger.h"
@@ -26,10 +33,13 @@ class DataNode {
 private:
 	Controller* controller;
 	ConnectionsManager* cm;
+	QueueManager* qm;
+	MessagesHandler* mh;
 	RequestMapper* request_mapper;
 	ResponseMapper* response_mapper;
 	ClassToByteTransformer* transformer;
 	Util* util;
+	FileHandler* fh;
 	Settings* settings;
 	Logger* logger;
 
@@ -42,8 +52,10 @@ private:
 	std::unordered_map<unsigned long long, std::tuple<std::chrono::milliseconds, std::string, std::string>> consumer_heartbeats;
 	std::unordered_set<unsigned long long> expired_consumers;
 	std::mutex consumers_mut;
+
+	void handle_fetch_messages_res(Partition* partition, FetchMessagesResponse* res);
 public:
-	DataNode(Controller* controller, ConnectionsManager* cm, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
+	DataNode(Controller* controller, ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, FileHandler* fh, Settings* settings, Logger* logger);
 
 	void send_heartbeats_to_leader(std::atomic_bool* should_terminate);
 

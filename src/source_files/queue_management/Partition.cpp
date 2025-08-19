@@ -119,6 +119,16 @@ void Partition::set_last_message_offset(unsigned long long last_message_offset) 
 	this->last_message_offset = last_message_offset;
 }
 
+unsigned long long Partition::get_last_message_leader_epoch() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->last_message_leader_epoch;
+}
+
+void Partition::set_last_message_leader_epoch(unsigned long long last_message_leader_epoch) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+	this->last_message_leader_epoch = last_message_leader_epoch;
+}
+
 unsigned long long Partition::get_last_replicated_offset() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->last_replicated_offset;
