@@ -264,23 +264,24 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 				pool = nullptr;
 				leader_id = expire_consumers_res.get()->leader_id;
 				expire_consumers_res = nullptr;
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
 				continue;
 			}
-			else {
-				req.get()->expired_consumers->clear();
+			
+			req.get()->expired_consumers->clear();
 
-				{
-					std::lock_guard<std::mutex> lock(this->consumers_mut);
+			{
+				std::lock_guard<std::mutex> lock(this->consumers_mut);
 
-					for (auto& iter : this->consumer_heartbeats)
-						if (this->util->has_timeframe_expired(std::get<0>(iter.second), this->settings->get_dead_consumer_expire_ms())) {
-							this->expired_consumers.insert(iter.first);
-							req.get()->expired_consumers->emplace_back(std::get<2>(iter.second), std::get<1>(iter.second), iter.first);
-						}
-				}
+				for (auto& iter : this->consumer_heartbeats)
+					if (this->util->has_timeframe_expired(std::get<0>(iter.second), this->settings->get_dead_consumer_expire_ms())) {
+						this->expired_consumers.insert(iter.first);
+						req.get()->expired_consumers->emplace_back(std::get<2>(iter.second), std::get<1>(iter.second), iter.first);
+					}
 			}
 
 			if (req.get()->expired_consumers->size() == 0) {
+				expire_consumers_res = nullptr;
 				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
 				continue;
 			}
@@ -293,6 +294,7 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 				if (new_leader_id != leader_id) {
 					leader_id = new_leader_id;
 					pool = nullptr;
+					expire_consumers_res = nullptr;
 				}
 
 				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
@@ -344,10 +346,16 @@ void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_termin
 
 				if (cluster_metadata->nodes_partitions.find(this->settings->get_node_id()) != cluster_metadata->nodes_partitions.end())
 					for (auto& iter : *(cluster_metadata->nodes_partitions[this->settings->get_node_id()].get())) {
+						QueueMetadata* queue_metadata = cluster_metadata->get_queue_metadata(iter.first);
+
+						if (queue_metadata == NULL || queue_metadata->get_replication_factor() == 1) continue;
+
 						if (cluster_metadata->partition_leader_nodes.find(iter.first) == cluster_metadata->partition_leader_nodes.end())
 							continue;
 
 						auto queue_leaders = cluster_metadata->partition_leader_nodes[iter.first];
+
+						if (queue_leaders == nullptr) continue;
 
 						for (auto& iter2 : *(queue_leaders.get()))
 							if (iter2.second != this->settings->get_node_id())
@@ -356,6 +364,8 @@ void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_termin
 			}
 
 			for (auto& fetch_from : queues_partitions_to_fetch_from) {
+				if (std::get<2>(fetch_from) == this->settings->get_node_id()) continue;
+
 				std::shared_ptr<Queue> queue = this->qm->get_queue(std::get<0>(fetch_from));
 
 				if (queue == nullptr) continue;
@@ -410,10 +420,141 @@ void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_termin
 }
 
 void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
+	std::unordered_map<int, std::shared_ptr<std::vector<std::tuple<std::string, int>>>> follower_nodes_to_check;
+
+	std::unique_ptr<AddLaggingFollowerResponse> add_lagging_follower_res = nullptr;
+
+	std::shared_ptr<ConnectionPool> pool = nullptr;
+	int leader_id = std::get<0>((this->settings->get_controller_nodes())[0]);
+
 	while (!should_terminate->load()) {
 		try
 		{
-			// TODO: Finish this logic
+			follower_nodes_to_check.clear();
+
+			pool = leader_id != this->settings->get_node_id() && pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
+
+			if (leader_id != this->settings->get_node_id() && pool == nullptr) {
+				this->logger->log_error("Something went wrong while checking for lagging followers. Could not retrieve leader connection pool for cluster metadata updates fetching");
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_lag_followers_check_ms()));
+				continue;
+			}
+
+			if (add_lagging_follower_res != nullptr && add_lagging_follower_res.get()->leader_id > 0 && add_lagging_follower_res.get()->leader_id != leader_id) {
+				pool = nullptr;
+				leader_id = add_lagging_follower_res.get()->leader_id;
+				add_lagging_follower_res = nullptr;
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_lag_followers_check_ms()));
+				continue;
+			}
+
+			{
+				ClusterMetadata* cluster_metadata = this->controller->get_cluster_metadata();
+
+				std::shared_lock<std::shared_mutex> lock(*(cluster_metadata->get_partitions_mut()));
+
+				if (cluster_metadata->nodes_partitions.find(this->settings->get_node_id()) != cluster_metadata->nodes_partitions.end())
+					for (auto& iter : *(cluster_metadata->nodes_partitions[this->settings->get_node_id()].get())) {
+						QueueMetadata* queue_metadata = cluster_metadata->get_queue_metadata(iter.first);
+
+						if (queue_metadata == NULL || queue_metadata->get_replication_factor() == 1) continue;
+
+						if (cluster_metadata->partition_leader_nodes.find(iter.first) == cluster_metadata->partition_leader_nodes.end())
+							continue;
+
+						if (cluster_metadata->owned_partitions.find(iter.first) == cluster_metadata->owned_partitions.end())
+							continue;
+
+						auto queue_leaders = cluster_metadata->partition_leader_nodes[iter.first];
+						auto partition_owners = cluster_metadata->owned_partitions[iter.first];
+
+						if (queue_leaders == nullptr || partition_owners == nullptr) continue;
+
+						for (auto& iter2 : *(queue_leaders.get()))
+							if (
+								iter2.second == this->settings->get_node_id()
+								&& partition_owners.get()->find(iter2.first) != partition_owners.get()->end()
+								&& (*(partition_owners.get()))[iter2.first].get()->size() > 1
+							) for (int follower_id : *((*(partition_owners.get()))[iter2.first].get())) {
+								// TODO: If follower is already lagging skip
+								
+								auto node_follow_partitions = follower_nodes_to_check[follower_id];
+
+								if (node_follow_partitions == nullptr) {
+									node_follow_partitions = std::make_shared<std::vector<std::tuple<std::string, int>>>();
+									follower_nodes_to_check[follower_id] = node_follow_partitions;
+								}
+
+								node_follow_partitions.get()->emplace_back(iter.first, iter2.first);
+							}
+					}
+			}
+
+			if (follower_nodes_to_check.size() == 0) {
+				add_lagging_follower_res = nullptr;
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_lag_followers_check_ms()));
+				continue;
+			}
+
+			if (leader_id == this->settings->get_node_id()) {
+				// TODO: Call controller method here
+
+				int new_leader_id = this->controller->get_leader_id();
+
+				if (new_leader_id != leader_id) {
+					leader_id = new_leader_id;
+					pool = nullptr;
+					add_lagging_follower_res = nullptr;
+				}
+
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_lag_followers_check_ms()));
+				continue;
+			}
+
+			std::shared_lock<std::shared_mutex> followers_lock(this->follower_heartbeats_mut);
+
+			for (auto& iter : follower_nodes_to_check) {
+				if (iter.second == nullptr) continue;
+
+				for (auto& iter2 : *(iter.second.get())) {
+					std::string queue_name = std::get<0>(iter2);
+					int partition = std::get<1>(iter2);
+
+					std::string key = this->get_follower_heartbeat_key(queue_name, partition, iter.first);
+
+					if (this->follower_heartbeats.find(key) == this->follower_heartbeats.end()) continue;
+
+					if (!this->util->has_timeframe_expired(this->follower_heartbeats[key].count(), this->settings->get_lag_time_ms()))
+						continue;
+
+					std::unique_ptr<AddLaggingFollowerRequest> req = std::make_unique<AddLaggingFollowerRequest>();
+					req.get()->queue_name = (char*)queue_name.c_str();
+					req.get()->queue_name_length = queue_name.size();
+					req.get()->partition = partition;
+					req.get()->node_id = iter.first;
+
+					std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
+
+					auto res = this->cm->send_request_to_socket(
+						pool.get(),
+						3,
+						std::get<1>(buf_tup).get(),
+						std::get<0>(buf_tup),
+						"AddLaggingFollower"
+					);
+
+					if (std::get<1>(res) == -1 && std::get<2>(res)) {
+						this->logger->log_error("Network issue occured while trying to send add lagging follower request to leader node");
+					}
+					else if (std::get<1>(res) == -1 && !std::get<2>(res)) {
+						this->logger->log_error("Error occured while trying to send add lagging follower request to leader node");
+					}
+					else add_lagging_follower_res = this->response_mapper->to_add_lagging_follower_response(
+						std::get<0>(res).get(),
+						std::get<1>(res)
+					);
+				}
+			}
 		}
 		catch (const std::exception& ex)
 		{
@@ -508,4 +649,14 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 		&res->commited_offset,
 		true
 	);
+}
+
+void DataNode::update_follower_heartbeat(const std::string& queue_name, int partition, int node_id) {
+	std::lock_guard<std::shared_mutex> lock(this->follower_heartbeats_mut);
+
+	this->follower_heartbeats[this->get_follower_heartbeat_key(queue_name, partition, node_id)] = this->util->get_current_time_milli();
+}
+
+std::string DataNode::get_follower_heartbeat_key(const std::string& queue_name, int partition, int node_id) {
+	return queue_name + "_" + std::to_string(partition) + "_" + std::to_string(node_id);
 }

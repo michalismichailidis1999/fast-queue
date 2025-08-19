@@ -6,8 +6,10 @@
 #include <unordered_set>
 #include <tuple>
 #include <mutex>
+#include <string>
 #include "./Controller.h"
 #include "../network_management/ConnectionsManager.h"
+#include "../queue_management/QueueMetadata.h"
 #include "../queue_management/QueueManager.h"
 #include "../queue_management/Queue.h"
 #include "../queue_management/Partition.h"
@@ -53,7 +55,12 @@ private:
 	std::unordered_set<unsigned long long> expired_consumers;
 	std::mutex consumers_mut;
 
+	std::unordered_map<std::string, std::chrono::milliseconds> follower_heartbeats;
+	std::shared_mutex follower_heartbeats_mut;
+
 	void handle_fetch_messages_res(Partition* partition, FetchMessagesResponse* res);
+
+	std::string get_follower_heartbeat_key(const std::string& queue_name, int partition, int node_id);
 public:
 	DataNode(Controller* controller, ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, FileHandler* fh, Settings* settings, Logger* logger);
 
@@ -70,4 +77,6 @@ public:
 	void fetch_data_from_partition_leaders(std::atomic_bool* should_terminate);
 
 	void check_for_lagging_followers(std::atomic_bool* should_terminate);
+
+	void update_follower_heartbeat(const std::string& queue_name, int partition, int node_id);
 };
