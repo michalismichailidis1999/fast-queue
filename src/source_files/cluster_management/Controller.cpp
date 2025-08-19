@@ -1277,7 +1277,7 @@ std::shared_ptr<AppendEntriesRequest> Controller::get_cluster_metadata_updates(G
 		if (request->is_first_request && prev_log_index > request->prev_log_index) {
 			prev_log_index = request->prev_log_index;
 
-			if (prev_log_index == 0) 
+			if (prev_log_index == 0)
 				this->follower_indexes[request->node_id] = std::tuple<unsigned long long, unsigned long long>(0, 0);
 			else {
 				auto messages_res = this->mh->read_partition_messages(

@@ -189,18 +189,18 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 
 				if (append_entries_req == nullptr) goto end;
 
-				append_entries_res = this->controller->handle_leader_append_entries(append_entries_req.get(), true);
-
-				index_matched = append_entries_res.get()->log_matched;
-				is_first_request = false;
-
 				if (leader_id != append_entries_req.get()->leader_id) {
 					index_matched = true;
 					leader_id = append_entries_req.get()->leader_id;
 					pool = nullptr;
 					is_first_request = true;
+					goto end;
 				}
 
+				append_entries_res = this->controller->handle_leader_append_entries(append_entries_req.get(), true);
+
+				index_matched = append_entries_res.get()->log_matched;
+				is_first_request = false;
 			end: {}
 			}
 		}
