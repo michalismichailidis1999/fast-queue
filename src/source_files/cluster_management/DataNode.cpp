@@ -3,6 +3,7 @@
 DataNode::DataNode(Controller* controller, ConnectionsManager* cm, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
 	this->controller = controller;
 	this->cm = cm;
+	this->request_mapper = request_mapper;
 	this->response_mapper = response_mapper;
 	this->transformer = transformer;
 	this->util = util;
