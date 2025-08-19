@@ -177,3 +177,32 @@ std::unique_ptr<RemoveLaggingFollowerResponse> ResponseMapper::to_remove_lagging
 
 	return res;
 }
+
+std::unique_ptr<FetchMessagesResponse> ResponseMapper::to_fetch_messages_response(char* res_buf, long res_buf_len) {
+	long offset = sizeof(ErrorCode); // skip error code
+
+	std::unique_ptr<FetchMessagesResponse> res = std::make_unique<FetchMessagesResponse>();
+
+	while (offset < res_buf_len) {
+		ResponseValueKey* key = (ResponseValueKey*)(res_buf + offset);
+
+		if (*key == ResponseValueKey::MESSAGES) {
+			res.get()->total_messages = *(int*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else if (*key == ResponseValueKey::FIRST_MESSAGE_OFFSET) {
+			res.get()->first_message_offset = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == ResponseValueKey::COMMITED_OFFSET) {
+			res.get()->commited_offset = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else {
+			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type FetchMessagesResponse");
+			return nullptr;
+		}
+	}
+
+	return res;
+}

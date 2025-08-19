@@ -96,4 +96,5 @@ public:
 	unsigned long long get_queue_partition_leader_id(const std::string& queue_name, int partition);
 
 	friend class Controller;
+	friend class DataNode;
 };

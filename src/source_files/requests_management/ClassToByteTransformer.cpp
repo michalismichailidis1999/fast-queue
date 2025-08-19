@@ -853,3 +853,98 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(FetchMessagesRequest* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + 4 * sizeof(RequestValueKey) + 3 * sizeof(int) + sizeof(unsigned long long) + obj->queue_name_length;
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	RequestType req_type = RequestType::FETCH_MESSAGES;
+
+	RequestValueKey queue_name_type = RequestValueKey::QUEUE_NAME;
+	RequestValueKey partition_type = RequestValueKey::PARTITION;
+	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
+	RequestValueKey message_offset_type = RequestValueKey::MESSAGE_OFFSET;
+
+	int offset = 0;
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
+	offset += sizeof(RequestType);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &queue_name_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->queue_name_length, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, obj->queue_name_length, &obj->queue_name, obj->queue_name_length);
+	offset += obj->queue_name_length;
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &partition_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->partition, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &node_id_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->node_id, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &message_offset_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->message_offset, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(FetchMessagesResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(int) + 2 * sizeof(unsigned long long) + obj->messages_total_bytes + 3 * sizeof(ResponseValueKey);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+
+	ResponseValueKey first_message_offset_type = ResponseValueKey::FIRST_MESSAGE_OFFSET;
+	ResponseValueKey commited_offset_type = ResponseValueKey::COMMITED_OFFSET;
+	ResponseValueKey messages_type = ResponseValueKey::MESSAGES;
+
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
+	offset += sizeof(ErrorCode);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &first_message_offset_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->first_message_offset, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &commited_offset_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->commited_offset, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &messages_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->total_messages, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->messages_total_bytes, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, obj->messages_total_bytes, obj->messages_data, obj->messages_total_bytes);
+	offset += obj->messages_total_bytes;
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}

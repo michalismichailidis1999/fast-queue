@@ -43,6 +43,14 @@ struct RemoveLaggingFollowerResponse {
 	int leader_id;
 };
 
+struct FetchMessagesResponse {
+	int total_messages;
+	int messages_total_bytes;
+	void* messages_data;
+	unsigned long long first_message_offset;
+	unsigned long long commited_offset;
+};
+
 // =======================================================
 
 // External Responses

@@ -284,6 +284,14 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 
 			if (leader_id == this->settings->get_node_id()) {
 				this->controller->handle_consumers_expiration(req.get());
+
+				int new_leader_id = this->controller->get_leader_id();
+
+				if (new_leader_id != leader_id) {
+					leader_id = new_leader_id;
+					pool = nullptr;
+				}
+
 				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
 				continue;
 			}
@@ -315,6 +323,62 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_dead_consumer_check_ms()));
+	}
+}
+
+void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_terminate) {
+	std::vector<std::tuple<std::string, int>> queues_partitions_to_fetch_from;
+
+	while (!should_terminate->load()) {
+		try
+		{
+			queues_partitions_to_fetch_from.clear();
+			
+			{
+				ClusterMetadata* cluster_metadata = this->controller->get_cluster_metadata();
+
+				std::shared_lock<std::shared_mutex> lock(*(cluster_metadata->get_partitions_mut()));
+
+				if (cluster_metadata->nodes_partitions.find(this->settings->get_node_id()) != cluster_metadata->nodes_partitions.end())
+					for (auto& iter : *(cluster_metadata->nodes_partitions[this->settings->get_node_id()].get())) {
+						if (cluster_metadata->partition_leader_nodes.find(iter.first) == cluster_metadata->partition_leader_nodes.end())
+							continue;
+
+						auto queue_leaders = cluster_metadata->partition_leader_nodes[iter.first];
+
+						for (auto& iter2 : *(queue_leaders.get()))
+							if (iter2.second != this->settings->get_node_id())
+								queues_partitions_to_fetch_from.emplace_back(iter.first, iter2.first);
+					}
+			}
+
+			for (auto& fetch_from : queues_partitions_to_fetch_from) {
+
+			}
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while fetching data from partition leaders. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_fetch_from_leader_ms()));
+	}
+}
+
+void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
+	while (!should_terminate->load()) {
+		try
+		{
+			// TODO: Finish this logic
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while checking for lagging followers. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_lag_followers_check_ms()));
 	}
 }
 

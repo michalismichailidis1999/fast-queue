@@ -25,4 +25,6 @@ public:
 	std::unique_ptr<AddLaggingFollowerResponse> to_add_lagging_follower_response(char* res_buf, long res_buf_len);
 
 	std::unique_ptr<RemoveLaggingFollowerResponse> to_remove_lagging_follower_response(char* res_buf, long res_buf_len);
+
+	std::unique_ptr<FetchMessagesResponse> to_fetch_messages_response(char* res_buf, long res_buf_len);
 };

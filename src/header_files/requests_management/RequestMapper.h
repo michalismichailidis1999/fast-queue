@@ -28,6 +28,8 @@ public:
 
 	std::unique_ptr<RemoveLaggingFollowerRequest> to_remove_lagging_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<FetchMessagesRequest> to_fetch_messages_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 
 	// External Requests

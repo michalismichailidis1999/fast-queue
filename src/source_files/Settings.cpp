@@ -2,6 +2,10 @@
 #include "../header_files/network_management/Connection.h"
 
 Settings::Settings(char* conf, long total_conf_chars) {
+	this->node_id = 0;
+
+	this->set_default_values();
+
 	int equals_pos = -1;
 	int var_start_pos = 0;
 
@@ -33,6 +37,15 @@ Settings::Settings(char* conf, long total_conf_chars) {
 		throw std::runtime_error(err_msg.c_str());
 	}
 
+	if (this->log_path == "")
+		throw std::runtime_error("log_path is required in configuration");
+
+	if (this->trace_log_path == "")
+		throw std::runtime_error("trace_log_path is required in configuration");
+
+	if (this->node_id == 0)
+		throw std::runtime_error("node_id must be greater than 0");
+
 	this->is_controller_node = false;
 
 	for(auto& controller_tup : this->controller_nodes)
@@ -40,6 +53,30 @@ Settings::Settings(char* conf, long total_conf_chars) {
 			this->is_controller_node = true;
 			break;
 		}
+}
+
+void Settings::set_default_values() {
+	this->max_message_size = 2048000;
+	this->segment_size = 1073741824;
+	this->index_message_gap_size = 2000;
+	this->flush_to_disk_after_ms = 5000;
+	this->max_cached_memory = 33554432;
+	this->request_parallelism = 2;
+	this->request_polling_interval_ms = 1000;
+	this->maximum_connections = 1000;
+	this->idle_connection_check_ms = 5000;
+	this->idle_connection_timeout_ms = 240000;
+	this->retention_ms = 604800000;
+	this->retention_worker_wait_ms = 10000;
+	this->dead_data_node_check_ms = 5000;
+	this->data_node_expire_ms = 30000;
+	this->heartbeat_to_leader_ms = 1000;
+	this->cluster_update_receive_ms = 3000;
+	this->dead_consumer_check_ms = 5000;
+	this->dead_consumer_expire_ms = 30000;
+	this->fetch_from_leader_ms = 1000;
+	this->lag_time_ms = 5000;
+	this->lag_followers_check_ms = 3000;
 }
 
 void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_pos, int equal_pos) {
@@ -74,6 +111,9 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "cluster_update_receive_ms"
 			|| lhs == "dead_consumer_check_ms"
 			|| lhs == "dead_consumer_expire_ms"
+			|| lhs == "fetch_from_leader_ms"
+			|| lhs == "lag_time_ms"
+			|| lhs == "lag_followers_check_ms"
 		) {
 			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
@@ -93,7 +133,10 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 				: lhs == "heartbeat_to_leader_ms" ? &this->heartbeat_to_leader_ms
 				: lhs == "cluster_update_receive_ms" ? &this->cluster_update_receive_ms
 				: lhs == "dead_consumer_check_ms" ? &this->dead_consumer_check_ms
-				: &this->dead_consumer_expire_ms;
+				: lhs == "dead_consumer_expire_ms" ? &this->dead_consumer_expire_ms
+				: lhs == "fetch_from_leader_ms" ? &this->fetch_from_leader_ms
+				: lhs == "lag_time_ms" ? &this->lag_time_ms
+				: &this->lag_followers_check_ms;
 
 			*(val) = rhs_size > 0 ? std::atoi(rhs.c_str()) : 0;
 		}
@@ -317,6 +360,21 @@ unsigned int Settings::get_dead_consumer_check_ms() {
 unsigned int Settings::get_dead_consumer_expire_ms() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->dead_consumer_expire_ms;
+}
+
+unsigned int Settings::get_fetch_from_leader_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->fetch_from_leader_ms;
+}
+
+unsigned int Settings::get_lag_time_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->lag_time_ms;
+}
+
+unsigned int Settings::get_lag_followers_check_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->lag_followers_check_ms;
 }
 
 const std::string& Settings::get_log_path() {

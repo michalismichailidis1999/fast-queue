@@ -70,6 +70,14 @@ struct RemoveLaggingFollowerRequest {
 	int node_id;
 };
 
+struct FetchMessagesRequest {
+	int queue_name_length;
+	char* queue_name;
+	int partition;
+	int node_id;
+	unsigned long long message_offset;
+};
+
 // ======================================================================
 
 // External Requests

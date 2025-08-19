@@ -46,6 +46,10 @@ private:
 	unsigned int dead_consumer_check_ms;
 	unsigned int dead_consumer_expire_ms;
 
+	unsigned int fetch_from_leader_ms;
+	unsigned int lag_time_ms;
+	unsigned int lag_followers_check_ms;
+
 	std::string log_path;
 	std::string trace_log_path;
 	// -------------------------------------------
@@ -82,6 +86,7 @@ private:
 
 	std::shared_mutex mut;
 
+	void set_default_values();
 	void set_settings_variable(char* conf, int var_start_pos, int var_end_pos, int equal_pos);
 public:
 	Settings(char* conf, long total_conf_chars);
@@ -113,6 +118,10 @@ public:
 
 	unsigned int get_dead_consumer_check_ms();
 	unsigned int get_dead_consumer_expire_ms();
+
+	unsigned int get_fetch_from_leader_ms();
+	unsigned int get_lag_time_ms();
+	unsigned int get_lag_followers_check_ms();
 
 	const std::string& get_log_path();
 	const std::string& get_trace_log_path();

@@ -1575,7 +1575,7 @@ unsigned long long Controller::get_last_registered_consumer_id() {
 }
 
 void Controller::handle_consumers_expiration(ExpireConsumersRequest* request) {
-	if (request->expired_consumers->size() == 0) return;
+	if (request->expired_consumers->size() == 0 || this->get_state() != NodeState::LEADER) return;
 
 	std::unique_lock<std::shared_mutex> lock(this->future_cluster_metadata->consumers_mut);
 

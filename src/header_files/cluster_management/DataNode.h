@@ -54,4 +54,8 @@ public:
 	bool has_consumer_expired(unsigned long long consumer_id);
 
 	void check_for_dead_consumer(std::atomic_bool* should_terminate);
+
+	void fetch_data_from_partition_leaders(std::atomic_bool* should_terminate);
+
+	void check_for_lagging_followers(std::atomic_bool* should_terminate);
 };

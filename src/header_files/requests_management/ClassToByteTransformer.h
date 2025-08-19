@@ -26,6 +26,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(AddLaggingFollowerRequest* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(RemoveLaggingFollowerRequest* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(FetchMessagesRequest* obj);
     // ------------------
 
     // Responses
@@ -38,6 +40,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(DataNodeHeartbeatResponse* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(ExpireConsumersResponse* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(FetchMessagesResponse* obj);
     // --
 
     // -- External

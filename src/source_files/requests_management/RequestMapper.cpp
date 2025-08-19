@@ -619,3 +619,39 @@ std::unique_ptr<RemoveLaggingFollowerRequest> RequestMapper::to_remove_lagging_r
 
 	return req;
 }
+
+std::unique_ptr<FetchMessagesRequest> RequestMapper::to_fetch_messages_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<FetchMessagesRequest> req = std::make_unique<FetchMessagesRequest>();
+
+	req.get()->queue_name_length = 0;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::QUEUE_NAME) {
+			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
+		}
+		else if (*key == RequestValueKey::PARTITION) {
+			req.get()->partition = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else if (*key == RequestValueKey::NODE_ID) {
+			req.get()->node_id = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else if (*key == RequestValueKey::MESSAGE_OFFSET) {
+			req.get()->message_offset = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type FetchMessagesRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}
