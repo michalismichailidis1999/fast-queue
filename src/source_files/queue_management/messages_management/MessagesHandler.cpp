@@ -50,6 +50,8 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 		offset += MESSAGE_TOTAL_BYTES + message_key_size + message_size;
 	}
 
+	partition->set_last_message_leader_epoch(leader_id);
+
 	bool success = this->save_messages(partition, messages_data.get(), total_messages_bytes, nullptr, cache_messages);
 
 	if (success && !has_replication)

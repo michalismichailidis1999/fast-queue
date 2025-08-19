@@ -465,7 +465,7 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 			return;
 		}
 
-		auto messages_res = this->mh->read_partition_messages(partition, first_message_offset - 1);
+		auto messages_res = this->mh->read_partition_messages(partition, first_message_offset - 1, 1, true);
 
 		if (std::get<4>(messages_res) != 1) {
 			this->logger->log_error("Something went wrong while trying to fix follower messages offset to match the partition leader");
