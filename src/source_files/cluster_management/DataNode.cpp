@@ -432,22 +432,6 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 		{
 			follower_nodes_to_check.clear();
 
-			pool = leader_id != this->settings->get_node_id() && pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
-
-			if (leader_id != this->settings->get_node_id() && pool == nullptr) {
-				this->logger->log_error("Something went wrong while checking for lagging followers. Could not retrieve leader connection pool for cluster metadata updates fetching");
-				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_lag_followers_check_ms()));
-				continue;
-			}
-
-			if (add_lagging_follower_res != nullptr && add_lagging_follower_res.get()->leader_id > 0 && add_lagging_follower_res.get()->leader_id != leader_id) {
-				pool = nullptr;
-				leader_id = add_lagging_follower_res.get()->leader_id;
-				add_lagging_follower_res = nullptr;
-				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_lag_followers_check_ms()));
-				continue;
-			}
-
 			{
 				ClusterMetadata* cluster_metadata = this->controller->get_cluster_metadata();
 
@@ -476,7 +460,8 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 								&& partition_owners.get()->find(iter2.first) != partition_owners.get()->end()
 								&& (*(partition_owners.get()))[iter2.first].get()->size() > 1
 							) for (int follower_id : *((*(partition_owners.get()))[iter2.first].get())) {
-								// TODO: If follower is already lagging skip
+								if (cluster_metadata->is_follower_lagging(iter.first, iter2.first, follower_id))
+									continue;
 								
 								auto node_follow_partitions = follower_nodes_to_check[follower_id];
 
@@ -496,17 +481,12 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 				continue;
 			}
 
-			if (leader_id == this->settings->get_node_id()) {
-				// TODO: Call controller method here
+			leader_id == this->controller->get_leader_id();
 
-				int new_leader_id = this->controller->get_leader_id();
+			pool = leader_id != this->settings->get_node_id() && pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
 
-				if (new_leader_id != leader_id) {
-					leader_id = new_leader_id;
-					pool = nullptr;
-					add_lagging_follower_res = nullptr;
-				}
-
+			if (leader_id != this->settings->get_node_id() && pool == nullptr) {
+				this->logger->log_error("Something went wrong while checking for lagging followers. Could not retrieve leader connection pool for cluster metadata updates fetching");
 				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_lag_followers_check_ms()));
 				continue;
 			}
@@ -515,6 +495,8 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 
 			for (auto& iter : follower_nodes_to_check) {
 				if (iter.second == nullptr) continue;
+
+				if (leader_id != this->settings->get_node_id() && pool == nullptr) continue;
 
 				for (auto& iter2 : *(iter.second.get())) {
 					std::string queue_name = std::get<0>(iter2);
@@ -526,6 +508,14 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 
 					if (!this->util->has_timeframe_expired(this->follower_heartbeats[key].count(), this->settings->get_lag_time_ms()))
 						continue;
+
+					if (leader_id == this->settings->get_node_id()) {
+						// TODO: Call controller method here
+
+						add_lagging_follower_res = nullptr;
+
+						continue;
+					}
 
 					std::unique_ptr<AddLaggingFollowerRequest> req = std::make_unique<AddLaggingFollowerRequest>();
 					req.get()->queue_name = (char*)queue_name.c_str();
@@ -549,10 +539,19 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 					else if (std::get<1>(res) == -1 && !std::get<2>(res)) {
 						this->logger->log_error("Error occured while trying to send add lagging follower request to leader node");
 					}
-					else add_lagging_follower_res = this->response_mapper->to_add_lagging_follower_response(
-						std::get<0>(res).get(),
-						std::get<1>(res)
-					);
+					else {
+						add_lagging_follower_res = this->response_mapper->to_add_lagging_follower_response(
+							std::get<0>(res).get(),
+							std::get<1>(res)
+						);
+
+						if (add_lagging_follower_res.get()->leader_id != leader_id) {
+							leader_id = add_lagging_follower_res.get()->leader_id;
+							pool = nullptr;
+							add_lagging_follower_res = nullptr;
+							break;
+						}
+					}
 				}
 			}
 		}
@@ -567,6 +566,8 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 }
 
 std::shared_ptr<ConnectionPool> DataNode::get_leader_connection_pool(int leader_id) {
+	if (leader_id == this->settings->get_node_id()) return nullptr;
+
 	std::shared_lock<std::shared_mutex> lock(*(this->cm->get_controller_node_connections_mut()));
 
 	std::map<int, std::shared_ptr<ConnectionPool>>* controller_node_connections = this->cm->get_controller_node_connections();
@@ -577,8 +578,6 @@ std::shared_ptr<ConnectionPool> DataNode::get_leader_connection_pool(int leader_
 }
 
 void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResponse* res) {
-	if (res->total_messages == 0) return;
-
 	unsigned long long first_message_offset = 0;
 	unsigned long long first_message_leader_epoch = 0;
 	unsigned long long last_message_offset = 0;
@@ -642,9 +641,13 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 		return;
 	}
 
-	this->mh->save_messages(partition, res->messages_data, res->total_messages, nullptr, true);
+	if(res->total_messages > 0)
+		this->mh->save_messages(partition, res->messages_data, res->total_messages, nullptr, true);
 
 	partition->set_last_replicated_offset(res->commited_offset);
+
+	if (res->total_messages == 0) return;
+
 	partition->set_last_message_offset(last_message_offset);
 	partition->set_last_message_leader_epoch(last_message_leader_epoch);
 

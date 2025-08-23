@@ -1,12 +1,13 @@
 #include "../../header_files/requests_management/InternalRequestExecutor.h"
 
 
-InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer) {
+InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer) {
 	this->settings = settings;
 	this->logger = logger;
 	this->cm = cm;
 	this->fh = fh;
 	this->controller = controller;
+	this->data_node = data_node;
 	this->qm = qm;
 	this->mh = mh;
 	this->transformer = transformer;
@@ -136,6 +137,8 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Only partition followers can fetch data from partition");
 		return;
 	}
+
+	this->data_node->update_follower_heartbeat(queue_name, request->partition, request->node_id);
 
 	std::unique_ptr<FetchMessagesResponse> res = std::make_unique<FetchMessagesResponse>();
 	res.get()->total_messages = 0;

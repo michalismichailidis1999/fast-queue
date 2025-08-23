@@ -499,6 +499,22 @@ bool ClusterMetadata::is_node_partition_owner(const std::string& queue, int part
 	return partition_nodes.get()->find(node_id) != partition_nodes.get()->end();
 }
 
+bool ClusterMetadata::is_follower_lagging(const std::string& queue, int partition, int follower_id) {
+	if (this->lagging_followers.find(queue) == this->lagging_followers.end()) return false;
+
+	auto queue_partition_lag_followers = this->lagging_followers[queue];
+
+	if (queue_partition_lag_followers == nullptr) return false;
+
+	if (queue_partition_lag_followers.get()->find(partition) == queue_partition_lag_followers.get()->end()) return false;
+
+	auto partition_lag_followers = (*(queue_partition_lag_followers.get()))[partition];
+
+	if (partition_lag_followers == nullptr) return false;
+
+	return partition_lag_followers.get()->find(follower_id) != partition_lag_followers.get()->end();
+}
+
 std::shared_mutex* ClusterMetadata::get_partitions_mut() {
 	return &this->nodes_partitions_mut;
 }

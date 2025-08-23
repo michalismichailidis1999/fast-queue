@@ -66,6 +66,8 @@ private:
 	void apply_register_consuer_group_command(RegisterConsumerGroupCommand* command);
 	void apply_unregister_consuer_group_command(UnregisterConsumerGroupCommand* command);
 
+	bool is_follower_lagging(const std::string& queue, int partition, int follower_id);
+
 public:
 	ClusterMetadata();
 	ClusterMetadata(void* metadata);

@@ -7,6 +7,7 @@
 #include "../network_management/Connection.h"
 #include "../file_management/FileHandler.h"
 #include "../cluster_management/Controller.h"
+#include "../cluster_management/DataNode.h"
 #include "../queue_management/QueueManager.h"
 #include "../queue_management/messages_management/MessagesHandler.h"
 #include "./ClassToByteTransformer.h"
@@ -21,12 +22,13 @@ private:
 	ConnectionsManager* cm;
 	FileHandler* fh;
 	Controller* controller;
+	DataNode* data_node;
 	QueueManager* qm;
 	MessagesHandler* mh;
 	ClassToByteTransformer* transformer;
 
 public:
-	InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer);
+	InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer);
 
 	void handle_append_entries_request(SOCKET_ID socket, SSL* ssl, AppendEntriesRequest* request);
 
