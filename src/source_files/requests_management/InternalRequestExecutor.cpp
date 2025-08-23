@@ -181,3 +181,37 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
+
+void InternalRequestExecutor::handle_add_lagging_follower_request(SOCKET_ID socket, SSL* ssl, AddLaggingFollowerRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Lag follower addition can only be handled by a controller node");
+		return;
+	}
+
+	std::unique_ptr<AddLaggingFollowerResponse> res = std::make_unique<AddLaggingFollowerResponse>();
+	res.get()->leader_id = this->controller->get_leader_id();
+	res.get()->ok = res.get()->leader_id == this->settings->get_node_id();
+
+	if (res.get()->ok) this->controller->add_lagging_follower(request);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
+
+void InternalRequestExecutor::handle_remove_lagging_follower_request(SOCKET_ID socket, SSL* ssl, RemoveLaggingFollowerRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Lag follower removal can only be handled by a controller node");
+		return;
+	}
+
+	std::unique_ptr<RemoveLaggingFollowerResponse> res = std::make_unique<RemoveLaggingFollowerResponse>();
+	res.get()->leader_id = this->controller->get_leader_id();
+	res.get()->ok = res.get()->leader_id == this->settings->get_node_id();
+
+	if (res.get()->ok) this->controller->remove_lagging_follower(request);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}

@@ -284,6 +284,26 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
+		case RequestType::ADD_LAGGING_FOLLOWER:
+		{
+			this->logger->log_info("Received and executing request type of ADD_LAGGING_FOLLOWER");
+
+			std::unique_ptr<AddLaggingFollowerRequest> request = this->mapper->to_add_lagging_request(recvbuf.get(), res_buffer_length);
+
+			this->internal_request_executor->handle_add_lagging_follower_request(socket, ssl, request.get());
+
+			break;
+		}
+		case RequestType::REMOVE_LAGGING_FOLLOWER:
+		{
+			this->logger->log_info("Received and executing request type of REMOVE_LAGGING_FOLLOWER");
+
+			std::unique_ptr<RemoveLaggingFollowerRequest> request = this->mapper->to_remove_lagging_request(recvbuf.get(), res_buffer_length);
+
+			this->internal_request_executor->handle_remove_lagging_follower_request(socket, ssl, request.get());
+
+			break;
+		}
 		default:
 			this->logger->log_error("Received invalid request type " + std::to_string((int)recvbuf.get()[0]));
 

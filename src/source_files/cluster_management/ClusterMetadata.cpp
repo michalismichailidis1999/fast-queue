@@ -537,3 +537,8 @@ unsigned long long ClusterMetadata::get_queue_partition_leader_id(const std::str
 
 	return (*(queue_partitions_lead_ids.get()))[partition];
 }
+
+bool ClusterMetadata::check_if_follower_is_lagging(const std::string& queue, int partition, int follower_id) {
+	std::shared_lock<std::shared_mutex> lock(this->nodes_partitions_mut);
+	return this->is_follower_lagging(queue, partition, follower_id);
+}

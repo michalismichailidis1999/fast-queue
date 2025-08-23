@@ -41,4 +41,8 @@ public:
 	void handle_expire_consumers_request(SOCKET_ID socket, SSL* ssl, ExpireConsumersRequest* request);
 
 	void handle_fetch_messages_request(SOCKET_ID socket, SSL* ssl, FetchMessagesRequest* request);
+
+	void handle_add_lagging_follower_request(SOCKET_ID socket, SSL* ssl, AddLaggingFollowerRequest* request);
+
+	void handle_remove_lagging_follower_request(SOCKET_ID socket, SSL* ssl, RemoveLaggingFollowerRequest* request);
 };
