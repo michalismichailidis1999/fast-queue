@@ -157,4 +157,8 @@ public:
 	unsigned long long get_last_registered_consumer_id();
 
 	void handle_consumers_expiration(ExpireConsumersRequest* request);
+
+	void add_lagging_follower(AddLaggingFollowerRequest* request);
+
+	void remove_lagging_follower(RemoveLaggingFollowerRequest* request);
 };

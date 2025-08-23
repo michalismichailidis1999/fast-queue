@@ -661,3 +661,105 @@ std::string UnregisterConsumerGroupCommand::get_command_key() {
 }
 
 // ================================================================
+
+// Add Lagging Follower Command
+
+AddLaggingFollowerCommand::AddLaggingFollowerCommand(const std::string& queue_name, int partition_id, int node_id) {
+	this->queue_name = queue_name;
+	this->partition_id = partition_id;
+	this->node_id = node_id;
+}
+
+AddLaggingFollowerCommand::AddLaggingFollowerCommand(void* metadata) {
+	int queue_name_length = 0;
+
+	memcpy_s(&queue_name_length, ALF_COMMAND_QUEUE_NAME_LENGTH_SIZE, (char*)metadata + ALF_COMMAND_QUEUE_NAME_LENGTH_OFFSET, ALF_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+
+	this->queue_name = std::string((char*)metadata + ALF_COMMAND_QUEUE_NAME_OFFSET, queue_name_length);
+
+	memcpy_s(&this->partition_id, ALF_COMMAND_PARTITION_ID_SIZE, (char*)metadata + ALF_COMMAND_PARTITION_ID_OFFSET, ALF_COMMAND_PARTITION_ID_SIZE);
+	memcpy_s(&this->node_id, ALF_COMMAND_NODE_ID_SIZE, (char*)metadata + ALF_COMMAND_NODE_ID_OFFSET, ALF_COMMAND_NODE_ID_SIZE);
+}
+
+const std::string& AddLaggingFollowerCommand::get_queue_name() {
+	return this->queue_name;
+}
+
+int AddLaggingFollowerCommand::get_partition_id() {
+	return this->partition_id;
+}
+
+int AddLaggingFollowerCommand::get_node_id() {
+	return this->node_id;
+}
+
+std::shared_ptr<char> AddLaggingFollowerCommand::get_metadata_bytes() {
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[ALF_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
+
+	int queue_name_length = this->queue_name.size();
+
+	memcpy_s(bytes.get() + ALF_COMMAND_QUEUE_NAME_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, ALF_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_length, ALF_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(bytes.get() + ALF_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_length, this->queue_name.c_str(), queue_name_length);
+
+	memcpy_s(bytes.get() + ALF_COMMAND_PARTITION_ID_OFFSET - COMMAND_TOTAL_BYTES, ALF_COMMAND_PARTITION_ID_SIZE, &this->partition_id, ALF_COMMAND_PARTITION_ID_SIZE);
+	memcpy_s(bytes.get() + ALF_COMMAND_NODE_ID_OFFSET - COMMAND_TOTAL_BYTES, ALF_COMMAND_NODE_ID_SIZE, &this->node_id, ALF_COMMAND_NODE_ID_SIZE);
+
+	return bytes;
+}
+
+std::string AddLaggingFollowerCommand::get_command_key() {
+	return "alf_" + this->queue_name + "_p_" + std::to_string(this->partition_id) + "_n_" + std::to_string(this->node_id);
+}
+
+// ================================================================
+
+// Remove Lagging Follower Command
+
+RemoveLaggingFollowerCommand::RemoveLaggingFollowerCommand(const std::string& queue_name, int partition_id, int node_id) {
+	this->queue_name = queue_name;
+	this->partition_id = partition_id;
+	this->node_id = node_id;
+}
+
+RemoveLaggingFollowerCommand::RemoveLaggingFollowerCommand(void* metadata) {
+	int queue_name_length = 0;
+
+	memcpy_s(&queue_name_length, RLF_COMMAND_QUEUE_NAME_LENGTH_SIZE, (char*)metadata + RLF_COMMAND_QUEUE_NAME_LENGTH_OFFSET, RLF_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+
+	this->queue_name = std::string((char*)metadata + RLF_COMMAND_QUEUE_NAME_OFFSET, queue_name_length);
+
+	memcpy_s(&this->partition_id, RLF_COMMAND_PARTITION_ID_SIZE, (char*)metadata + RLF_COMMAND_PARTITION_ID_OFFSET, RLF_COMMAND_PARTITION_ID_SIZE);
+	memcpy_s(&this->node_id, RLF_COMMAND_NODE_ID_SIZE, (char*)metadata + RLF_COMMAND_NODE_ID_OFFSET, RLF_COMMAND_NODE_ID_SIZE);
+}
+
+const std::string& RemoveLaggingFollowerCommand::get_queue_name() {
+	return this->queue_name;
+}
+
+int RemoveLaggingFollowerCommand::get_partition_id() {
+	return this->partition_id;
+}
+
+int RemoveLaggingFollowerCommand::get_node_id() {
+	return this->node_id;
+}
+
+std::shared_ptr<char> RemoveLaggingFollowerCommand::get_metadata_bytes() {
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[ALF_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
+
+	int queue_name_length = this->queue_name.size();
+
+	memcpy_s(bytes.get() + RLF_COMMAND_QUEUE_NAME_LENGTH_OFFSET - COMMAND_TOTAL_BYTES, RLF_COMMAND_QUEUE_NAME_LENGTH_SIZE, &queue_name_length, RLF_COMMAND_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(bytes.get() + RLF_COMMAND_QUEUE_NAME_OFFSET - COMMAND_TOTAL_BYTES, queue_name_length, this->queue_name.c_str(), queue_name_length);
+
+	memcpy_s(bytes.get() + RLF_COMMAND_PARTITION_ID_OFFSET - COMMAND_TOTAL_BYTES, RLF_COMMAND_PARTITION_ID_SIZE, &this->partition_id, RLF_COMMAND_PARTITION_ID_SIZE);
+	memcpy_s(bytes.get() + RLF_COMMAND_NODE_ID_OFFSET - COMMAND_TOTAL_BYTES, RLF_COMMAND_NODE_ID_SIZE, &this->node_id, RLF_COMMAND_NODE_ID_SIZE);
+
+	return bytes;
+}
+
+std::string RemoveLaggingFollowerCommand::get_command_key() {
+	return "rlf_" + this->queue_name + "_p_" + std::to_string(this->partition_id) + "_n_" + std::to_string(this->node_id);
+}
+
+// ================================================================

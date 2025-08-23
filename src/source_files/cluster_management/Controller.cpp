@@ -1619,3 +1619,47 @@ void Controller::handle_consumers_expiration(ExpireConsumersRequest* request) {
 
 	this->store_commands(&commands);
 }
+
+void Controller::add_lagging_follower(AddLaggingFollowerRequest* request) {
+	std::unique_lock<std::shared_mutex> lock(this->future_cluster_metadata->nodes_partitions_mut);
+
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	Command command = Command(
+		CommandType::ADD_LAGGING_FOLLOWER,
+		this->term.load(),
+		this->util->get_current_time_milli().count(),
+		std::shared_ptr<AddLaggingFollowerCommand>(
+			new AddLaggingFollowerCommand(queue_name, request->partition, request->node_id)
+		)
+	);
+
+	this->future_cluster_metadata->apply_command(&command, false);
+
+	std::vector<Command> commands = std::vector<Command>(1);
+	commands[0] = command;
+
+	this->store_commands(&commands);
+}
+
+void Controller::remove_lagging_follower(RemoveLaggingFollowerRequest* request) {
+	std::unique_lock<std::shared_mutex> lock(this->future_cluster_metadata->nodes_partitions_mut);
+
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	Command command = Command(
+		CommandType::REMOVE_LAGGING_FOLLOWER,
+		this->term.load(),
+		this->util->get_current_time_milli().count(),
+		std::shared_ptr<RemoveLaggingFollowerCommand>(
+			new RemoveLaggingFollowerCommand(queue_name, request->partition, request->node_id)
+		)
+	);
+
+	this->future_cluster_metadata->apply_command(&command, false);
+
+	std::vector<Command> commands = std::vector<Command>(1);
+	commands[0] = command;
+
+	this->store_commands(&commands);
+}

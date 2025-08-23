@@ -240,3 +240,49 @@ public:
 
 	friend class Command;
 };
+
+class AddLaggingFollowerCommand {
+private:
+	std::string queue_name;
+	int partition_id;
+	int node_id;
+public:
+	AddLaggingFollowerCommand(const std::string& queue_name, int partition_id, int node_id);
+
+	AddLaggingFollowerCommand(void* metadata);
+
+	const std::string& get_queue_name();
+
+	int get_partition_id();
+
+	int get_node_id();
+
+	std::shared_ptr<char> get_metadata_bytes();
+
+	std::string get_command_key();
+
+	friend class Command;
+};
+
+class RemoveLaggingFollowerCommand {
+private:
+	std::string queue_name;
+	int partition_id;
+	int node_id;
+public:
+	RemoveLaggingFollowerCommand(const std::string& queue_name, int partition_id, int node_id);
+
+	RemoveLaggingFollowerCommand(void* metadata);
+
+	const std::string& get_queue_name();
+
+	int get_partition_id();
+
+	int get_node_id();
+
+	std::shared_ptr<char> get_metadata_bytes();
+
+	std::string get_command_key();
+
+	friend class Command;
+};
