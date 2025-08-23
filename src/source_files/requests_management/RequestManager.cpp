@@ -274,6 +274,16 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
+		case RequestType::FETCH_MESSAGES:
+		{
+			this->logger->log_info("Received and executing request type of FETCH_MESSAGES");
+
+			std::unique_ptr<FetchMessagesRequest> request = this->mapper->to_fetch_messages_request(recvbuf.get(), res_buffer_length);
+
+			this->internal_request_executor->handle_fetch_messages_request(socket, ssl, request.get());
+
+			break;
+		}
 		default:
 			this->logger->log_error("Received invalid request type " + std::to_string((int)recvbuf.get()[0]));
 
