@@ -47,8 +47,10 @@ struct FetchMessagesResponse {
 	int total_messages;
 	int messages_total_bytes;
 	void* messages_data;
-	unsigned long long first_message_offset;
+	unsigned long long last_message_offset;
 	unsigned long long commited_offset;
+	unsigned long long prev_message_offset;
+	unsigned long long prev_message_leader_epoch;
 };
 
 // =======================================================

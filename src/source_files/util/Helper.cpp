@@ -67,3 +67,7 @@ bool Helper::is_internal_queue(const std::string& queue_name) {
 unsigned int Helper::abs(int val) {
 	return val < 0 ? val * -1 : val;
 }
+
+unsigned long long Helper::get_min(unsigned long long val1, unsigned long long val2) {
+	return val1 <= val2 ? val1 : val2;
+}

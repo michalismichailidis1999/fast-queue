@@ -905,14 +905,16 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 }
 
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(FetchMessagesResponse* obj) {
-	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(int) + 2 * sizeof(unsigned long long) + obj->messages_total_bytes + 3 * sizeof(ResponseValueKey);
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(int) + 4 * sizeof(unsigned long long) + obj->messages_total_bytes + 3 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
 
-	ResponseValueKey first_message_offset_type = ResponseValueKey::FIRST_MESSAGE_OFFSET;
+	ResponseValueKey last_message_offset_type = ResponseValueKey::LAST_MESSAGE_OFFSET;
+	ResponseValueKey prev_message_offset_type = ResponseValueKey::PREV_MESSAGE_OFFSET;
+	ResponseValueKey prev_message_leader_epoch_type = ResponseValueKey::PREV_MESSAGE_LEADER_EPOCH;
 	ResponseValueKey commited_offset_type = ResponseValueKey::COMMITED_OFFSET;
 	ResponseValueKey messages_type = ResponseValueKey::MESSAGES;
 
@@ -922,10 +924,22 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
 
-	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &first_message_offset_type, sizeof(ResponseValueKey));
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &last_message_offset_type, sizeof(ResponseValueKey));
 	offset += sizeof(ResponseValueKey);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->first_message_offset, sizeof(unsigned long long));
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->last_message_offset, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &prev_message_offset_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->prev_message_offset, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &prev_message_leader_epoch_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->prev_message_leader_epoch, sizeof(unsigned long long));
 	offset += sizeof(unsigned long long);
 
 	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &commited_offset_type, sizeof(ResponseValueKey));

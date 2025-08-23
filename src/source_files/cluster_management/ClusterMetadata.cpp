@@ -481,6 +481,24 @@ int ClusterMetadata::get_partition_leader(const std::string& queue, int partitio
 	return (*(queue_partition_leads.get()))[partition];
 }
 
+bool ClusterMetadata::is_node_partition_owner(const std::string& queue, int partition, int node_id) {
+	std::shared_lock<std::shared_mutex> lock(this->nodes_partitions_mut);
+
+	if (this->owned_partitions.find(queue) == this->owned_partitions.end()) return false;
+
+	auto partition_owners = this->owned_partitions[queue];
+
+	if (partition_owners == nullptr) return false;
+
+	if (partition_owners.get()->find(partition) == partition_owners.get()->end()) return false;
+
+	auto partition_nodes = (*(partition_owners.get()))[partition];
+
+	if (partition_nodes == nullptr) return false;
+
+	return partition_nodes.get()->find(node_id) != partition_nodes.get()->end();
+}
+
 std::shared_mutex* ClusterMetadata::get_partitions_mut() {
 	return &this->nodes_partitions_mut;
 }

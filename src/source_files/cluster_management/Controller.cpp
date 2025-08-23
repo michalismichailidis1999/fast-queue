@@ -802,7 +802,7 @@ bool Controller::repartition_node_data(int node_id) {
 			for (auto& iter : this->data_nodes_heartbeats)
 				if (iter.first != node_id && iter.second.count() > 1) alive_nodes++;
 
-			bool skip_partitions_reassignment = metadata->get_replication_factor() > alive_nodes;
+			bool skip_partitions_reassignment = metadata->get_replication_factor() == 1 || metadata->get_replication_factor() > alive_nodes;
 
 			bool successful_partition_assignement = false;
 			bool needs_partition_assignment_first = false;
@@ -1259,6 +1259,10 @@ unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned
 
 int Controller::get_partition_leader(const std::string& queue, int partition) {
 	return this->cluster_metadata->get_partition_leader(queue, partition);
+}
+
+bool Controller::is_node_partition_owner(const std::string& queue, int partition, int node_id) {
+	return this->cluster_metadata->is_node_partition_owner(queue, partition, node_id);
 }
 
 unsigned long long Controller::get_queue_partition_unique_leader_id(const std::string& queue, int partition) {

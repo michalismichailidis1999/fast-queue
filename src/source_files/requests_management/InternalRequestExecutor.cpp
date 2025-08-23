@@ -1,12 +1,14 @@
 #include "../../header_files/requests_management/InternalRequestExecutor.h"
 
 
-InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, ClassToByteTransformer* transformer) {
+InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer) {
 	this->settings = settings;
 	this->logger = logger;
 	this->cm = cm;
 	this->fh = fh;
 	this->controller = controller;
+	this->qm = qm;
+	this->mh = mh;
 	this->transformer = transformer;
 }
 
@@ -92,6 +94,86 @@ void InternalRequestExecutor::handle_expire_consumers_request(SOCKET_ID socket, 
 
 	if (res.get()->ok) this->controller->handle_consumers_expiration(request);
 
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
+
+void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SSL* ssl, FetchMessagesRequest* request) {
+	if (request->queue_name_length == 0) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	if (Helper::is_internal_queue(queue_name)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Cannot fetch messages from internal queue");
+		return;
+	}
+
+	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
+
+	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue " + queue_name + " not found");
+		return;
+	}
+
+	if (queue.get()->get_metadata()->get_partitions() - 1 > request->partition || request->partition < 0) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Incorrect partition number " + std::to_string(request->partition));
+		return;
+	}
+
+	std::shared_ptr<Partition> partition = queue.get()->get_partition(request->partition);
+
+	if (partition == nullptr
+		|| this->controller->get_partition_leader(queue_name, request->partition) != this->settings->get_node_id()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
+		return;
+	}
+
+	if (!this->controller->is_node_partition_owner(queue_name, request->partition, request->node_id)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Only partition followers can fetch data from partition");
+		return;
+	}
+
+	std::unique_ptr<FetchMessagesResponse> res = std::make_unique<FetchMessagesResponse>();
+	res.get()->total_messages = 0;
+	res.get()->messages_total_bytes = 0;
+	res.get()->messages_data = NULL;
+	res.get()->last_message_offset = partition->get_message_offset();
+	res.get()->commited_offset = partition->get_last_replicated_offset();
+	res.get()->prev_message_offset = 0;
+	res.get()->prev_message_leader_epoch = 0;
+
+	if (request->message_offset < partition->get_message_offset()) {
+		auto messages_res = this->mh->read_partition_messages(
+			partition.get(),
+			request->message_offset,
+			0,
+			false,
+			true
+		);
+
+		res.get()->total_messages = std::get<4>(messages_res);
+		res.get()->messages_total_bytes = std::get<3>(messages_res) - std::get<2>(messages_res);
+		res.get()->messages_data = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+		auto messages_res_2 = this->mh->read_partition_messages(
+			partition.get(),
+			request->message_offset - 1,
+			1,
+			true
+		);
+
+		if (std::get<4>(messages_res_2) == 1) {
+			void* message_offset = std::get<0>(messages_res_2).get() + std::get<2>(messages_res_2);
+
+			memcpy_s(&res.get()->prev_message_offset, MESSAGE_ID_SIZE, (char*)message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+			memcpy_s(&res.get()->prev_message_leader_epoch, MESSAGE_LEADER_ID_SIZE, (char*)message_offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE);
+		}
+	}
+	
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));

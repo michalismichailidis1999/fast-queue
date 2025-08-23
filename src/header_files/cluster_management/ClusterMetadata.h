@@ -89,6 +89,8 @@ public:
 
 	int get_partition_leader(const std::string& queue, int partition);
 
+	bool is_node_partition_owner(const std::string& queue, int partition, int node_id);
+
 	std::shared_mutex* get_partitions_mut();
 
 	std::shared_ptr<std::unordered_map<int, int>> get_queue_partition_leaders(const std::string& queue_name);

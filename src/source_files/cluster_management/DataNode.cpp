@@ -600,13 +600,17 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 		offset += message_bytes;
 	}
 
-	if (partition->get_message_offset() > first_message_offset) {
-		if (!this->mh->remove_messages_after_message_id(partition, first_message_offset - 1)) {
+	if (partition->get_message_offset() > first_message_offset || partition->get_message_offset() > res->last_message_offset) {
+		unsigned long long offset_to_remove_from = res->total_messages > 0
+			? Helper::get_min(first_message_offset, res->last_message_offset)
+			: res->last_message_offset;
+
+		if (!this->mh->remove_messages_after_message_id(partition, offset_to_remove_from - 1)) {
 			this->logger->log_error("Could not remove previous leadership uncommited messages");
 			return;
 		}
 
-		auto messages_res = this->mh->read_partition_messages(partition, first_message_offset - 1, 1, true);
+		auto messages_res = this->mh->read_partition_messages(partition, offset_to_remove_from - 1, 1, true);
 
 		if (std::get<4>(messages_res) != 1) {
 			this->logger->log_error("Something went wrong while trying to fix follower messages offset to match the partition leader");
@@ -626,7 +630,14 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 		partition->set_last_message_leader_epoch(current_last_message_leader);
 	}
 
-	if (partition->get_message_offset() > 0 && partition->get_message_offset() == first_message_offset - 1 && partition->get_last_message_leader_epoch() != first_message_leader_epoch) {
+	if (
+		res->total_messages > 0
+		&& partition->get_message_offset() > 0 
+		&& (
+			partition->get_message_offset() != res->prev_message_offset
+			|| partition->get_last_message_leader_epoch() != res->prev_message_leader_epoch
+		)
+	) {
 		this->mh->remove_messages_after_message_id(partition, partition->get_message_offset() - 1);
 		return;
 	}

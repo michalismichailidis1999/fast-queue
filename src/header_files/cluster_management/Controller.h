@@ -132,6 +132,8 @@ public:
 
 	int get_partition_leader(const std::string& queue, int partition);
 
+	bool is_node_partition_owner(const std::string& queue, int partition, int node_id);
+
 	unsigned long long get_queue_partition_unique_leader_id(const std::string& queue, int partition);
 
 	ClusterMetadata* get_cluster_metadata();

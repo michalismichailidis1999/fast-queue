@@ -190,12 +190,20 @@ std::unique_ptr<FetchMessagesResponse> ResponseMapper::to_fetch_messages_respons
 			res.get()->total_messages = *(int*)(res_buf + offset + sizeof(ResponseValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
 		}
-		else if (*key == ResponseValueKey::FIRST_MESSAGE_OFFSET) {
-			res.get()->first_message_offset = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+		else if (*key == ResponseValueKey::LAST_MESSAGE_OFFSET) {
+			res.get()->last_message_offset = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
 		}
 		else if (*key == ResponseValueKey::COMMITED_OFFSET) {
 			res.get()->commited_offset = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == ResponseValueKey::PREV_MESSAGE_OFFSET) {
+			res.get()->prev_message_offset = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == ResponseValueKey::PREV_MESSAGE_LEADER_EPOCH) {
+			res.get()->prev_message_leader_epoch = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
 		}
 		else {
