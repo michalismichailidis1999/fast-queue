@@ -140,6 +140,10 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 
 	this->data_node->update_follower_heartbeat(queue_name, request->partition, request->node_id);
 
+	bool is_lagging_follower = this->controller->get_cluster_metadata()->check_if_follower_is_lagging(
+		queue_name, request->partition, request->node_id
+	);
+
 	std::unique_ptr<FetchMessagesResponse> res = std::make_unique<FetchMessagesResponse>();
 	res.get()->total_messages = 0;
 	res.get()->messages_total_bytes = 0;
@@ -148,6 +152,9 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 	res.get()->commited_offset = partition->get_last_replicated_offset();
 	res.get()->prev_message_offset = 0;
 	res.get()->prev_message_leader_epoch = 0;
+
+	unsigned int message_bytes = 0;
+	unsigned long long last_message_offset = 0;
 
 	if (request->message_offset < partition->get_message_offset()) {
 		auto messages_res = this->mh->read_partition_messages(
@@ -161,6 +168,15 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 		res.get()->total_messages = std::get<4>(messages_res);
 		res.get()->messages_total_bytes = std::get<3>(messages_res) - std::get<2>(messages_res);
 		res.get()->messages_data = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+		unsigned int offset = 0;
+
+		for (int i = 0; i < res.get()->total_messages; i++) {
+			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)res.get()->messages_data + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+			memcpy_s(&last_message_offset, MESSAGE_ID_SIZE, (char*)res.get()->messages_data + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+			offset += message_bytes;
+		}
 
 		auto messages_res_2 = this->mh->read_partition_messages(
 			partition.get(),
@@ -176,10 +192,40 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 			memcpy_s(&res.get()->prev_message_leader_epoch, MESSAGE_LEADER_ID_SIZE, (char*)message_offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE);
 		}
 	}
+	else if (request->message_offset == partition->get_message_offset() + 1) last_message_offset = partition->get_message_offset();
+
+	// TODO: Store last_message_offset as last replicated message offset and check the most commited offset to update partition last replicated offset
 	
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+
+	if (last_message_offset != partition->get_message_offset() || !is_lagging_follower) return;
+
+	std::unique_ptr<RemoveLaggingFollowerRequest> req = std::make_unique<RemoveLaggingFollowerRequest>();
+	req.get()->queue_name = request->queue_name;
+	req.get()->queue_name_length = request->queue_name_length;
+	req.get()->partition = request->partition;
+	req.get()->node_id = request->node_id;
+
+	if (this->settings->get_node_id() == this->controller->get_leader_id()) {
+		this->controller->remove_lagging_follower(req.get());
+		return;
+	}
+
+	std::shared_ptr<ConnectionPool> pool = this->cm->get_controller_node_connection(this->controller->get_leader_id());
+
+	if (pool == nullptr) return;
+
+	buf_tup = this->transformer->transform(req.get());
+
+	this->cm->send_request_to_socket(
+		pool.get(),
+		3,
+		std::get<1>(buf_tup).get(),
+		std::get<0>(buf_tup),
+		"RemoveLaggingFollower"
+	);
 }
 
 void InternalRequestExecutor::handle_add_lagging_follower_request(SOCKET_ID socket, SSL* ssl, AddLaggingFollowerRequest* request) {

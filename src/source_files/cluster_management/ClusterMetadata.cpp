@@ -107,6 +107,28 @@ void ClusterMetadata::apply_command(Command* command, bool with_lock) {
 		
 		return;
 	}
+	case CommandType::ADD_LAGGING_FOLLOWER: {
+		AddLaggingFollowerCommand* command_info = static_cast<AddLaggingFollowerCommand*>(command->get_command_info());
+
+		if (with_lock) {
+			std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
+			this->apply_add_lagging_follower_command(command_info);
+		}
+		else this->apply_add_lagging_follower_command(command_info);
+
+		return;
+	}
+	case CommandType::REMOVE_LAGGING_FOLLOWER: {
+		RemoveLaggingFollowerCommand* command_info = static_cast<RemoveLaggingFollowerCommand*>(command->get_command_info());
+
+		if (with_lock) {
+			std::lock_guard<std::shared_mutex> lock(this->consumers_mut);
+			this->apply_remove_lagging_follower_command(command_info);
+		}
+		else this->apply_remove_lagging_follower_command(command_info);
+
+		return;
+	}
 	default:
 		return;
 	}
@@ -126,6 +148,7 @@ void ClusterMetadata::apply_create_queue_command(CreateQueueCommand* command) {
 
 void ClusterMetadata::apply_delete_queue_command(DeleteQueueCommand* command) {
 	this->remove_queue_metadata(command->get_queue_name());
+	this->lagging_followers.erase(command->get_queue_name());
 
 	if (this->partition_consumers.find(command->get_queue_name()) != this->partition_consumers.end())
 		for (auto& iter : *(this->partition_consumers[command->get_queue_name()].get()))
@@ -316,6 +339,42 @@ void ClusterMetadata::apply_unregister_consuer_group_command(UnregisterConsumerG
 		this->consumers_partition_counts->insert(command->get_consumer_id(), total_assigned_partitions);
 		this->consumers_partition_counts_inverse->insert(command->get_consumer_id(), total_assigned_partitions);
 	}
+}
+
+void ClusterMetadata::apply_add_lagging_follower_command(AddLaggingFollowerCommand* command) {
+	auto queue_partitions_lag_followers = this->lagging_followers[command->get_queue_name()];
+
+	if (queue_partitions_lag_followers == nullptr) {
+		queue_partitions_lag_followers = std::make_shared<std::unordered_map<int, std::shared_ptr<std::unordered_set<int>>>>();
+		this->lagging_followers[command->get_queue_name()] = queue_partitions_lag_followers;
+	}
+
+	auto partition_lag_followers = (*(queue_partitions_lag_followers.get()))[command->get_partition_id()];
+
+	if (partition_lag_followers == nullptr) {
+		partition_lag_followers = std::make_shared<std::unordered_set<int>>();
+		(*(queue_partitions_lag_followers.get()))[command->get_partition_id()] = partition_lag_followers;
+	}
+
+	partition_lag_followers.get()->insert(command->get_node_id());
+}
+
+void ClusterMetadata::apply_remove_lagging_follower_command(RemoveLaggingFollowerCommand* command) {
+	auto queue_partitions_lag_followers = this->lagging_followers[command->get_queue_name()];
+
+	if (queue_partitions_lag_followers == nullptr) {
+		this->lagging_followers.erase(command->get_queue_name());
+		return;
+	}
+
+	auto partition_lag_followers = (*(queue_partitions_lag_followers.get()))[command->get_partition_id()];
+
+	if (partition_lag_followers == nullptr) {
+		queue_partitions_lag_followers.get()->erase(command->get_partition_id());
+		return;
+	}
+
+	partition_lag_followers.get()->erase(command->get_node_id());
 }
 
 void ClusterMetadata::copy_from(ClusterMetadata* obj) {

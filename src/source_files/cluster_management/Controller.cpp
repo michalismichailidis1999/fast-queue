@@ -191,8 +191,10 @@ void Controller::append_entries_to_followers() {
 
 	auto controller_node_connections = this->cm->get_controller_node_connections();
 
-	std::vector<unsigned long long> largest_versions_sent(controller_node_connections->size());
-	unsigned int version_sent_index = 0;
+	std::vector<unsigned long long> largest_versions_sent(controller_node_connections->size() + 1);
+	unsigned int version_sent_index = 1;
+
+	largest_versions_sent[0] = this->last_log_index.load();
 
 	int replication_count = 1;
 
@@ -357,14 +359,17 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 	res.get()->log_matched = true;
 
 	if (!from_data_node) {
+		if (this->term.load() > request->term) return res;
+
 		if (this->get_state() == NodeState::LEADER) this->step_down_to_follower();
 
 		this->set_received_heartbeat(true);
+		this->heartbeat_condition.notify_one();
 		this->logger->log_info("Received heartbeat from leader");
 
 		this->cluster_metadata->set_leader_id(request->leader_id);
 
-		if (request->term > this->term) {
+		if (request->term > this->term.load()) {
 			this->term = request->term;
 			res.get()->term = request->term;
 		}

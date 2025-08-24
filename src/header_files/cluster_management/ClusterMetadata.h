@@ -65,6 +65,8 @@ private:
 	void apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command);
 	void apply_register_consuer_group_command(RegisterConsumerGroupCommand* command);
 	void apply_unregister_consuer_group_command(UnregisterConsumerGroupCommand* command);
+	void apply_add_lagging_follower_command(AddLaggingFollowerCommand* command);
+	void apply_remove_lagging_follower_command(RemoveLaggingFollowerCommand* command);
 
 	bool is_follower_lagging(const std::string& queue, int partition, int follower_id);
 
