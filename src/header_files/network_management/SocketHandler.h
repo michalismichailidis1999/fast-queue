@@ -70,7 +70,7 @@ public:
 
 	int poll_events(std::vector<POLLED_FD>* fds);
 	bool pollin_event_occur(POLLED_FD* fd);
-	bool error_event_occur(POLLED_FD* fd);
+	bool error_event_occur(POLLED_FD* fd, bool is_listen_socket);
 
 	int respond_to_socket(SOCKET_ID socket, char* res_buf, unsigned int res_buf_len);
 	int receive_socket_buffer(SOCKET_ID socket, char* res_buf, unsigned int res_buf_len);

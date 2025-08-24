@@ -64,7 +64,7 @@ void SocketListenerHandler::create_and_run_socket_listener(bool internal_communi
 
             if (pollResult > 0)
                 for (int i = 0; i < fds.size(); ++i) {
-                    if (this->socket_handler->pollin_event_occur(&fds[i]) && !this->socket_handler->error_event_occur(&fds[i])) {
+                    if (this->socket_handler->pollin_event_occur(&fds[i]) && !this->socket_handler->error_event_occur(&fds[i], i == 0)) {
                         if (i == 0) {
                             // Handle new incoming connection
                             SOCKET_ID newConn = this->socket_handler->accept_connection(listen_socket);
@@ -123,7 +123,7 @@ void SocketListenerHandler::create_and_run_socket_listener(bool internal_communi
                             });
                         }
                     }
-                    else if (this->socket_handler->error_event_occur(&fds[i])) {
+                    else if (this->socket_handler->error_event_occur(&fds[i], i == 0)) {
                         SOCKET_ID socket = fds[i].fd;
                         bool socket_expired = this->cm->socket_expired(socket);
 

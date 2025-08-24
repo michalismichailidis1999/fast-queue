@@ -119,8 +119,15 @@ bool SocketHandler::pollin_event_occur(POLLED_FD* fd) {
     return fd->revents & POLLIN_EVENT;
 }
 
-bool SocketHandler::error_event_occur(POLLED_FD* fd) {
-    return fd->revents & (POLLERR_EVENT | POLLHUP_EVENT | POLLNVAL_EVENT);
+bool SocketHandler::error_event_occur(POLLED_FD* fd, bool is_listen_socket) {
+    bool err_occured = fd->revents & (POLLERR_EVENT | POLLHUP_EVENT | POLLNVAL_EVENT);
+
+    if (err_occured) return true;
+
+    if (is_listen_socket) return false;
+
+    char temp = 'a';
+    return fd->revents & POLLIN_EVENT && recv(fd->fd, &temp, 1, MSG_PEEK) <= 0;
 }
 
 bool SocketHandler::close_socket(SOCKET_ID socket) {
