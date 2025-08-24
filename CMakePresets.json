@@ -31,6 +31,32 @@
       "environment": {
         "CONFIGURATION_PATH": "D:\\MessageBrokerHelperFiles\\server1.conf"
       }
+    },
+    {
+      "name": "wsl-debug",
+      "displayName": "Debug (WSL)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": [ "Linux" ]
+        }
+      },
+      "environment": {
+        "CONFIGURATION_PATH": "D:\\MessageBrokerHelperFiles\\server1.conf"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
     }
   ]
 }
