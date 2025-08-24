@@ -120,7 +120,7 @@ void SocketListenerHandler::create_and_run_socket_listener(bool internal_communi
                                 {
                                     this->logger->log_error(ex.what());
                                 }
-                                });
+                            });
                         }
                     }
                     else if (this->socket_handler->error_event_occur(&fds[i])) {

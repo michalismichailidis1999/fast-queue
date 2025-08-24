@@ -30,7 +30,10 @@ bool ConnectionsManager::receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char*
 	}
 
 	if (res_code <= 0)
+	{
 		this->logger->log_error("Could not receive socket's data");
+		this->close_socket_connection(socket, ssl);
+	}
 	else this->update_socket_heartbeat(socket);
 
 	return res_code > 0;
@@ -56,7 +59,10 @@ bool ConnectionsManager::respond_to_socket(SOCKET_ID socket, SSL* ssl, char* res
 		}
 
 		if (res_code <= 0)
+		{
 			this->logger->log_error("Could not respond back to the socket");
+			this->close_socket_connection(socket, ssl);
+		}
 		else this->update_socket_heartbeat(socket);
 
 		return res_code > 0;
