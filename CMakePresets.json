@@ -50,7 +50,7 @@
         }
       },
       "environment": {
-        "CONFIGURATION_PATH": "D:\\MessageBrokerHelperFiles\\server1.conf"
+        "CONFIGURATION_PATH": "/tmp/server1.conf"
       },
       "condition": {
         "type": "equals",

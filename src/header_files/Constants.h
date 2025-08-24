@@ -5,10 +5,13 @@
 #include "./__linux/memcpy_s.h"
 
 #if defined(_WIN32) || defined(_WIN64)
+static const std::string PATH_CHAR = "\\";
 #else
 
 #include <climits>  // C++ way
 #include <limits.h> // C way
+
+static const std::string PATH_CHAR = "/";
 
 #endif
 

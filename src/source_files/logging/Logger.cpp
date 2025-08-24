@@ -26,7 +26,6 @@ void Logger::log(const std::string& trace_type, const std::string& message) {
 
 		printf("%s", formatted_message.c_str());
 
-		/*
 		this->fh->write_to_file(
 			this->source_name, 
 			this->source_path, 
@@ -35,7 +34,6 @@ void Logger::log(const std::string& trace_type, const std::string& message) {
 			(void*)formatted_message.c_str(),
 			true
 		);
-		*/
 	}
 	catch (const std::exception&)
 	{

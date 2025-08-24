@@ -111,7 +111,7 @@ void SocketListenerHandler::create_and_run_socket_listener(bool internal_communi
 
                             SSL* ssl = ssl_enabled ? fds_ssls[i] : NULL;
 
-                            this->thread_pool->enqueue([&, socket, internal_communication]() {
+                            this->thread_pool->enqueue([&, socket, ssl, internal_communication]() {
                                 try
                                 {
                                     rm->execute_request(socket, ssl, internal_communication);

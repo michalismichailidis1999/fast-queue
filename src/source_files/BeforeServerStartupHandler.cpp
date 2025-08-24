@@ -24,7 +24,7 @@ void BeforeServerStartupHandler::initialize_required_folders_and_queues() {
     this->fh->create_directory(this->settings->get_log_path());
 
     // Creating required subfolders to run the broker
-    this->fh->create_directory(this->settings->get_log_path() + "\\" + CLUSTER_METADATA_QUEUE_NAME);
+    this->fh->create_directory(this->pm->get_queue_folder_path(CLUSTER_METADATA_QUEUE_NAME));
 
     this->clear_unnecessary_files_and_initialize_queues();
 
