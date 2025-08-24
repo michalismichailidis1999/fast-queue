@@ -34,7 +34,7 @@ bool FileHandler::check_if_exists(const std::string& path) {
 bool FileHandler::create_directory(const std::string& path) {
 	if (this->check_if_exists(path)) return false;
 
-	std::filesystem::create_directory(path);
+	std::filesystem::create_directories(path);
 
 	return true;
 }
