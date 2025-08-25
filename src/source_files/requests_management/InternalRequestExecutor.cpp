@@ -156,7 +156,7 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 	unsigned int message_bytes = 0;
 	unsigned long long last_message_offset = 0;
 
-	if (request->message_offset < partition->get_message_offset()) {
+	if (request->message_offset <= partition->get_message_offset()) {
 		auto messages_res = this->mh->read_partition_messages(
 			partition.get(),
 			request->message_offset,

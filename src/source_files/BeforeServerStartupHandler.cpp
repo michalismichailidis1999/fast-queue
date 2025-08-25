@@ -559,7 +559,7 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
             if (offset + message_bytes <= batch_size && !Helper::has_valid_checksum(read_batch.get() + offset))
                 throw CorruptionException("Corrupted messages detected while setting segment's last message offset and timestamp");
 
-            if (offset + message_bytes > bytes_read - MESSAGE_TOTAL_BYTES) break;
+            if (offset + message_bytes > bytes_read) break;
 
             memcpy_s(&message_id, MESSAGE_ID_SIZE, read_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
             memcpy_s(&message_timestamp, MESSAGE_TIMESTAMP_SIZE, read_batch.get() + offset + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE);
@@ -572,7 +572,7 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
         segment->set_last_message_timestamp(message_timestamp);
 
         if (bytes_read < READ_MESSAGES_BATCH_SIZE) {
-            if (offset + message_bytes > bytes_read) {
+            if (offset < bytes_read && offset + message_bytes > bytes_read) {
                 std::unique_ptr<char> corrupted_message = std::unique_ptr<char>(new char[message_bytes]);
                 bool ia_active = false;
 

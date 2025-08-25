@@ -253,12 +253,15 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node,
 		if (message_id == node->rows[pos].key) return node->rows[pos].val_pos;
 
 		if (start_pos == pos - 1 && end_pos == pos + 1 && node->rows[start_pos].key < message_id && message_id < node->rows[pos].key)
-			return pos;
+			return node->rows[pos].val_pos;
+
+		if (start_pos == end_pos - 1)
+			return node->rows[start_pos].val_pos;
 
 		if (message_id > node->rows[pos].key) start_pos = pos + 1;
 		else end_pos = pos - 1;
 
-		if(start_pos == end_pos) return start_pos;
+		if(start_pos == end_pos) return node->rows[start_pos].val_pos;
 
 		if (start_pos > end_pos) break;
 

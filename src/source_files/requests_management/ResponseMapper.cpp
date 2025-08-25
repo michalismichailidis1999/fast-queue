@@ -189,6 +189,13 @@ std::unique_ptr<FetchMessagesResponse> ResponseMapper::to_fetch_messages_respons
 		if (*key == ResponseValueKey::MESSAGES) {
 			res.get()->total_messages = *(int*)(res_buf + offset + sizeof(ResponseValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
+			res.get()->messages_total_bytes = *(int*)(res_buf + offset);
+			offset += sizeof(int);
+			
+			if (res.get()->total_messages > 0) {
+				res.get()->messages_data = res_buf + offset;
+				offset += res.get()->messages_total_bytes;
+			}
 		}
 		else if (*key == ResponseValueKey::LAST_MESSAGE_OFFSET) {
 			res.get()->last_message_offset = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
