@@ -406,7 +406,7 @@ void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_termin
 					3,
 					std::get<1>(buf_tup).get(),
 					std::get<0>(buf_tup),
-					"ExpireConsumers"
+					"FetchMessages"
 				);
 
 				if (std::get<1>(res) == -1 && std::get<2>(res)) {

@@ -37,7 +37,7 @@ bool RequestManager::is_invalid_external_request(RequestType req_type) {
 }
 
 bool RequestManager::is_invalid_internal_request(RequestType req_type) {
-	return this->is_invalid_external_request(req_type);
+	return !this->is_invalid_external_request(req_type);
 }
 
 void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_communication) {

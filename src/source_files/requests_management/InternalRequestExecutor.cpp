@@ -120,7 +120,7 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 		return;
 	}
 
-	if (queue.get()->get_metadata()->get_partitions() - 1 > request->partition || request->partition < 0) {
+	if ((request->partition > 0 && queue.get()->get_metadata()->get_partitions() - 1 < request->partition) || request->partition < 0) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Incorrect partition number " + std::to_string(request->partition));
 		return;
 	}
