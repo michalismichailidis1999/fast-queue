@@ -80,12 +80,12 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 				{
 				case CommandType::REGISTER_CONSUMER_GROUP:
 					register_info = (RegisterConsumerGroupCommand*)command.get_command_info();
-					key = std::to_string(register_info->get_consumer_id()) + "_" + std::to_string(register_info->get_partition_id());
+					key = register_info->get_queue_name() + "_" + std::to_string(register_info->get_partition_id()) + "_" + std::to_string(register_info->get_consumer_id());
 					(*registered_consumers)[key] = command;
 					break;
 				case CommandType::UNREGISTER_CONSUMER_GROUP:
 					unregister_info = (UnregisterConsumerGroupCommand*)command.get_command_info();
-					key = std::to_string(unregister_info->get_consumer_id()) + "_" + std::to_string(unregister_info->get_partition_id());
+					key = unregister_info->get_queue_name() + "_" + std::to_string(unregister_info->get_partition_id()) + "_" + std::to_string(unregister_info->get_consumer_id());
 					registered_consumers->erase(key);
 					break;
 				default:

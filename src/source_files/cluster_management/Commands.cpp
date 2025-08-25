@@ -616,7 +616,7 @@ UnregisterConsumerGroupCommand::UnregisterConsumerGroupCommand(void* metadata) {
 	memcpy_s(&group_id_length, UCG_COMMAND_GROUP_ID_LENGTH_SIZE, (char*)metadata + UCG_COMMAND_GROUP_ID_LENGTH_OFFSET, UCG_COMMAND_GROUP_ID_LENGTH_SIZE);
 
 	this->queue_name = std::string((char*)metadata + UCG_COMMAND_QUEUE_NAME_OFFSET, queue_name_length);
-	this->group_id = std::string((char*)metadata + UCG_COMMAND_GROUP_ID_LENGTH_OFFSET, group_id_length);
+	this->group_id = std::string((char*)metadata + UCG_COMMAND_GROUP_ID_OFFSET, group_id_length);
 
 	memcpy_s(&this->partition_id, UCG_COMMAND_PARTITION_ID_SIZE, (char*)metadata + UCG_COMMAND_PARTITION_ID_OFFSET, UCG_COMMAND_PARTITION_ID_SIZE);
 	memcpy_s(&this->consumer_id, UCG_COMMAND_CONSUMER_ID_SIZE, (char*)metadata + UCG_COMMAND_CONSUMER_ID_OFFSET, UCG_COMMAND_CONSUMER_ID_SIZE);
