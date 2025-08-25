@@ -17,6 +17,8 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 }
 
 bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest* request, bool cache_messages, bool has_replication, unsigned long long leader_id) {
+	std::lock_guard<std::mutex> lock(partition->write_mut);
+	
 	unsigned int total_messages_bytes = 0;
 
 	for(auto& s : *(request->messages_sizes.get()))

@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <mutex>
 #include <shared_mutex>
 #include <unordered_set>
 #include <unordered_map>
@@ -41,6 +42,7 @@ private:
 
 	std::shared_mutex mut;
 	std::shared_mutex consumers_mut;
+	std::mutex write_mut;
 
 	std::shared_ptr<Consumer> get_consumer_with_nolock(unsigned long long consumer_id);
 public:
@@ -96,5 +98,6 @@ public:
 	friend class RetentionHandler;
 	friend class CompactionHandler;
 	friend class MessageOffsetAckHandler;
+	friend class MessagesHandler;
 	friend class DataNode;
 };

@@ -623,24 +623,7 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 			return;
 		}
 
-		auto messages_res = this->mh->read_partition_messages(partition, offset_to_remove_from - 1, 1, true);
-
-		if (std::get<4>(messages_res) != 1) {
-			this->logger->log_error("Something went wrong while trying to fix follower messages offset to match the partition leader");
-			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-			exit(EXIT_FAILURE);
-		}
-
-		char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
-
-		unsigned long long current_last_message_offset = 0;
-		unsigned long long current_last_message_leader = 0;
-
-		memcpy_s(message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &current_last_message_offset, MESSAGE_ID_SIZE);
-		memcpy_s(message_offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE, &current_last_message_leader, MESSAGE_LEADER_ID_SIZE);
-
-		partition->set_last_message_offset(current_last_message_offset);
-		partition->set_last_message_leader_epoch(current_last_message_leader);
+		this->set_partition_offset_to_prev_loc(partition, offset_to_remove_from - 1);
 	}
 
 	if (
@@ -652,11 +635,14 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 		)
 	) {
 		this->mh->remove_messages_after_message_id(partition, partition->get_message_offset() - 1);
+		this->set_partition_offset_to_prev_loc(partition, partition->get_message_offset() - 1);
 		return;
 	}
 
-	if(res->total_messages > 0)
+	if (res->total_messages > 0) {
+		std::lock_guard<std::mutex> lock(partition->write_mut);
 		this->mh->save_messages(partition, res->messages_data, res->total_messages, nullptr, true);
+	}
 
 	partition->set_last_replicated_offset(res->commited_offset);
 
@@ -677,6 +663,27 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 		&res->commited_offset,
 		true
 	);
+}
+
+void DataNode::set_partition_offset_to_prev_loc(Partition* partition, unsigned long long prev_loc) {
+	auto messages_res = this->mh->read_partition_messages(partition, prev_loc, 1, true);
+
+	if (std::get<4>(messages_res) != 1) {
+		this->logger->log_error("Something went wrong while trying to fix follower messages offset to match the partition leader");
+		std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+		exit(EXIT_FAILURE);
+	}
+
+	char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
+
+	unsigned long long current_last_message_offset = 0;
+	unsigned long long current_last_message_leader = 0;
+
+	memcpy_s(message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &current_last_message_offset, MESSAGE_ID_SIZE);
+	memcpy_s(message_offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE, &current_last_message_leader, MESSAGE_LEADER_ID_SIZE);
+
+	partition->set_last_message_offset(current_last_message_offset);
+	partition->set_last_message_leader_epoch(current_last_message_leader);
 }
 
 void DataNode::update_follower_heartbeat(const std::string& queue_name, int partition, int node_id) {

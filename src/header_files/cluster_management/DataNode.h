@@ -60,6 +60,8 @@ private:
 
 	void handle_fetch_messages_res(Partition* partition, FetchMessagesResponse* res);
 
+	void set_partition_offset_to_prev_loc(Partition* partition, unsigned long long prev_loc);
+
 	std::string get_follower_heartbeat_key(const std::string& queue_name, int partition, int node_id);
 public:
 	DataNode(Controller* controller, ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, FileHandler* fh, Settings* settings, Logger* logger);

@@ -198,6 +198,10 @@ int main(int argc, char* argv[])
             data_node.get()->check_for_dead_consumer(&should_terminate);
         };
 
+        auto fetch_data_from_partition_leaders = [&]() {
+            data_node.get()->fetch_data_from_partition_leaders(&should_terminate);
+        };
+
         std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, true);
         std::thread external_listener_thread = std::thread(create_and_run_socket_listener, false);
 
@@ -214,6 +218,7 @@ int main(int argc, char* argv[])
         std::thread remove_expired_segments_thread = std::thread(remove_expired_segments);
         std::thread retrieve_cluster_metadata_updates_thread = std::thread(retrieve_cluster_metadata_updates);
         std::thread check_for_dead_consumers_thread = std::thread(check_for_dead_consumers);
+        std::thread fetch_data_from_partition_leaders_thread = std::thread(fetch_data_from_partition_leaders);
 
         internal_listener_thread.join();
         external_listener_thread.join();
@@ -228,6 +233,7 @@ int main(int argc, char* argv[])
         remove_expired_segments_thread.join();
         retrieve_cluster_metadata_updates_thread.join();
         check_for_dead_consumers_thread.join();
+        fetch_data_from_partition_leaders_thread.join();
     }
     catch (const std::exception&) {
         should_terminate = true;
