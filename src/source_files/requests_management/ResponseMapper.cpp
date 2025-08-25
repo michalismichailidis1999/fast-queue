@@ -193,7 +193,7 @@ std::unique_ptr<FetchMessagesResponse> ResponseMapper::to_fetch_messages_respons
 			offset += sizeof(int);
 			
 			if (res.get()->total_messages > 0) {
-				res.get()->messages_data = res_buf + offset;
+				res.get()->messages_data = res_buf;
 				offset += res.get()->messages_total_bytes;
 			}
 		}
