@@ -22,6 +22,10 @@ private:
 	unsigned int ping_res_buff_size;
 
 	bool is_user_authorized_for_action(AuthRequest* request);
+
+	bool is_invalid_external_request(RequestType req_type);
+
+	bool is_invalid_internal_request(RequestType req_type);
 public:
 	RequestManager(ConnectionsManager* cm, Settings* settings, ClientRequestExecutor* client_request_executor, InternalRequestExecutor* internal_request_executor, RequestMapper* mapper, Logger* logger);
 

@@ -414,7 +414,7 @@ std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsi
 			if (!Helper::has_valid_checksum(read_batch.get() + new_read_end))
 				throw CorruptionException("Correpted message detected");
 
-			if (!is_message_active || current_message_id > maximum_message_id) break;
+			if (!is_message_active || (current_message_id > maximum_message_id && maximum_message_id > 0)) break;
 
 			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, read_batch.get() + new_read_end + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 			new_read_end += message_bytes;

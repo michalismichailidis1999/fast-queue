@@ -21,6 +21,25 @@ bool RequestManager::is_user_authorized_for_action(AuthRequest* request) {
 	return true;
 }
 
+bool RequestManager::is_invalid_external_request(RequestType req_type) {
+	switch (req_type) {
+	case RequestType::APPEND_ENTRIES: return true;
+	case RequestType::REQUEST_VOTE: return true;
+	case RequestType::DATA_NODE_HEARTBEAT: return true;
+	case RequestType::GET_CLUSTER_METADATA_UPDATES: return true;
+	case RequestType::EXPIRE_CONSUMERS: return true;
+	case RequestType::FETCH_MESSAGES: return true;
+	case RequestType::ADD_LAGGING_FOLLOWER: return true;
+	case RequestType::REMOVE_LAGGING_FOLLOWER: return true;
+	default:
+		return false;
+	}
+}
+
+bool RequestManager::is_invalid_internal_request(RequestType req_type) {
+	return !this->is_invalid_external_request(req_type);
+}
+
 void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_communication) {
 	bool lock_removed = false;
 
@@ -66,6 +85,16 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 		if (!success) return;
 
 		RequestType request_type = (RequestType)((int)recvbuf.get()[0]);
+
+		if (internal_communication && this->is_invalid_external_request(request_type)) {
+			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Invalid request type");
+			return;
+		}
+
+		if (!internal_communication && this->is_invalid_internal_request(request_type)) {
+			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Invalid request type");
+			return;
+		}
 
 		switch (request_type) {
 		case RequestType::NONE: {
