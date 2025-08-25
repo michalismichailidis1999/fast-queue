@@ -9,7 +9,7 @@ ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, Conne
 	this->logger = logger;
 }
 
-void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, bool from_compaction, std::unordered_map<int, Command>* registered_nodes, std::unordered_map<std::string, Command>* registered_consumers, ClusterMetadata* future_cluster_metadata) {
+void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, std::unordered_map<int, Command>* registered_nodes, std::unordered_map<std::string, Command>* registered_consumers, ClusterMetadata* future_cluster_metadata) {
 	std::unique_ptr<char> batch_size = std::unique_ptr<char>(new char[READ_MESSAGES_BATCH_SIZE]);
 
 	std::string segment_key = this->pm->get_file_key(CLUSTER_METADATA_QUEUE_NAME, segment_id, -1);
@@ -44,7 +44,7 @@ void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* c
 			if(future_cluster_metadata != NULL)
 				future_cluster_metadata->apply_command(&command);
 
-			if (!from_compaction && command.get_metadata_version() > last_applied) {
+			if (command.get_metadata_version() > last_applied) {
 				offset += command_total_bytes;
 				continue;
 			}

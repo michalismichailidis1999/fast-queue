@@ -49,7 +49,6 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
             this->controller->get_cluster_metadata(), 
             smallest_segment_id, 
             this->controller->get_last_command_applied(),
-            false,
             &registered_nodes,
             &registered_consumers,
             this->controller->get_future_cluster_metadata()

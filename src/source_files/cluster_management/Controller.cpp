@@ -171,7 +171,9 @@ void Controller::start_election() {
 		return;
 	}
 
+	unsigned long long metadata_version = this->future_cluster_metadata->metadata_version.load();
 	this->future_cluster_metadata->copy_from(this->cluster_metadata.get());
+	this->future_cluster_metadata->metadata_version = metadata_version;
 	this->set_state(NodeState::LEADER);
 	this->cluster_metadata->set_leader_id(this->settings->get_node_id());
 	this->logger->log_info("Elected as leader");
