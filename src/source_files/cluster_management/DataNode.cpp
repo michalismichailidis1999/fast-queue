@@ -346,7 +346,7 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 }
 
 void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_terminate) {
-	if (this->settings->get_node_id() == 2) return;
+	//if (this->settings->get_node_id() == 2) return;
 
 	std::vector<std::tuple<std::string, int, int>> queues_partitions_to_fetch_from;
 
