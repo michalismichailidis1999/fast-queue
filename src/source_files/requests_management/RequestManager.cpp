@@ -37,7 +37,7 @@ bool RequestManager::is_invalid_external_request(RequestType req_type) {
 }
 
 bool RequestManager::is_invalid_internal_request(RequestType req_type) {
-	return !this->is_invalid_external_request(req_type);
+	return this->is_invalid_external_request(req_type);
 }
 
 void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_communication) {
@@ -86,12 +86,12 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 		RequestType request_type = (RequestType)((int)recvbuf.get()[0]);
 
-		if (internal_communication && this->is_invalid_external_request(request_type)) {
+		if (request_type != RequestType::NONE && !internal_communication && this->is_invalid_external_request(request_type)) {
 			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Invalid request type");
 			return;
 		}
 
-		if (!internal_communication && this->is_invalid_internal_request(request_type)) {
+		if (request_type != RequestType::NONE && internal_communication && this->is_invalid_internal_request(request_type)) {
 			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Invalid request type");
 			return;
 		}

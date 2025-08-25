@@ -150,8 +150,6 @@ public:
 
 	unsigned long long assign_consumer_group_to_partitions(RegisterConsumerRequest* request, Queue* queue, const std::string& group_id);
 
-	void unregister_consumer(const std::string& queue_name, const std::string& group_id, unsigned long long consumer_id);
-
 	void find_consumer_assigned_partitions(const std::string& queue_name, const std::string& group_id, unsigned long long consumer_id, std::vector<int>* partitions_list);
 
 	unsigned long long get_last_registered_consumer_id();
