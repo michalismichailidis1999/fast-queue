@@ -65,7 +65,11 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
     }
 
     for (auto& iter : registered_consumers)
+    {
+        RegisterConsumerGroupCommand* command = (RegisterConsumerGroupCommand*)iter.second.get_command_info();
         this->cmah->apply_command(this->controller->get_cluster_metadata(), &iter.second, true);
+        this->data_node->update_consumer_heartbeat(command->get_queue_name(), command->get_group_id(), command->get_consumer_id());
+    }
 
     std::vector<std::string> queue_names;
 

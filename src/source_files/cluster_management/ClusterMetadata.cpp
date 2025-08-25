@@ -60,8 +60,10 @@ bool ClusterMetadata::has_node_partitions(int node_id) {
 	return this->nodes_partitions.find(node_id) != this->nodes_partitions.end();
 }
 
-void ClusterMetadata::apply_command(Command* command, bool with_lock) {
-	this->metadata_version = command->get_metadata_version();
+void ClusterMetadata::apply_command(Command* command, bool with_lock, bool ignore_metadata_version_update) {
+	if (!ignore_metadata_version_update)
+		this->metadata_version = command->get_metadata_version();
+
 	this->current_term = command->get_term();
 
 	switch (command->get_command_type())

@@ -935,7 +935,7 @@ void Controller::assign_queue_for_deletion(std::string& queue_name) {
 		std::shared_ptr<DeleteQueueCommand>(new DeleteQueueCommand(queue_name))
 	);
 
-	this->future_cluster_metadata->apply_command(&(commands[0]));
+	this->future_cluster_metadata->apply_command(&(commands[0]), true, true);
 
 	this->store_commands(&commands);
 }
@@ -1534,7 +1534,7 @@ void Controller::handle_consumers_expiration(ExpireConsumersRequest* request) {
 	}
 
 	for (auto& command : commands)
-		this->future_cluster_metadata->apply_command(&command, false);
+		this->future_cluster_metadata->apply_command(&command, false, true);
 
 	lock.unlock();
 
@@ -1555,7 +1555,7 @@ void Controller::add_lagging_follower(AddLaggingFollowerRequest* request) {
 		)
 	);
 
-	this->future_cluster_metadata->apply_command(&command, false);
+	this->future_cluster_metadata->apply_command(&command, false, true);
 
 	std::vector<Command> commands = std::vector<Command>(1);
 	commands[0] = command;
@@ -1577,7 +1577,7 @@ void Controller::remove_lagging_follower(RemoveLaggingFollowerRequest* request) 
 		)
 	);
 
-	this->future_cluster_metadata->apply_command(&command, false);
+	this->future_cluster_metadata->apply_command(&command, false, true);
 
 	std::vector<Command> commands = std::vector<Command>(1);
 	commands[0] = command;

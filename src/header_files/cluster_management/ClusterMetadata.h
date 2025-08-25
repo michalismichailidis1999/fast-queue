@@ -87,7 +87,7 @@ public:
 	QueueMetadata* get_queue_metadata(const std::string& queue_name);
 	void remove_queue_metadata(const std::string& queue_name);
 
-	void apply_command(Command* command, bool with_lock = true);
+	void apply_command(Command* command, bool with_lock = true, bool ignore_metadata_version_update = false);
 
 	void copy_from(ClusterMetadata* obj);
 

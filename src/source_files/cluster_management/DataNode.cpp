@@ -289,6 +289,12 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 			if (leader_id == this->settings->get_node_id()) {
 				this->controller->handle_consumers_expiration(req.get());
 
+				{
+					std::lock_guard<std::mutex> lock(this->consumers_mut);
+					for (auto& iter : *(req.get()->expired_consumers.get()))
+						this->consumer_heartbeats.erase(std::get<2>(iter));
+				}
+
 				int new_leader_id = this->controller->get_leader_id();
 
 				if (new_leader_id != leader_id) {
@@ -316,10 +322,18 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 			} else if (std::get<1>(res) == -1 && !std::get<2>(res)) {
 				this->logger->log_error("Error occured while trying to send expire consumers request to leader node");
 			}
-			else expire_consumers_res = this->response_mapper->to_expire_consumers_response(
-				std::get<0>(res).get(),
-				std::get<1>(res)
-			);
+			else {
+				expire_consumers_res = this->response_mapper->to_expire_consumers_response(
+					std::get<0>(res).get(),
+					std::get<1>(res)
+				);
+
+				{
+					std::lock_guard<std::mutex> lock(this->consumers_mut);
+					for (auto& iter : *(req.get()->expired_consumers.get()))
+						this->consumer_heartbeats.erase(std::get<2>(iter));
+				}
+			}
 		}
 		catch (const std::exception& ex)
 		{
