@@ -156,8 +156,14 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 	unsigned int message_bytes = 0;
 	unsigned long long last_message_offset = 0;
 
+	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> messages_res = 
+		std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+
+	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> messages_res_2 = 
+		std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
+
 	if (request->message_offset <= partition->get_message_offset()) {
-		auto messages_res = this->mh->read_partition_messages(
+		messages_res = this->mh->read_partition_messages(
 			partition.get(),
 			request->message_offset,
 			0,
@@ -178,7 +184,7 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 			offset += message_bytes;
 		}
 
-		auto messages_res_2 = this->mh->read_partition_messages(
+		messages_res_2 = this->mh->read_partition_messages(
 			partition.get(),
 			request->message_offset - 1,
 			1,

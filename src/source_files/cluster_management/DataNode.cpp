@@ -346,6 +346,8 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 }
 
 void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_terminate) {
+	if (this->settings->get_node_id() == 2) return;
+
 	std::vector<std::tuple<std::string, int, int>> queues_partitions_to_fetch_from;
 
 	while (!should_terminate->load()) {
@@ -601,9 +603,9 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 	unsigned int offset = 0;
 
 	for (int i = 0; i < res->total_messages; i++) {
-		memcpy_s((char*)res->messages_data + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES, &message_bytes, TOTAL_METADATA_BYTES_OFFSET);
-		memcpy_s((char*)res->messages_data + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &last_message_offset, MESSAGE_ID_SIZE);
-		memcpy_s((char*)res->messages_data + offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE, &last_message_leader_epoch, MESSAGE_LEADER_ID_SIZE);
+		memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, (char*)res->messages_data + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+		memcpy_s(&last_message_offset, MESSAGE_ID_SIZE, (char*)res->messages_data + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+		memcpy_s(&last_message_leader_epoch, MESSAGE_LEADER_ID_SIZE, (char*)res->messages_data + offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE);
 
 		if (i == 0) {
 			first_message_offset = last_message_offset;
@@ -613,7 +615,7 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 		offset += message_bytes;
 	}
 
-	if (partition->get_message_offset() > first_message_offset || partition->get_message_offset() > res->last_message_offset) {
+	if ((res->total_messages > 0 && partition->get_message_offset() > first_message_offset) || partition->get_message_offset() > res->last_message_offset) {
 		unsigned long long offset_to_remove_from = res->total_messages > 0
 			? Helper::get_min(first_message_offset, res->last_message_offset)
 			: res->last_message_offset;
@@ -666,6 +668,12 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 }
 
 void DataNode::set_partition_offset_to_prev_loc(Partition* partition, unsigned long long prev_loc) {
+	if (prev_loc == 0) {
+		partition->set_last_message_offset(0);
+		partition->set_last_message_leader_epoch(0);
+		return;
+	}
+
 	auto messages_res = this->mh->read_partition_messages(partition, prev_loc, 1, true);
 
 	if (std::get<4>(messages_res) != 1) {
