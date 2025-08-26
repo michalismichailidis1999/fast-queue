@@ -620,12 +620,12 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 			? Helper::get_min(first_message_offset, res->last_message_offset)
 			: res->last_message_offset;
 
-		if (!this->mh->remove_messages_after_message_id(partition, offset_to_remove_from - 1)) {
+		if (!this->mh->remove_messages_after_message_id(partition, offset_to_remove_from)) {
 			this->logger->log_error("Could not remove previous leadership uncommited messages");
 			return;
 		}
 
-		this->set_partition_offset_to_prev_loc(partition, offset_to_remove_from - 1);
+		this->set_partition_offset_to_prev_loc(partition, offset_to_remove_from);
 	}
 
 	if (
@@ -687,8 +687,8 @@ void DataNode::set_partition_offset_to_prev_loc(Partition* partition, unsigned l
 	unsigned long long current_last_message_offset = 0;
 	unsigned long long current_last_message_leader = 0;
 
-	memcpy_s(message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE, &current_last_message_offset, MESSAGE_ID_SIZE);
-	memcpy_s(message_offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE, &current_last_message_leader, MESSAGE_LEADER_ID_SIZE);
+	memcpy_s(&current_last_message_offset, MESSAGE_ID_SIZE, message_offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+	memcpy_s(&current_last_message_leader, MESSAGE_LEADER_ID_SIZE, message_offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE);
 
 	partition->set_last_message_offset(current_last_message_offset);
 	partition->set_last_message_leader_epoch(current_last_message_leader);

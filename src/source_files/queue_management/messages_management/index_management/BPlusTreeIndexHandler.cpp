@@ -235,6 +235,8 @@ void BPlusTreeIndexHandler::read_index_page_from_disk(Partition* partition, Part
 }
 
 unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node, unsigned long long message_id) {
+	if (node->rows_num == 0) return SEGMENT_METADATA_TOTAL_BYTES;
+
 	// This will only be true for first index node
 	if (node->type == PageType::LEAF && message_id < node->min_key)
 		return SEGMENT_METADATA_TOTAL_BYTES;
