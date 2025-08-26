@@ -244,7 +244,7 @@ unsigned long long BPlusTreeIndexHandler::find_message_location(BTreeNode* node,
 
 	if (node->rows_num <= 2) return node->rows[0].val_pos;
 
-	unsigned int start_pos = 1;
+	unsigned int start_pos = 0;
 	unsigned int end_pos = node->rows_num - 1;
 
 	unsigned int pos = start_pos + (end_pos - start_pos) / 2;

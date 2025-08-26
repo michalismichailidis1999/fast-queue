@@ -29,7 +29,7 @@
         "CMAKE_BUILD_TYPE": "Debug"
       },
       "environment": {
-        "CONFIGURATION_PATH": "D:\\MessageBrokerHelperFiles\\server1.conf"
+        "CONFIGURATION_PATH": "D:\\MessageBrokerHelperFiles\\server2.conf"
       }
     },
     {
