@@ -666,7 +666,7 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 
 			std::shared_ptr<Consumer> consumer = partition->get_consumer(consumer_id);
 
-			if (consumer != nullptr)
+			if (consumer != nullptr && consumer.get()->get_offset() < cons_msg_off)
 				this->moah->flush_consumer_offset_ack(partition, consumer.get(), cons_msg_off);
 
 			cons_off += CONSUMER_ACK_TOTAL_BYTES;
