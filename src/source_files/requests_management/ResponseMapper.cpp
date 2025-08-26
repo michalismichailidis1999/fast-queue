@@ -213,6 +213,15 @@ std::unique_ptr<FetchMessagesResponse> ResponseMapper::to_fetch_messages_respons
 			res.get()->prev_message_leader_epoch = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
 		}
+		else if (*key == ResponseValueKey::CONSUMERS_ACKS) {
+			res.get()->consumer_offsets_count = *(int*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+
+			if (res.get()->consumer_offsets_count > 0) {
+				res.get()->consumer_offsets_data = res_buf + offset;
+				offset += res.get()->consumer_offsets_count * CONSUMER_ACK_TOTAL_BYTES;
+			}
+		}
 		else {
 			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type FetchMessagesResponse");
 			return nullptr;

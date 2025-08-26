@@ -51,6 +51,8 @@ struct FetchMessagesResponse {
 	unsigned long long commited_offset;
 	unsigned long long prev_message_offset;
 	unsigned long long prev_message_leader_epoch;
+	int consumer_offsets_count;
+	void* consumer_offsets_data;
 };
 
 // =======================================================

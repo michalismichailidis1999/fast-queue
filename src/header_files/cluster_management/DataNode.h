@@ -14,6 +14,7 @@
 #include "../queue_management/Queue.h"
 #include "../queue_management/Partition.h"
 #include "../queue_management/messages_management/MessagesHandler.h"
+#include "../queue_management/messages_management/MessageOffsetAckHandler.h"
 #include "./ClusterMetadata.h"
 #include "../util/ConnectionPool.h"
 #include "../util/Util.h"
@@ -37,6 +38,7 @@ private:
 	ConnectionsManager* cm;
 	QueueManager* qm;
 	MessagesHandler* mh;
+	MessageOffsetAckHandler* moah;
 	RequestMapper* request_mapper;
 	ResponseMapper* response_mapper;
 	ClassToByteTransformer* transformer;
@@ -64,7 +66,7 @@ private:
 
 	std::string get_follower_heartbeat_key(const std::string& queue_name, int partition, int node_id);
 public:
-	DataNode(Controller* controller, ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, FileHandler* fh, Settings* settings, Logger* logger);
+	DataNode(Controller* controller, ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, MessageOffsetAckHandler* moah, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, FileHandler* fh, Settings* settings, Logger* logger);
 
 	void send_heartbeats_to_leader(std::atomic_bool* should_terminate);
 

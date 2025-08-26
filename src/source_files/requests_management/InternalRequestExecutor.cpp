@@ -227,6 +227,26 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 		}
 	}
 	else if (request->message_offset == partition->get_message_offset() + 1) last_message_offset = partition->get_message_offset();
+
+	std::vector<std::shared_ptr<Consumer>> consumers = partition.get()->get_all_consumers();
+	res.get()->consumer_offsets_count = consumers.size();
+	std::unique_ptr<char> consumers_data = std::unique_ptr<char>(new char[res.get()->consumer_offsets_count * CONSUMER_ACK_TOTAL_BYTES]);
+
+	unsigned int offset = 0;
+	for (auto& consumer : consumers) {
+		int group_id_length = consumer.get()->get_group_id().size();
+		unsigned long long consumer_off = consumer.get()->get_offset();
+		unsigned long long consumer_id = consumer.get()->get_id();
+
+		memcpy_s(consumers_data.get() + offset + CONSUMER_GROUP_ID_LENGTH_OFFSET, CONSUMER_GROUP_ID_LENGTH_SIZE, &group_id_length, CONSUMER_GROUP_ID_LENGTH_SIZE);
+		memcpy_s(consumers_data.get() + offset + CONSUMER_GROUP_ID_OFFSET, group_id_length, consumer.get()->get_group_id().c_str(), group_id_length);
+		memcpy_s(consumers_data.get() + offset + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE, &consumer_off, CONSUMER_MESSAGE_ACK_SIZE);
+		memcpy_s(consumers_data.get() + offset + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE, &consumer_id, CONSUMER_ID_SIZE);
+
+		offset += CONSUMER_ACK_TOTAL_BYTES;
+	}
+
+	res.get()->consumer_offsets_data = consumers_data.get();
 	
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 

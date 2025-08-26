@@ -905,7 +905,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 }
 
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(FetchMessagesResponse* obj) {
-	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(int) + 4 * sizeof(unsigned long long) + obj->messages_total_bytes + 5 * sizeof(ResponseValueKey);
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 3 * sizeof(int) + 4 * sizeof(unsigned long long) + obj->messages_total_bytes + 6 * sizeof(ResponseValueKey) + obj->consumer_offsets_count * CONSUMER_ACK_TOTAL_BYTES;
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
@@ -917,6 +917,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	ResponseValueKey prev_message_leader_epoch_type = ResponseValueKey::PREV_MESSAGE_LEADER_EPOCH;
 	ResponseValueKey commited_offset_type = ResponseValueKey::COMMITED_OFFSET;
 	ResponseValueKey messages_type = ResponseValueKey::MESSAGES;
+	ResponseValueKey consumers_acks_type = ResponseValueKey::CONSUMERS_ACKS;
 
 	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
@@ -960,6 +961,17 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	if (obj->total_messages > 0) {
 		memcpy_s(buf.get() + offset, obj->messages_total_bytes, obj->messages_data, obj->messages_total_bytes);
 		offset += obj->messages_total_bytes;
+	}
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &consumers_acks_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->consumer_offsets_count, sizeof(int));
+	offset += sizeof(int);
+
+	if (obj->consumer_offsets_count > 0) {
+		memcpy_s(buf.get() + offset, obj->consumer_offsets_count * CONSUMER_ACK_TOTAL_BYTES, obj->consumer_offsets_data, obj->consumer_offsets_count * CONSUMER_ACK_TOTAL_BYTES);
+		offset += obj->consumer_offsets_count * CONSUMER_ACK_TOTAL_BYTES;
 	}
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);

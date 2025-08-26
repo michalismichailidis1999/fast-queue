@@ -1,10 +1,11 @@
 #include "../../header_files/cluster_management/DataNode.h"
 
-DataNode::DataNode(Controller* controller, ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, FileHandler* fh, Settings* settings, Logger* logger) {
+DataNode::DataNode(Controller* controller, ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, MessageOffsetAckHandler* moah, RequestMapper* request_mapper, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, FileHandler* fh, Settings* settings, Logger* logger) {
 	this->controller = controller;
 	this->cm = cm;
 	this->qm = qm;
 	this->mh = mh;
+	this->moah = moah;
 	this->request_mapper = request_mapper;
 	this->response_mapper = response_mapper;
 	this->transformer = transformer;
@@ -652,6 +653,25 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 
 	partition->set_last_message_offset(last_message_offset);
 	partition->set_last_message_leader_epoch(last_message_leader_epoch);
+
+	if (res->consumer_offsets_count > 0) {
+		unsigned long long consumer_id = 0;
+		unsigned long long cons_msg_off = 0;
+
+		unsigned int cons_off = 0;
+
+		for (int i = 0; i < res->consumer_offsets_count; i++) {
+			memcpy_s(&consumer_id, CONSUMER_ID_SIZE, (char*)res->consumer_offsets_data + cons_off + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE);
+			memcpy_s(&cons_msg_off, CONSUMER_MESSAGE_ACK_SIZE, (char*)res->consumer_offsets_data + cons_off + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE);
+
+			std::shared_ptr<Consumer> consumer = partition->get_consumer(consumer_id);
+
+			if (consumer != nullptr)
+				this->moah->flush_consumer_offset_ack(partition, consumer.get(), cons_msg_off);
+
+			cons_off += CONSUMER_ACK_TOTAL_BYTES;
+		}
+	}
 
 	std::lock_guard<std::shared_mutex> lock(partition->consumers_mut);
 
