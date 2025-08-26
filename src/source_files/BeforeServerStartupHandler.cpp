@@ -537,6 +537,7 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
     unsigned int message_bytes = 0;
     unsigned long long message_id = 0;
     unsigned long long message_timestamp = 0;
+    unsigned long long message_leader_epoch = 0;
 
     unsigned long long total_written_bytes = 0;
 
@@ -563,6 +564,7 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
 
             memcpy_s(&message_id, MESSAGE_ID_SIZE, read_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
             memcpy_s(&message_timestamp, MESSAGE_TIMESTAMP_SIZE, read_batch.get() + offset + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE);
+            memcpy_s(&message_leader_epoch, MESSAGE_LEADER_ID_SIZE, read_batch.get() + offset + MESSAGE_LEADER_ID_OFFSET, MESSAGE_LEADER_ID_SIZE);
 
             offset += message_bytes;
             total_written_bytes += message_bytes;
@@ -606,6 +608,7 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
 
     segment->set_total_written_bytes(total_written_bytes);
     partition->set_last_message_offset(segment->get_last_message_offset());
+    partition->set_last_message_leader_epoch(message_leader_epoch);
 }
 
 // ========================================================
