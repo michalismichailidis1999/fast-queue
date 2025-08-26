@@ -73,6 +73,25 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
         this->data_node->update_consumer_heartbeat(command->get_queue_name(), command->get_group_id(), command->get_consumer_id());
     }
 
+    ClusterMetadata* cluster_metadata = this->controller->get_cluster_metadata();
+
+    if (cluster_metadata->owned_partitions.size() > 0) {
+        for (auto& iter : cluster_metadata->owned_partitions) {
+            if (cluster_metadata->partition_leader_nodes.find(iter.first) == cluster_metadata->partition_leader_nodes.end())
+                continue;
+
+            auto partition_leader_nodes = cluster_metadata->partition_leader_nodes[iter.first].get();
+
+            for (auto& iter2 : *(iter.second.get())) {
+                if ((*partition_leader_nodes)[iter2.first] != this->settings->get_node_id()) continue;
+
+                for (int follower_id : *(iter2.second.get()))
+                    if (follower_id != this->settings->get_node_id())
+                        this->data_node->update_follower_heartbeat(iter.first, iter2.first, follower_id);
+            }
+        }
+    }
+
     this->controller->get_cluster_metadata()->set_current_version(metatada_version);
 
     std::vector<std::string> queue_names;

@@ -347,8 +347,6 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 }
 
 void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_terminate) {
-	//if (this->settings->get_node_id() == 2) return;
-
 	std::vector<std::tuple<std::string, int, int>> queues_partitions_to_fetch_from;
 
 	while (!should_terminate->load()) {
@@ -477,8 +475,10 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 								&& partition_owners.get()->find(iter2.first) != partition_owners.get()->end()
 								&& (*(partition_owners.get()))[iter2.first].get()->size() > 1
 							) for (int follower_id : *((*(partition_owners.get()))[iter2.first].get())) {
-								if (cluster_metadata->is_follower_lagging(iter.first, iter2.first, follower_id))
-									continue;
+								if (
+									follower_id == this->settings->get_node_id() 
+									|| cluster_metadata->is_follower_lagging(iter.first, iter2.first, follower_id)
+								) continue;
 								
 								auto node_follow_partitions = follower_nodes_to_check[follower_id];
 
@@ -526,19 +526,19 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 					if (!this->util->has_timeframe_expired(this->follower_heartbeats[key].count(), this->settings->get_lag_time_ms()))
 						continue;
 
-					if (leader_id == this->settings->get_node_id()) {
-						// TODO: Call controller method here
-
-						add_lagging_follower_res = nullptr;
-
-						continue;
-					}
-
 					std::unique_ptr<AddLaggingFollowerRequest> req = std::make_unique<AddLaggingFollowerRequest>();
 					req.get()->queue_name = (char*)queue_name.c_str();
 					req.get()->queue_name_length = queue_name.size();
 					req.get()->partition = partition;
 					req.get()->node_id = iter.first;
+
+					if (leader_id == this->settings->get_node_id()) {
+						this->controller->add_lagging_follower(req.get());
+
+						add_lagging_follower_res = nullptr;
+
+						continue;
+					}
 
 					std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(req.get());
 
