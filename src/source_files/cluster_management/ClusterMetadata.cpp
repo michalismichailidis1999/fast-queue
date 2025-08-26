@@ -25,6 +25,10 @@ unsigned long long ClusterMetadata::get_current_version() {
 	return this->metadata_version;
 }
 
+void ClusterMetadata::set_current_version(unsigned long long metadata_version) {
+	this->metadata_version = metadata_version;
+}
+
 unsigned long long ClusterMetadata::get_current_term() {
 	return this->current_term;
 }
@@ -221,7 +225,7 @@ void ClusterMetadata::apply_partition_assignment_command(PartitionAssignmentComm
 
 	int partitions_count = this->nodes_partition_counts->get(node_id);
 
-	this->nodes_partition_counts->update(node_id, partitions_count + 1);
+	this->nodes_partition_counts->insert(node_id, partitions_count + 1);
 
 	partition_owners->insert(node_id);
 
@@ -242,7 +246,7 @@ void ClusterMetadata::apply_partition_assignment_command(PartitionAssignmentComm
 
 	partitions_count = this->nodes_partition_counts->get(node_id);
 
-	this->nodes_partition_counts->update(node_id, partitions_count - 1);
+	this->nodes_partition_counts->insert(node_id, partitions_count - 1);
 }
 
 void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {
@@ -270,7 +274,7 @@ void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderA
 
 	(*(partitions_leaders.get()))[command->get_partition()] = node_id;
 
-	this->nodes_leader_partition_counts->update(node_id, lead_partitions_count + 1);
+	this->nodes_leader_partition_counts->insert(node_id, lead_partitions_count + 1);
 
 	if (command->get_prev_leader() <= 0) return;
 
@@ -278,7 +282,7 @@ void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderA
 
 	lead_partitions_count = this->nodes_leader_partition_counts->get(node_id);
 
-	this->nodes_leader_partition_counts->update(node_id, lead_partitions_count - 1);
+	this->nodes_leader_partition_counts->insert(node_id, lead_partitions_count - 1);
 }
 
 void ClusterMetadata::apply_register_consuer_group_command(RegisterConsumerGroupCommand* command) {

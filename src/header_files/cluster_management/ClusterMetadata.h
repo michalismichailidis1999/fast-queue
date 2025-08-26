@@ -81,6 +81,7 @@ public:
 	int get_leader_id();
 
 	unsigned long long get_current_version();
+	void set_current_version(unsigned long long metadata_version);
 	unsigned long long get_current_term();
 
 	void add_queue_metadata(std::shared_ptr<QueueMetadata> queue_metadata);

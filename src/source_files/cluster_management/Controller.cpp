@@ -65,8 +65,6 @@ void Controller::init_commit_index_and_last_applied() {
 }
 
 void Controller::run_controller_quorum_communication() {
-	if (!this->settings->get_is_controller_node()) return;
-
 	while (!(this->should_terminate->load())) {
 		try
 		{
@@ -727,7 +725,7 @@ bool Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 	}
 
 	(*(partitions_leaders.get()))[partition] = node_id;
-	this->future_cluster_metadata->nodes_leader_partition_counts->update(node_id, min_leader_count + 1);
+	this->future_cluster_metadata->nodes_leader_partition_counts->insert(node_id, min_leader_count + 1);
 
 	unsigned long long unique_leader_id = ++this->future_cluster_metadata->last_queue_partition_leader_id;
 
