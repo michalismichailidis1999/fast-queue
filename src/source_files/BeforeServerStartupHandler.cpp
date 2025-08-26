@@ -539,6 +539,8 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
     unsigned long long message_timestamp = 0;
     unsigned long long message_leader_epoch = 0;
 
+    bool is_active = false;
+
     unsigned long long total_written_bytes = 0;
 
     while (true) {
@@ -561,6 +563,14 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
                 throw CorruptionException("Corrupted messages detected while setting segment's last message offset and timestamp");
 
             if (offset + message_bytes > bytes_read) break;
+
+            memcpy_s(&is_active, MESSAGE_IS_ACTIVE_SIZE, read_batch.get() + offset + MESSAGE_IS_ACTIVE_OFFSET, MESSAGE_IS_ACTIVE_SIZE);
+
+            if (!is_active) {
+                offset += message_bytes;
+                total_written_bytes += message_bytes;
+                continue;
+            }
 
             memcpy_s(&message_id, MESSAGE_ID_SIZE, read_batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
             memcpy_s(&message_timestamp, MESSAGE_TIMESTAMP_SIZE, read_batch.get() + offset + MESSAGE_TIMESTAMP_OFFSET, MESSAGE_TIMESTAMP_SIZE);
