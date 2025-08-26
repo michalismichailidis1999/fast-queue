@@ -643,7 +643,7 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 
 	if (res->total_messages > 0) {
 		std::lock_guard<std::mutex> lock(partition->write_mut);
-		this->mh->save_messages(partition, res->messages_data, res->total_messages, nullptr, true);
+		this->mh->save_messages(partition, res->messages_data, res->messages_total_bytes, nullptr, true);
 	}
 
 	partition->set_last_replicated_offset(res->commited_offset);

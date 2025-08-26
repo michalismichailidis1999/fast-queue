@@ -7,6 +7,7 @@ Partition::Partition(unsigned int partition_id, const std::string& queue_name) {
 	this->smallest_segment_id = 0;
 	this->smallest_uncompacted_segment_id = 0;
 	this->last_message_offset = 0;
+	this->last_message_leader_epoch = 0;
 	this->last_replicated_offset = 0;
 	this->message_map_key = "";
 	this->message_map_path = "";
