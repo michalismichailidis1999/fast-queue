@@ -44,6 +44,12 @@ Command::Command(void* metadata) {
 	case CommandType::UNREGISTER_CONSUMER_GROUP:
 		this->command_info = std::shared_ptr<UnregisterConsumerGroupCommand>(new UnregisterConsumerGroupCommand(metadata));
 		break;
+	case CommandType::ADD_LAGGING_FOLLOWER:
+		this->command_info = std::shared_ptr<AddLaggingFollowerCommand>(new AddLaggingFollowerCommand(metadata));
+		break;
+	case CommandType::REMOVE_LAGGING_FOLLOWER:
+		this->command_info = std::shared_ptr<RemoveLaggingFollowerCommand>(new RemoveLaggingFollowerCommand(metadata));
+		break;
 	default:
 		break;
 	}
@@ -130,6 +136,18 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		size_dif = UCG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
 		key_offset = UCG_COMMAND_TOTAL_BYTES;
 		break;
+	case CommandType::ADD_LAGGING_FOLLOWER:
+		key = ((RegisterConsumerGroupCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = ALF_COMMAND_TOTAL_BYTES + key.size();
+		size_dif = ALF_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key_offset = ALF_COMMAND_TOTAL_BYTES;
+		break;
+	case CommandType::REMOVE_LAGGING_FOLLOWER:
+		key = ((UnregisterConsumerGroupCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = RLF_COMMAND_TOTAL_BYTES + key.size();
+		size_dif = RLF_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key_offset = RLF_COMMAND_TOTAL_BYTES;
+		break;
 	default:
 		return std::tuple<long, std::shared_ptr<char>>(0, nullptr);
 	}
@@ -203,6 +221,22 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 			bytes.get() + COMMAND_TOTAL_BYTES,
 			size_dif,
 			((UnregisterConsumerGroupCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
+			size_dif
+		);
+		break;
+	case CommandType::ADD_LAGGING_FOLLOWER:
+		memcpy_s(
+			bytes.get() + COMMAND_TOTAL_BYTES,
+			size_dif,
+			((AddLaggingFollowerCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
+			size_dif
+		);
+		break;
+	case CommandType::REMOVE_LAGGING_FOLLOWER:
+		memcpy_s(
+			bytes.get() + COMMAND_TOTAL_BYTES,
+			size_dif,
+			((RemoveLaggingFollowerCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
 			size_dif
 		);
 		break;

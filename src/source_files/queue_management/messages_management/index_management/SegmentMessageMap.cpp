@@ -186,6 +186,11 @@ int SegmentMessageMap::get_page_segment_offset(void* map_page, unsigned long lon
 		if (start_pos == pos - 1 && end_pos == pos + 1 && start_pos_message < message_id && message_id < middle_message_id)
 			return pos;
 
+		if (start_pos == end_pos - 1) {
+			if (message_id > end_pos_message) return end_pos;
+			return start_pos;
+		}
+
 		if (middle_message_id < message_id) start_pos = pos + 1;
 		else end_pos = pos - 1;
 
