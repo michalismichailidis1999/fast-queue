@@ -194,3 +194,7 @@ unsigned int Partition::get_consumer_offsets_flushed_bytes() {
 	std::shared_lock<std::shared_mutex> lock(this->consumers_mut);
 	return this->consumer_offsets_flushed_bytes;
 }
+
+std::shared_mutex* Partition::get_consumers_mut() {
+	return &this->consumers_mut;
+}

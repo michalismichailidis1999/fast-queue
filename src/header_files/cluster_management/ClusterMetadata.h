@@ -36,6 +36,8 @@ private:
 
 	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, std::shared_ptr<std::unordered_set<int>>>>> lagging_followers;
 
+	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<int, unsigned long long>>> replicated_offets;
+
 	unsigned long long last_queue_partition_leader_id;
 	// ======================================================
 

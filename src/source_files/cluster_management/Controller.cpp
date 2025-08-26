@@ -311,7 +311,7 @@ void Controller::append_entries_to_followers() {
 
 	if (replication_count >= this->half_quorum_nodes_count) {
 		unsigned long long largest_replicated_index = !this->is_the_only_controller_node 
-			? this->get_largest_replicated_index(&largest_versions_sent)
+			? this->get_largest_replicated_index(&largest_versions_sent, this->half_quorum_nodes_count)
 			: this->last_log_index.load();
 
 		if (largest_replicated_index > 0 && largest_replicated_index > this->commit_index) {
@@ -1238,21 +1238,21 @@ std::shared_ptr<AppendEntriesRequest> Controller::prepare_append_entries_request
 	return req;
 }
 
-unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent) {
+unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent, int half_nodes_count) {
 	if (largest_indexes_sent->size() == 0) return 0;
 
 	std::sort(largest_indexes_sent->begin(), largest_indexes_sent->end());
 
 	unsigned long long largest_replicated_index = (*largest_indexes_sent)[0];
 
-	int counter = this->half_quorum_nodes_count;
+	int counter = half_nodes_count;
 	unsigned long long prev_index = largest_replicated_index;
 
 	for (int i = 1; i < largest_indexes_sent->size(); i++) {
 		unsigned long long current = (*largest_indexes_sent)[i];
 
 		if (current == prev_index) counter--;
-		else counter = this->half_quorum_nodes_count;
+		else counter = half_nodes_count;
 
 		if (counter == 0) largest_replicated_index = current;
 
@@ -1385,7 +1385,7 @@ unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsu
 	for (auto& iter : (*partition_consumers.get()))
 		consumer_ids.insert(iter.second);
 
-	int partition_count_per_consumer = consumer_ids.size() + 1;
+	int partition_count_per_consumer = total_queue_partitions / consumer_ids.size() + 1;
 
 	for (int i = 0; i < total_queue_partitions; i++)
 		if (partition_consumers.get()->find(i) == partition_consumers.get()->end())
@@ -1581,4 +1581,35 @@ void Controller::remove_lagging_follower(RemoveLaggingFollowerRequest* request) 
 	commands[0] = command;
 
 	this->store_commands(&commands);
+}
+
+void Controller::add_replicated_message_offset(const std::string& leader_key, int node_id, unsigned long long message_offset) {
+	std::lock_guard<std::shared_mutex> lock(this->cluster_metadata->nodes_partitions_mut);
+
+	if (this->cluster_metadata->replicated_offets.find(leader_key) == this->cluster_metadata->replicated_offets.end()) return;
+
+	auto replications = this->cluster_metadata->replicated_offets[leader_key];
+
+	if (replications == nullptr) return;
+
+	(*(replications.get()))[node_id] = message_offset;
+}
+
+void Controller::get_replicated_message_offsets(const std::string& queue_name, const std::string& leader_key, std::vector<unsigned long long>* offsets) {
+	std::shared_lock<std::shared_mutex> lock(this->cluster_metadata->nodes_partitions_mut);
+
+	if (this->cluster_metadata->replicated_offets.find(leader_key) == this->cluster_metadata->replicated_offets.end()) return;
+
+	if (this->cluster_metadata->owned_partitions.find(queue_name) == this->cluster_metadata->owned_partitions.end()) return;
+
+	auto replications = this->cluster_metadata->replicated_offets[leader_key];
+	auto partition_owners = this->cluster_metadata->owned_partitions[queue_name];
+
+	if (replications == nullptr || partition_owners == nullptr) return;
+
+	for (auto& iter : *(partition_owners.get()))
+		if (iter.second != nullptr)
+			for(int node_id : *(iter.second.get()))
+				if (replications->find(node_id) != replications->end())
+					offsets->emplace_back((*(replications.get()))[node_id]);
 }

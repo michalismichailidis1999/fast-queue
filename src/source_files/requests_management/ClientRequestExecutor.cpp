@@ -224,6 +224,10 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 		partition_leader_id
 	);
 
+	std::string leader_key = queue_name + "_" + std::to_string(request->partition) + "_" + std::to_string(this->settings->get_node_id());
+
+	this->controller->add_replicated_message_offset(leader_key, this->settings->get_node_id(), partition.get()->get_message_offset());
+
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
 

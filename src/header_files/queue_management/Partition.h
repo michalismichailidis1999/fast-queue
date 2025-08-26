@@ -95,6 +95,8 @@ public:
 	void set_consumer_offsets_flushed_bytes(unsigned int consumer_offsets_flushed_bytes);
 	unsigned int get_consumer_offsets_flushed_bytes();
 
+	std::shared_mutex* get_consumers_mut();
+
 	friend class RetentionHandler;
 	friend class CompactionHandler;
 	friend class MessageOffsetAckHandler;

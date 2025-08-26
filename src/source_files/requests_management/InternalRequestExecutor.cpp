@@ -144,6 +144,34 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 		queue_name, request->partition, request->node_id
 	);
 
+	std::vector<unsigned long long> message_offsets;
+
+	std::string leader_key = queue_name + "_" + std::to_string(request->partition) + "_" + std::to_string(this->settings->get_node_id());
+
+	this->controller->get_replicated_message_offsets(queue_name, leader_key, &message_offsets);
+
+	bool odd_count = queue->get_metadata()->get_replication_factor() % 2 == 1;
+	unsigned long long replicated_offset = this->controller->get_largest_replicated_index(&message_offsets, queue->get_metadata()->get_replication_factor() / 2 + (odd_count ? 1 : 0));
+
+	if (replicated_offset > 0)
+	{
+		partition->set_last_replicated_offset(replicated_offset);
+
+		std::shared_mutex* mut = partition.get()->get_consumers_mut();
+
+		std::lock_guard<std::shared_mutex> lock(*mut);
+
+		if(this->fh->check_if_exists(partition->get_offsets_path()))
+			this->fh->write_to_file(
+				partition->get_offsets_key(),
+				partition->get_offsets_path(),
+				sizeof(unsigned long long),
+				0,
+				&replicated_offset,
+				true
+			);
+	}
+
 	std::unique_ptr<FetchMessagesResponse> res = std::make_unique<FetchMessagesResponse>();
 	res.get()->total_messages = 0;
 	res.get()->messages_total_bytes = 0;
@@ -199,14 +227,15 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 		}
 	}
 	else if (request->message_offset == partition->get_message_offset() + 1) last_message_offset = partition->get_message_offset();
-
-	// TODO: Store last_message_offset as last replicated message offset and check the most commited offset to update partition last replicated offset
 	
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	bool success = this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 
-	if (last_message_offset != partition->get_message_offset() || !is_lagging_follower) return;
+	if (success)
+		this->controller->add_replicated_message_offset(leader_key, this->settings->get_node_id(), last_message_offset);
+
+	if (last_message_offset != partition->get_message_offset() || !is_lagging_follower || !success) return;
 
 	std::unique_ptr<RemoveLaggingFollowerRequest> req = std::make_unique<RemoveLaggingFollowerRequest>();
 	req.get()->queue_name = request->queue_name;

@@ -276,6 +276,9 @@ void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderA
 
 	this->nodes_leader_partition_counts->insert(node_id, lead_partitions_count + 1);
 
+	this->replicated_offets[command->get_queue_name() + "_" + std::to_string(command->get_partition()) + "_" + std::to_string(command->get_new_leader())] =
+		std::make_shared<std::unordered_map<int, unsigned long long>>();
+
 	if (command->get_prev_leader() <= 0) return;
 
 	node_id = command->get_prev_leader();
@@ -283,6 +286,10 @@ void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderA
 	lead_partitions_count = this->nodes_leader_partition_counts->get(node_id);
 
 	this->nodes_leader_partition_counts->insert(node_id, lead_partitions_count - 1);
+
+	this->replicated_offets.erase(
+		command->get_queue_name() + "_" + std::to_string(command->get_partition()) + "_" + std::to_string(command->get_prev_leader())
+	);
 }
 
 void ClusterMetadata::apply_register_consuer_group_command(RegisterConsumerGroupCommand* command) {
