@@ -65,6 +65,8 @@ void Controller::init_commit_index_and_last_applied() {
 }
 
 void Controller::run_controller_quorum_communication() {
+	if (!this->settings->get_is_controller_node()) return;
+
 	while (!(this->should_terminate->load())) {
 		try
 		{
@@ -1385,7 +1387,7 @@ unsigned long long Controller::assign_consumer_group_to_partitions(RegisterConsu
 	for (auto& iter : (*partition_consumers.get()))
 		consumer_ids.insert(iter.second);
 
-	int partition_count_per_consumer = total_queue_partitions / consumer_ids.size() + 1;
+	int partition_count_per_consumer = total_queue_partitions / (consumer_ids.size() + 1);
 
 	for (int i = 0; i < total_queue_partitions; i++)
 		if (partition_consumers.get()->find(i) == partition_consumers.get()->end())

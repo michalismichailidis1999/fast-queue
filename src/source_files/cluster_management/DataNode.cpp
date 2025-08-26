@@ -649,11 +649,6 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 
 	partition->set_last_replicated_offset(res->commited_offset);
 
-	if (res->total_messages == 0) return;
-
-	partition->set_last_message_offset(last_message_offset);
-	partition->set_last_message_leader_epoch(last_message_leader_epoch);
-
 	if (res->consumer_offsets_count > 0) {
 		unsigned long long consumer_id = 0;
 		unsigned long long cons_msg_off = 0;
@@ -672,6 +667,11 @@ void DataNode::handle_fetch_messages_res(Partition* partition, FetchMessagesResp
 			cons_off += CONSUMER_ACK_TOTAL_BYTES;
 		}
 	}
+
+	if (res->total_messages == 0) return;
+
+	partition->set_last_message_offset(last_message_offset);
+	partition->set_last_message_leader_epoch(last_message_leader_epoch);
 
 	std::lock_guard<std::shared_mutex> lock(partition->consumers_mut);
 
