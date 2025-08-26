@@ -57,14 +57,19 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 	bool success = this->save_messages(partition, messages_data.get(), total_messages_bytes, nullptr, cache_messages);
 
 	if (success && !has_replication)
-		this->disk_flusher->write_data_to_specific_file_location(
-			partition->get_offsets_key(),
-			partition->get_offsets_path(),
-			&message_offset,
-			sizeof(unsigned long long),
-			0,
-			true
-		);
+	{
+		std::lock_guard<std::shared_mutex> lock2(partition->consumers_mut);
+
+		if(this->disk_flusher->path_exists(partition->get_offsets_path()))
+			this->disk_flusher->write_data_to_specific_file_location(
+				partition->get_offsets_key(),
+				partition->get_offsets_path(),
+				&message_offset,
+				sizeof(unsigned long long),
+				0,
+				true
+			);
+	}
 
 	return success;
 }
