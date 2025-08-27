@@ -80,7 +80,7 @@ SOCKET_ID SocketHandler::get_listen_socket(bool internal_communication) {
         ? "for internal communication"
         : "for external communication";
 
-    this->logger->log_info("Listening " + communication_info + " on port " + std::to_string(port));
+    this->logger->log_info("Listening " + communication_info + ip + ":" + std::to_string(port));
 
     return listen_socket;
 }

@@ -6,8 +6,8 @@ services:
       - 9877:9877
       - 29877:29877
     volumes:
-      - C:\fast_queue_docker\data1:\fast_queue\data1
-      - C:\fast_queue_docker\logs1:\fast_queue\logs1
+      - C:\fast_queue_docker\data1:/fast_queue/data1
+      - C:\fast_queue_docker\logs1:/fast_queue/logs1
       - .\temp.conf:/config/fastqueue.conf
     environment:
       - CONFIGURATION_PATH=/config/fastqueue.conf
