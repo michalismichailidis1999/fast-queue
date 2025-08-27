@@ -51,6 +51,9 @@ private:
 
 	std::atomic_bool* should_terminate;
 
+	unsigned int ping_req_bytes_size;
+	std::unique_ptr<char> ping_req;
+
 	bool create_node_connection_pool(int node_id, ConnectionPool* pool, long milliseconds_to_wait = 1000);
 	
 	void add_connections_to_pools(std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
@@ -67,8 +70,8 @@ public:
 	bool respond_to_socket(SOCKET_ID socket, SSL* ssl, char* res_buf, unsigned int res_buf_len);
 	bool respond_to_socket_with_error(SOCKET_ID socket, SSL* ssl, ErrorCode error_code, const std::string& error_message);
 
-	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, unsigned int buf_len, const std::string& internal_requets_type);
-	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(ConnectionPool* pool, int retries, char* buf, unsigned int buf_len, const std::string& internal_requets_type);
+	std::tuple<std::shared_ptr<char>, int, bool> send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, unsigned int buf_len, const std::string& internal_requets_type);
+	std::tuple<std::shared_ptr<char>, int, bool> send_request_to_socket(ConnectionPool* pool, int retries, char* buf, unsigned int buf_len, const std::string& internal_requets_type);
 
 	void initialize_controller_nodes_connections();
 	void terminate_connections();

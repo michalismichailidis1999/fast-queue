@@ -10,6 +10,24 @@ ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, SslContext
 	this->should_terminate = should_terminate;
 	this->ssl_context = settings->get_internal_ssl_enabled() ? this->ssl_context_handler->create_ssl_context(true) : nullptr;
 	this->failed_to_create_ssl_context = settings->get_internal_ssl_enabled() && this->ssl_context.get() == NULL;
+
+	this->ping_req_bytes_size = sizeof(unsigned int) + sizeof(RequestType) + sizeof(bool);
+
+	this->ping_req = std::unique_ptr<char>(new char[this->ping_req_bytes_size]);
+
+	RequestType ping_req_type = RequestType::NONE;
+	bool success = true;
+
+	unsigned int offset = 0;
+
+	memcpy_s(this->ping_req.get() + offset, sizeof(unsigned int), &this->ping_req_bytes_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(this->ping_req.get() + offset, sizeof(RequestType), &ping_req_type, sizeof(RequestType));
+	offset += sizeof(RequestType);
+
+	memcpy_s(this->ping_req.get() + offset, sizeof(bool), &success, sizeof(bool));
+	offset += sizeof(bool);
 }
 
 bool ConnectionsManager::receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char* res_buf, unsigned int res_buf_len) {
@@ -75,17 +93,17 @@ bool ConnectionsManager::respond_to_socket(SOCKET_ID socket, SSL* ssl, char* res
 }
 
 bool ConnectionsManager::respond_to_socket_with_error(SOCKET_ID socket, SSL* ssl, ErrorCode error_code, const std::string& error_message) {
-	long err_buf_size = sizeof(long) + sizeof(ErrorCode) + error_message.size() + sizeof(int) + sizeof(ResponseValueKey);
+	unsigned int err_buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + error_message.size() + sizeof(int) + sizeof(ResponseValueKey);
 
 	int error_message_size = error_message.size();
 	ResponseValueKey error_message_type = ResponseValueKey::ERROR_MESSAGE;
 
-	long offset = 0;
+	unsigned int offset = 0;
 
 	std::unique_ptr<char> err_buf = std::unique_ptr<char>(new char[err_buf_size]);
 
-	memcpy_s(err_buf.get() + offset, sizeof(long), &err_buf_size, sizeof(long));
-	offset += sizeof(long);
+	memcpy_s(err_buf.get() + offset, sizeof(unsigned int), &err_buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
 
 	memcpy_s(err_buf.get() + offset, sizeof(ErrorCode), &error_code, sizeof(ErrorCode));
 	offset += sizeof(ErrorCode);
@@ -102,23 +120,23 @@ bool ConnectionsManager::respond_to_socket_with_error(SOCKET_ID socket, SSL* ssl
 }
 
 // For internal communication only
-std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
+std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
 	try
 	{
 		this->logger->log_info("Sending internal request of type " + internal_requets_type);
 
 		bool success = this->respond_to_socket(socket, ssl, buf, buf_len);
 
-		if (!success) return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, true);
+		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 
-		if (!this->should_wait_for_response(*((RequestType*)(buf + sizeof(long)))))
-			return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, 0, false);
+		if (!this->should_wait_for_response(*((RequestType*)(buf + sizeof(unsigned int)))))
+			return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, 0, false);
 
-		long response_size = 0;
+		unsigned int response_size = 0;
 
-		success = this->receive_socket_buffer(socket, ssl, (char*)&response_size, sizeof(long));
+		success = this->receive_socket_buffer(socket, ssl, (char*)&response_size, sizeof(unsigned int));
 
-		if (!success) return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, true);
+		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 
 		response_size -= sizeof(long);
 
@@ -126,7 +144,7 @@ std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_t
 
 		success = this->receive_socket_buffer(socket, ssl, res_buf.get(), response_size);
 
-		if (!success) return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, true);
+		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 
 		success = *((ErrorCode*)res_buf.get()) == ErrorCode::NONE;
 
@@ -137,7 +155,7 @@ std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_t
 			return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, false);
 		}
 
-		return std::tuple<std::shared_ptr<char>, long, bool>(res_buf, response_size, false);
+		return std::tuple<std::shared_ptr<char>, int, bool>(res_buf, response_size, false);
 	}
 	catch (const std::exception& ex)
 	{
@@ -146,7 +164,7 @@ std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_t
 	}
 }
 
-std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_to_socket(ConnectionPool* pool, int retries, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
+std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(ConnectionPool* pool, int retries, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
 	try
 	{
 		while (retries > 0) {
@@ -154,7 +172,7 @@ std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_t
 
 			if (connection == nullptr) {
 				this->logger->log_error("No open connections found in pool");
-				return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, false);
+				return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, false);
 			}
 
 			auto res_tup = this->send_request_to_socket(
@@ -174,12 +192,12 @@ std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_t
 			retries--;
 		}
 
-		return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, false);
+		return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, false);
 	}
 	catch (const std::exception& ex)
 	{
 		this->logger->log_error("Error occured while responding to socket. " + ((std::string)ex.what()));
-		return std::tuple<std::shared_ptr<char>, long, bool>(nullptr, -1, true);
+		return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 	}
 }
 
@@ -251,6 +269,7 @@ bool ConnectionsManager::add_connection_to_pool(ConnectionPool* pool) {
 	std::shared_ptr<Connection> connection = std::make_shared<Connection>();
 	connection.get()->socket = socket;
 	connection.get()->ssl = ssl;
+	connection.get()->last_used_timestamp = this->util->get_current_time_milli().count();
 
 	pool->add_connection(connection);
 
@@ -418,12 +437,25 @@ void ConnectionsManager::ping_connection_pools(std::shared_mutex* connections_mu
 				continue;
 			}
 			
-			// TODO: Ping connection here
+			auto res = this->send_request_to_socket(
+				conn.get()->socket, 
+				conn.get()->ssl, 
+				this->ping_req.get(), 
+				this->ping_req_bytes_size, 
+				"ConnectionPing"
+			);
+
+			success = false;
+
+			if (!std::get<2>(res) && std::get<1>(res) > 0)
+				memcpy_s(&success, sizeof(bool), std::get<0>(res).get(), sizeof(bool));
+
+			if (success) {
+				conn.get()->last_used_timestamp = this->util->get_current_time_milli().count();
+				this->logger->log_info("Pinged connection pool socket " + std::to_string(conn->socket));
+			}
 
 			iter.second.get()->add_connection(success ? conn : nullptr, true);
-
-			if (success)
-				this->logger->log_info("Pinged connection pool socket " + std::to_string(conn->socket));
 		}
 }
 
