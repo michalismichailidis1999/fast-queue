@@ -816,7 +816,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
-	RequestType req_type = RequestType::ADD_LAGGING_FOLLOWER;
+	RequestType req_type = RequestType::REMOVE_LAGGING_FOLLOWER;
 
 	RequestValueKey queue_name_type = RequestValueKey::QUEUE_NAME;
 	RequestValueKey partition_type = RequestValueKey::PARTITION;
