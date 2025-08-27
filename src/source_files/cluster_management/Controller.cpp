@@ -1546,6 +1546,9 @@ void Controller::add_lagging_follower(AddLaggingFollowerRequest* request) {
 
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
+	if (this->future_cluster_metadata->is_follower_lagging(queue_name, request->partition, request->node_id))
+		return;
+
 	Command command = Command(
 		CommandType::ADD_LAGGING_FOLLOWER,
 		this->term.load(),
@@ -1567,6 +1570,9 @@ void Controller::remove_lagging_follower(RemoveLaggingFollowerRequest* request) 
 	std::unique_lock<std::shared_mutex> lock(this->future_cluster_metadata->nodes_partitions_mut);
 
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	if (!this->future_cluster_metadata->is_follower_lagging(queue_name, request->partition, request->node_id))
+		return;
 
 	Command command = Command(
 		CommandType::REMOVE_LAGGING_FOLLOWER,
