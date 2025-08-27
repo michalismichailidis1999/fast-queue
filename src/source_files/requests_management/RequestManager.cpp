@@ -98,6 +98,7 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 		switch (request_type) {
 		case RequestType::NONE: {
+			this->logger->log_info("Received connection ping for socket " + std::to_string(socket));
 			this->cm->respond_to_socket(socket, ssl, this->ping_res.get(), this->ping_res_buff_size);
 			break;
 		}
@@ -346,7 +347,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			return;
 		}
 
-		this->logger->log_info("Execution of request completed");
+		if (request_type != RequestType::NONE)
+			this->logger->log_info("Execution of request completed");
 	}
 	catch (const std::exception& ex)
 	{

@@ -146,7 +146,8 @@ std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to
 
 		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 
-		success = *((ErrorCode*)res_buf.get()) == ErrorCode::NONE;
+		success = (internal_requets_type == "ConnectionPing" && success) 
+			|| (internal_requets_type != "ConnectionPing" && * ((ErrorCode*)res_buf.get()) == ErrorCode::NONE);
 
 		if (!success) {
 			std::unique_ptr<ErrorResponse> res = this->response_mapper->to_error_response(res_buf.get(), response_size);
