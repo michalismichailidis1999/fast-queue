@@ -108,6 +108,11 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 			cache_messages ? &cache_key_info : NULL
 		);
 
+		if (first_message_pos == -1) {
+			this->logger->log_error("Something went wrong while trying to append messages to end of segment");
+			return false;
+		}
+
 		unsigned long total_segment_bytes = active_segment.get()->add_written_bytes(total_bytes);
 
 		if (segment_to_write == nullptr && this->settings->get_segment_size() < total_segment_bytes) {
