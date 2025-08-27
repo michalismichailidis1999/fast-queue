@@ -508,7 +508,7 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 				continue;
 			}
 
-			std::shared_lock<std::shared_mutex> followers_lock(this->follower_heartbeats_mut);
+			std::lock_guard<std::shared_mutex> followers_lock(this->follower_heartbeats_mut);
 
 			for (auto& iter : follower_nodes_to_check) {
 				if (iter.second == nullptr) continue;
@@ -536,6 +536,8 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 						this->controller->add_lagging_follower(req.get());
 
 						add_lagging_follower_res = nullptr;
+						
+						this->follower_heartbeats.erase(key);
 
 						continue;
 					}
@@ -568,6 +570,8 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 							add_lagging_follower_res = nullptr;
 							break;
 						}
+
+						this->follower_heartbeats.erase(key);
 					}
 				}
 			}

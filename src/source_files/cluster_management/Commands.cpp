@@ -137,13 +137,13 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		key_offset = UCG_COMMAND_TOTAL_BYTES;
 		break;
 	case CommandType::ADD_LAGGING_FOLLOWER:
-		key = ((RegisterConsumerGroupCommand*)(this->command_info.get()))->get_command_key();
+		key = ((AddLaggingFollowerCommand*)(this->command_info.get()))->get_command_key();
 		total_bytes = ALF_COMMAND_TOTAL_BYTES + key.size();
 		size_dif = ALF_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
 		key_offset = ALF_COMMAND_TOTAL_BYTES;
 		break;
 	case CommandType::REMOVE_LAGGING_FOLLOWER:
-		key = ((UnregisterConsumerGroupCommand*)(this->command_info.get()))->get_command_key();
+		key = ((RemoveLaggingFollowerCommand*)(this->command_info.get()))->get_command_key();
 		total_bytes = RLF_COMMAND_TOTAL_BYTES + key.size();
 		size_dif = RLF_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
 		key_offset = RLF_COMMAND_TOTAL_BYTES;

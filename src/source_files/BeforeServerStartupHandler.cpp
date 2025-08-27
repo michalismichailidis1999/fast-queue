@@ -86,7 +86,7 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
                 if ((*partition_leader_nodes)[iter2.first] != this->settings->get_node_id()) continue;
 
                 for (int follower_id : *(iter2.second.get()))
-                    if (follower_id != this->settings->get_node_id())
+                    if (follower_id != this->settings->get_node_id() && !cluster_metadata->is_follower_lagging(iter.first, iter2.first, follower_id))
                         this->data_node->update_follower_heartbeat(iter.first, iter2.first, follower_id);
             }
         }
