@@ -240,15 +240,19 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 		else if (
 			lhs == "internal_ssl_enabled"
 			|| lhs == "internal_mutual_tls_enabled"
+			|| lhs == "internal_bind_all_interfaces"
 			|| lhs == "external_ssl_enabled"
 			|| lhs == "external_mutual_tls_enabled"
 			|| lhs == "external_user_authentication_enabled"
+			|| lhs == "external_bind_all_interfaces"
 		) {
 			bool* val = lhs == "internal_ssl_enabled" ? &this->internal_ssl_enabled
 				: lhs == "internal_mutual_tls_enabled" ? &this->internal_mutual_tls_enabled
+				: lhs == "internal_bind_all_interfaces" ? &this->internal_bind_all_interfaces
 				: lhs == "external_ssl_enabled" ? &this->external_ssl_enabled
 				: lhs == "external_mutual_tls_enabled" ? &this->external_mutual_tls_enabled
-				: &this->external_user_authentication_enabled;
+				: lhs == "external_user_authentication_enabled" ? &this->external_user_authentication_enabled
+				: &this->external_bind_all_interfaces;
 
 			*val = rhs == "true";
 		}
@@ -445,6 +449,11 @@ bool Settings::get_internal_mutual_tls_enabled() {
 	return this->internal_mutual_tls_enabled;
 }
 
+bool Settings::get_internal_bind_all_interfaces() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->internal_bind_all_interfaces;
+}
+
 // ------------------------------------------------------------
 
 // external communication properties getters
@@ -492,6 +501,11 @@ bool Settings::get_external_mutual_tls_enabled() {
 bool Settings::get_external_user_authentication_enabled() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_user_authentication_enabled;
+}
+
+bool Settings::get_external_bind_all_interfaces() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->external_bind_all_interfaces;
 }
 
 // ------------------------------------------------------------

@@ -52,6 +52,11 @@ SOCKET_ID SocketHandler::get_listen_socket(bool internal_communication) {
     int port = internal_communication ? settings->get_internal_port() : settings->get_external_port();
     std::string ip = internal_communication ? settings->get_internal_ip() : settings->get_external_ip();
 
+    bool bind_all_interfaces = internal_communication ? settings->get_internal_bind_all_interfaces() : settings->get_external_bind_all_interfaces();
+
+    if (bind_all_interfaces)
+        ip = "0.0.0.0";
+
     sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons((u_short)port);
