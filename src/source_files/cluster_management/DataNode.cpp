@@ -192,6 +192,8 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 					true
 				);
 
+				this->controller->get_cluster_metadata()->set_leader_id(append_entries_req->leader_id);
+
 				if (append_entries_req == nullptr) goto end;
 
 				if (leader_id != append_entries_req.get()->leader_id) {
