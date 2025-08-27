@@ -55,6 +55,8 @@ private:
 	
 	void add_connections_to_pools(std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
 
+	void ping_connection_pools(std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
+
 	bool setup_connection_pool(int node_id, std::shared_ptr<ConnectionInfo> info, std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections);
 
 	bool should_wait_for_response(RequestType request_type);
@@ -68,12 +70,11 @@ public:
 	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, unsigned int buf_len, const std::string& internal_requets_type);
 	std::tuple<std::shared_ptr<char>, long, bool> send_request_to_socket(ConnectionPool* pool, int retries, char* buf, unsigned int buf_len, const std::string& internal_requets_type);
 
-	bool connect_to_data_node(int node_id, std::shared_ptr<ConnectionInfo> info, long fail_wait_milli = 3000);
-
 	void initialize_controller_nodes_connections();
 	void terminate_connections();
 
 	void keep_pool_connections_to_maximum();
+	void ping_pool_connections();
 
 	std::shared_mutex* get_controller_node_connections_mut();
 	std::shared_mutex* get_data_node_connections_mut();

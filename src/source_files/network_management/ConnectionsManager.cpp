@@ -165,6 +165,8 @@ std::tuple<std::shared_ptr<char>, long, bool> ConnectionsManager::send_request_t
 				internal_requets_type
 			);
 
+			connection.get()->last_used_timestamp = this->util->get_current_time_milli().count();
+
 			pool->add_connection(std::get<2>(res_tup) ? nullptr : connection, true);
 
 			if (!std::get<2>(res_tup)) return res_tup;
@@ -340,17 +342,6 @@ void ConnectionsManager::terminate_connections() {
 	this->logger->log_info("Connections terminated");
 }
 
-bool ConnectionsManager::connect_to_data_node(int node_id, std::shared_ptr<ConnectionInfo> info, long fail_wait_milli) {
-	std::shared_ptr<ConnectionPool> connection_pool = std::shared_ptr<ConnectionPool>(new ConnectionPool(3, info));
-
-	if (!this->create_node_connection_pool(node_id, connection_pool.get(), fail_wait_milli)) return false;
-	
-	std::lock_guard<std::shared_mutex> lock(this->data_mut);
-	this->data_node_connections[node_id] = connection_pool;
-
-	return true;
-}
-
 void ConnectionsManager::keep_pool_connections_to_maximum() {
 	while (!(this->should_terminate->load())) {
 		try
@@ -365,7 +356,25 @@ void ConnectionsManager::keep_pool_connections_to_maximum() {
 			this->logger->log_error(err_msg);
 		}
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+	}
+}
+
+void ConnectionsManager::ping_pool_connections() {
+	while (!(this->should_terminate->load())) {
+		try
+		{
+			this->ping_connection_pools(&this->controllers_mut, &this->controller_node_connections);
+
+			this->ping_connection_pools(&this->data_mut, &this->data_node_connections);
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while trying to ping pool connections. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(15000));
 	}
 }
 
@@ -390,6 +399,32 @@ void ConnectionsManager::add_connections_to_pools(std::shared_mutex* connections
 		else if(connections_added > 0)
 			this->logger->log_info(std::to_string(connections_added) + " connections added to node " + std::to_string(iter.first) + " connection pool");
 	}
+}
+
+void ConnectionsManager::ping_connection_pools(std::shared_mutex* connections_mut, std::map<int, std::shared_ptr<ConnectionPool>>* connections) {
+	std::shared_lock<std::shared_mutex> lock(*connections_mut);
+
+	bool success = true;
+
+	for (auto iter : (*connections))
+		for (int i = 0; i < iter.second.get()->get_total_connections(); i++) {
+			std::shared_ptr<Connection> conn = iter.second.get()->get_connection();
+
+			if (conn == nullptr) break;
+
+			if (!this->util->has_timeframe_expired(conn->last_used_timestamp, this->settings->get_idle_connection_timeout_ms() / 2))
+			{
+				iter.second.get()->add_connection(conn, true);
+				continue;
+			}
+			
+			// TODO: Ping connection here
+
+			iter.second.get()->add_connection(success ? conn : nullptr, true);
+
+			if (success)
+				this->logger->log_info("Pinged connection pool socket " + std::to_string(conn->socket));
+		}
 }
 
 std::shared_mutex* ConnectionsManager::get_controller_node_connections_mut() {

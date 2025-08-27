@@ -8,6 +8,7 @@
 struct Connection {
 	SOCKET_ID socket;
 	SSL* ssl;
+	long long last_used_timestamp = 0;
 };
 
 struct ConnectionInfo {
