@@ -16,6 +16,8 @@ private:
 	std::string source_name;
 	std::string source_path;
 
+	bool write_to_file;
+
 	void log(const std::string& trace_type, const std::string& message);
 
 	std::string get_log_trace_type_in_str(LogTraceType trace_type);
