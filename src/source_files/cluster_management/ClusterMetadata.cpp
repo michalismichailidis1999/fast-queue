@@ -318,7 +318,7 @@ void ClusterMetadata::apply_register_consuer_group_command(RegisterConsumerGroup
 
 	this->consumers_partition_counts_inverse->insert(
 		command->get_consumer_id(),
-		this->consumers_partition_counts->get(command->get_consumer_id()) + 1
+		this->consumers_partition_counts_inverse->get(command->get_consumer_id()) + 1
 	);
 
 	this->consumers_consume_init_point[command->get_consumer_id()] = command->get_consume_from_beginning();
@@ -352,6 +352,8 @@ void ClusterMetadata::apply_unregister_consuer_group_command(UnregisterConsumerG
 		this->consumers_partition_counts->insert(command->get_consumer_id(), total_assigned_partitions);
 		this->consumers_partition_counts_inverse->insert(command->get_consumer_id(), total_assigned_partitions);
 	}
+
+	this->consumers_consume_init_point.erase(command->get_consumer_id());
 }
 
 void ClusterMetadata::apply_add_lagging_follower_command(AddLaggingFollowerCommand* command) {
