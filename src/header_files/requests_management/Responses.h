@@ -106,4 +106,9 @@ struct AckMessageOffsetResponse {
 	bool ok;
 };
 
+struct RegisterTransactionGroupResponse {
+	int leader_id;
+	unsigned long long transaction_group_id;
+};
+
 // =======================================================

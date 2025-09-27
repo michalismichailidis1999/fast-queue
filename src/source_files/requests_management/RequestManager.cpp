@@ -96,6 +96,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			return;
 		}
 
+		std::string request_type_str = "";
+
 		switch (request_type) {
 		case RequestType::NONE: {
 			this->logger->log_info("Received connection ping for socket " + std::to_string(socket));
@@ -118,6 +120,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->client_request_executor->handle_create_queue_request(socket, ssl, request.get());
 
+			request_type_str = "CREATE_QUEUE";
+
 			break;
 		}
 		case RequestType::DELETE_QUEUE:
@@ -136,6 +140,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->client_request_executor->handle_delete_queue_request(socket, ssl, request.get());
 
+			request_type_str = "DELETE_QUEUE";
+
 			break;
 		}
 		case RequestType::GET_CONTROLLERS_CONNECTION_INFO:
@@ -144,6 +150,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->client_request_executor->handle_get_controllers_connection_info_request(socket, ssl);
 
+			request_type_str = "GET_CONTROLLERS_CONNECTION_INFO";
+
 			break;
 		}
 		case RequestType::GET_CONTROLLER_LEADER_ID:
@@ -151,6 +159,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			this->logger->log_info("Received and executing request type of GET_CONTROLLER_LEADER_ID");
 
 			this->client_request_executor->handle_get_controller_leader_id_request(socket, ssl);
+
+			request_type_str = "GET_CONTROLLER_LEADER_ID";
 
 			break;
 		}
@@ -170,6 +180,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->client_request_executor->handle_produce_request(socket, ssl, request.get());
 
+			request_type_str = "PRODUCE";
+
 			break;
 		}
 		case RequestType::GET_QUEUE_PARTITIONS_INFO:
@@ -179,6 +191,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			std::unique_ptr<GetQueuePartitionsInfoRequest> request = this->mapper->to_get_queue_partitions_info_request(recvbuf.get(), res_buffer_length);
 
 			this->client_request_executor->handle_get_queue_partitions_info_request(socket, ssl, request.get());
+
+			request_type_str = "GET_QUEUE_PARTITIONS_INFO";
 
 			break;
 		}
@@ -190,6 +204,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->internal_request_executor->handle_append_entries_request(socket, ssl, request.get());
 
+			request_type_str = "APPEND_ENTRIES";
+
 			break;
 		}
 		case RequestType::REQUEST_VOTE:
@@ -199,6 +215,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			std::unique_ptr<RequestVoteRequest> request = this->mapper->to_request_vote_request(recvbuf.get(), res_buffer_length);
 
 			this->internal_request_executor->handle_request_vote_request(socket, ssl, request.get());
+
+			request_type_str = "REQUEST_VOTE";
 
 			break;
 		}
@@ -210,6 +228,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->internal_request_executor->handle_data_node_heartbeat_request(socket, ssl, request.get());
 
+			request_type_str = "DATA_NODE_HEARTBEAT";
+
 			break;
 		}
 		case RequestType::GET_CLUSTER_METADATA_UPDATES:
@@ -219,6 +239,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			std::unique_ptr<GetClusterMetadataUpdateRequest> request = this->mapper->to_get_cluster_metadata_update_request(recvbuf.get(), res_buffer_length);
 
 			this->internal_request_executor->handle_get_cluster_metadata_update_request(socket, ssl, request.get());
+
+			request_type_str = "GET_CLUSTER_METADATA_UPDATES";
 
 			break;
 		}
@@ -238,6 +260,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->client_request_executor->handle_register_consumer_request(socket, ssl, request.get());
 
+			request_type_str = "REGISTER_CONSUMER";
+
 			break;
 		}
 		case RequestType::GET_CONSUMER_ASSIGNED_PARTITIONS:
@@ -255,6 +279,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			}
 
 			this->client_request_executor->handle_get_consumer_assigned_partitions_request(socket, ssl, request.get());
+
+			request_type_str = "GET_CONSUMER_ASSIGNED_PARTITIONS";
 
 			break;
 		}
@@ -274,6 +300,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->client_request_executor->handle_consume_request(socket, ssl, request.get());
 
+			request_type_str = "CONSUME";
+
 			break;
 		}
 		case RequestType::ACK:
@@ -292,6 +320,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->client_request_executor->handle_ack_message_offset_request(socket, ssl, request.get());
 
+			request_type_str = "ACK";
+
 			break;
 		}
 		case RequestType::EXPIRE_CONSUMERS:
@@ -301,6 +331,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			std::unique_ptr<ExpireConsumersRequest> request = this->mapper->to_expire_consumers_request(recvbuf.get(), res_buffer_length);
 
 			this->internal_request_executor->handle_expire_consumers_request(socket, ssl, request.get());
+
+			request_type_str = "EXPIRE_CONSUMERS";
 
 			break;
 		}
@@ -312,6 +344,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->internal_request_executor->handle_fetch_messages_request(socket, ssl, request.get());
 
+			request_type_str = "FETCH_MESSAGES";
+
 			break;
 		}
 		case RequestType::ADD_LAGGING_FOLLOWER:
@@ -322,6 +356,8 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			this->internal_request_executor->handle_add_lagging_follower_request(socket, ssl, request.get());
 
+			request_type_str = "ADD_LAGGING_FOLLOWER";
+
 			break;
 		}
 		case RequestType::REMOVE_LAGGING_FOLLOWER:
@@ -331,6 +367,20 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			std::unique_ptr<RemoveLaggingFollowerRequest> request = this->mapper->to_remove_lagging_request(recvbuf.get(), res_buffer_length);
 
 			this->internal_request_executor->handle_remove_lagging_follower_request(socket, ssl, request.get());
+
+			request_type_str = "REMOVE_LAGGING_FOLLOWER";
+
+			break;
+		}
+		case RequestType::REGISTER_TRANSACTION_GROUP:
+		{
+			this->logger->log_info("Received and executing request type of REGISTER_TRANSACTION_GROUP");
+
+			std::unique_ptr<RegisterTransactionGroupRequest> request = this->mapper->to_register_transaction_group_request(recvbuf.get(), res_buffer_length);
+
+			this->client_request_executor->handle_register_transaction_group_request(socket, ssl, request.get());
+
+			request_type_str = "REGISTER_TRANSACTION_GROUP";
 
 			break;
 		}
@@ -348,7 +398,7 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 		}
 
 		if (request_type != RequestType::NONE)
-			this->logger->log_info("Execution of request completed");
+			this->logger->log_info("Completed execution of request type " + request_type_str);
 	}
 	catch (const std::exception& ex)
 	{

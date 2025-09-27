@@ -50,5 +50,7 @@ public:
 
 	std::unique_ptr<AckMessageOffsetRequest> to_ack_message_offset_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<RegisterTransactionGroupRequest> to_register_transaction_group_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 };

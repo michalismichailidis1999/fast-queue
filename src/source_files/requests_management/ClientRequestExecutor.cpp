@@ -584,3 +584,45 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SOCKET_ID socket, 
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
+
+void ClientRequestExecutor::handle_register_transaction_group_request(SOCKET_ID socket, SSL* ssl, RegisterTransactionGroupRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes");
+		return;
+	}
+
+	if (this->controller->get_cluster_metadata()->get_leader_id() != this->settings->get_node_id()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Non leader node. Cannot register transaction group.");
+		return;
+	}
+
+	if (request->registered_queues->size() == 0) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "At least one queue name is required to register a transaction group");
+		return;
+	}
+
+	request->registered_queue_names = std::make_shared<std::vector<std::string>>();
+
+	for (int i = 0; i < request->registered_queues->size(); i++) {
+		int queue_name_size = (*(request->registered_queues_lengths.get()))[i];
+		char* queue_name = (*(request->registered_queues.get()))[i];
+
+		if (queue_name_size == 0) {
+			this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Qeueue name cannot be size of 0 bytes");
+			return;
+		}
+
+		request->registered_queue_names.get()->emplace_back(std::string(queue_name, queue_name_size));
+	}
+
+	auto res = this->controller->register_transaction_group(request);
+
+	if (res == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INTERNAL_SERVER_ERROR, "Something went wrong while trying to register transaction group");
+		return;
+	}
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}

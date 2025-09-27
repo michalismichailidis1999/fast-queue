@@ -68,6 +68,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(ConsumeResponse* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(AckMessageOffsetResponse* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(RegisterTransactionGroupResponse* obj);
     // --
 
     // ------------------

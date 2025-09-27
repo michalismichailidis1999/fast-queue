@@ -47,4 +47,6 @@ public:
 	void handle_consume_request(SOCKET_ID socket, SSL* ssl, ConsumeRequest* request);
 
 	void handle_ack_message_offset_request(SOCKET_ID socket, SSL* ssl, AckMessageOffsetRequest* request);
+
+	void handle_register_transaction_group_request(SOCKET_ID socket, SSL* ssl, RegisterTransactionGroupRequest* request);
 };

@@ -1621,3 +1621,7 @@ void Controller::get_replicated_message_offsets(const std::string& queue_name, c
 				if (replications->find(node_id) != replications->end())
 					offsets->emplace_back((*(replications.get()))[node_id]);
 }
+
+std::shared_ptr<RegisterTransactionGroupResponse> Controller::register_transaction_group(RegisterTransactionGroupRequest* request) {
+	return nullptr;
+}

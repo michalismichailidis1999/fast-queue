@@ -655,3 +655,37 @@ std::unique_ptr<FetchMessagesRequest> RequestMapper::to_fetch_messages_request(c
 
 	return req;
 }
+
+std::unique_ptr<RegisterTransactionGroupRequest> RequestMapper::to_register_transaction_group_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<RegisterTransactionGroupRequest> req = std::make_unique<RegisterTransactionGroupRequest>();
+
+	req.get()->registered_queues = std::make_shared<std::vector<char*>>();
+	req.get()->registered_queues_lengths = std::make_shared<std::vector<int>>();
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::REGISTERED_QUEUES) {
+			int total_queues = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+
+			for (int i = 0; i < total_queues; i++) {
+				int queue_name_size = *(int*)(recvbuf + offset);
+				char* queue_name = (char*)(recvbuf + offset + sizeof(int));
+
+				req.get()->registered_queues.get()->emplace_back(queue_name);
+				req.get()->registered_queues_lengths.get()->emplace_back(queue_name_size);
+
+				offset += sizeof(int) + queue_name_size;
+			}
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type RegisterTransactionGroupRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}
