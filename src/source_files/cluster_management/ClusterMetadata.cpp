@@ -11,6 +11,7 @@ ClusterMetadata::ClusterMetadata() {
 	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->consumers_partition_counts = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a < b; }, 0, 0);
 	this->consumers_partition_counts_inverse = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a > b; }, 0, 0);
+	this->nodes_transaction_groups_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 }
 
 void ClusterMetadata::set_leader_id(int leader_id) {
@@ -132,6 +133,20 @@ void ClusterMetadata::apply_command(Command* command, bool with_lock, bool ignor
 			this->apply_remove_lagging_follower_command(command_info);
 		}
 		else this->apply_remove_lagging_follower_command(command_info);
+
+		return;
+	}
+	case CommandType::REGISTER_TRANSACTION_GROUP: {
+		RegisterTransactionGroupCommand* command_info = static_cast<RegisterTransactionGroupCommand*>(command->get_command_info());
+
+		this->apply_register_transaction_group_command(command_info);
+
+		return;
+	}
+	case CommandType::UNREGISTER_TRANSACTION_GROUP: {
+		UnregisterTransactionGroupCommand* command_info = static_cast<UnregisterTransactionGroupCommand*>(command->get_command_info());
+
+		this->apply_unregister_transaction_group_command(command_info);
 
 		return;
 	}
@@ -390,6 +405,46 @@ void ClusterMetadata::apply_remove_lagging_follower_command(RemoveLaggingFollowe
 	}
 
 	partition_lag_followers.get()->erase(command->get_node_id());
+}
+
+void ClusterMetadata::apply_register_transaction_group_command(RegisterTransactionGroupCommand* command) {
+	std::lock_guard<std::shared_mutex> lock(this->transaction_groups_mut);
+
+	auto nodes_assigned_transaction_groups = this->nodes_transaction_groups[command->get_node_id()];
+
+	if (nodes_assigned_transaction_groups == nullptr) {
+		nodes_assigned_transaction_groups = std::make_shared<std::unordered_map<unsigned long long, std::shared_ptr<std::unordered_set<std::string>>>>();
+		this->nodes_transaction_groups[command->get_node_id()] = nodes_assigned_transaction_groups;
+	}
+
+	auto assigned_queues = std::make_shared<std::unordered_set<std::string>>();
+
+	(*(nodes_assigned_transaction_groups.get()))[command->get_transaction_group_id()] = assigned_queues;
+
+	for (const std::string& queue_name : *(command->get_registered_queues()))
+		assigned_queues->insert(queue_name);
+
+	this->nodes_transaction_groups_counts->insert(
+		command->get_node_id(),
+		this->nodes_transaction_groups_counts->get(command->get_node_id()) + 1
+	);
+}
+
+void ClusterMetadata::apply_unregister_transaction_group_command(UnregisterTransactionGroupCommand* command) {
+	std::lock_guard<std::shared_mutex> lock(this->transaction_groups_mut);
+
+	if (this->nodes_transaction_groups.find(command->get_node_id()) == this->nodes_transaction_groups.end()) return;
+
+	auto nodes_assigned_transaction_groups = this->nodes_transaction_groups[command->get_node_id()];
+
+	if (nodes_assigned_transaction_groups.get()->find(command->get_transaction_group_id()) == nodes_assigned_transaction_groups.get()->end())
+		return;
+
+	nodes_assigned_transaction_groups.get()->erase(command->get_transaction_group_id());
+	int count = this->nodes_transaction_groups_counts->remove(command->get_node_id());
+
+	if (--count > 0)
+		this->nodes_transaction_groups_counts->insert(command->get_node_id(), count);
 }
 
 void ClusterMetadata::copy_from(ClusterMetadata* obj) {

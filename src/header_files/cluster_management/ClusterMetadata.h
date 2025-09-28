@@ -24,6 +24,7 @@ private:
 	IndexedHeap<int, int>* nodes_leader_partition_counts;
 	IndexedHeap<int, unsigned long long>* consumers_partition_counts;
 	IndexedHeap<int, unsigned long long>* consumers_partition_counts_inverse;
+	IndexedHeap<int, int>* nodes_transaction_groups_counts;
 
 	// nodes_partitions_mut used for all the below maps
 	std::unordered_map<int, std::shared_ptr<std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>>>> nodes_partitions;
@@ -42,6 +43,7 @@ private:
 	// ======================================================
 
 	unsigned long long last_consumer_id;
+	unsigned long long last_transaction_group_id;
 
 	std::unordered_map<
 		std::string, 
@@ -57,9 +59,12 @@ private:
 
 	std::unordered_map<std::string, std::shared_ptr<QueueMetadata>> queues;
 
+	std::unordered_map<int, std::shared_ptr<std::unordered_map<unsigned long long, std::shared_ptr<std::unordered_set<std::string>>>>> nodes_transaction_groups;
+
 	std::shared_mutex nodes_partitions_mut;
 	std::mutex queues_mut;
 	std::shared_mutex consumers_mut;
+	std::shared_mutex transaction_groups_mut;
 
 	void apply_create_queue_command(CreateQueueCommand* command);
 	void apply_delete_queue_command(DeleteQueueCommand* command);
@@ -69,12 +74,13 @@ private:
 	void apply_unregister_consuer_group_command(UnregisterConsumerGroupCommand* command);
 	void apply_add_lagging_follower_command(AddLaggingFollowerCommand* command);
 	void apply_remove_lagging_follower_command(RemoveLaggingFollowerCommand* command);
+	void apply_register_transaction_group_command(RegisterTransactionGroupCommand* command);
+	void apply_unregister_transaction_group_command(UnregisterTransactionGroupCommand* command);
 
 	bool is_follower_lagging(const std::string& queue, int partition, int follower_id);
 
 public:
 	ClusterMetadata();
-	ClusterMetadata(void* metadata);
 
 	void init_node_partitions(int node_id);
 	bool has_node_partitions(int node_id);

@@ -165,4 +165,6 @@ public:
 	void get_replicated_message_offsets(const std::string& queue_name, const std::string& leader_key, std::vector<unsigned long long>* offsets);
 
 	std::shared_ptr<RegisterTransactionGroupResponse> register_transaction_group(RegisterTransactionGroupRequest* request);
+
+	void unregister_transaction_group(int node_id, unsigned long long transaction_group_id);
 };

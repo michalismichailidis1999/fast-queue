@@ -1623,5 +1623,86 @@ void Controller::get_replicated_message_offsets(const std::string& queue_name, c
 }
 
 std::shared_ptr<RegisterTransactionGroupResponse> Controller::register_transaction_group(RegisterTransactionGroupRequest* request) {
-	return nullptr;
+	std::unique_lock<std::shared_mutex> lock(this->future_cluster_metadata->transaction_groups_mut);
+
+	unsigned long long new_transaction_group_id = ++this->future_cluster_metadata->last_transaction_group_id;
+
+	int assigned_node_id = 0;
+	int min_count = -1;
+
+	for (int controller_node_id : this->controller_nodes_ids) {
+		int count = this->future_cluster_metadata->nodes_transaction_groups_counts->get(controller_node_id);
+
+		if (count < min_count) {
+			min_count = count;
+			assigned_node_id = controller_node_id;
+		}
+	}
+
+	if (min_count == -1) return nullptr;
+
+	this->future_cluster_metadata->nodes_transaction_groups_counts->insert(assigned_node_id, min_count + 1);
+
+	lock.unlock();
+
+	std::shared_ptr<RegisterTransactionGroupResponse> res = std::make_shared<RegisterTransactionGroupResponse>();
+	res.get()->transaction_group_id = new_transaction_group_id;
+	res.get()->leader_id = assigned_node_id;
+
+	Command command = Command(
+		CommandType::REGISTER_TRANSACTION_GROUP,
+		this->term,
+		this->util->get_current_time_milli().count(),
+		std::shared_ptr<RegisterTransactionGroupCommand>(
+			new RegisterTransactionGroupCommand(
+				assigned_node_id,
+				new_transaction_group_id,
+				request->registered_queue_names.get()
+			)
+		)
+	);
+
+	std::vector<Command> commands = std::vector<Command>(1);
+	commands[0] = command;
+
+	this->store_commands(&commands);
+
+	return res;
+}
+
+void Controller::unregister_transaction_group(int node_id, unsigned long long transaction_group_id) {
+	std::unique_lock<std::shared_mutex> lock(this->future_cluster_metadata->transaction_groups_mut);
+
+	if (this->future_cluster_metadata->nodes_transaction_groups.find(node_id) == this->future_cluster_metadata->nodes_transaction_groups.end())
+		return;
+
+	auto nodes_assigned_transaction_groups = this->future_cluster_metadata->nodes_transaction_groups[node_id];
+
+	if (nodes_assigned_transaction_groups.get()->find(transaction_group_id) == nodes_assigned_transaction_groups.get()->end())
+		return;
+
+	nodes_assigned_transaction_groups.get()->erase(transaction_group_id);
+	int count = this->future_cluster_metadata->nodes_transaction_groups_counts->remove(node_id);
+
+	if (--count > 0)
+		this->future_cluster_metadata->nodes_transaction_groups_counts->insert(node_id, count);
+
+	lock.unlock();
+
+	Command command = Command(
+		CommandType::UNREGISTER_TRANSACTION_GROUP,
+		this->term,
+		this->util->get_current_time_milli().count(),
+		std::shared_ptr<UnregisterTransactionGroupCommand>(
+			new UnregisterTransactionGroupCommand(
+				node_id,
+				transaction_group_id
+			)
+		)
+	);
+
+	std::vector<Command> commands = std::vector<Command>(1);
+	commands[0] = command;
+
+	this->store_commands(&commands);
 }

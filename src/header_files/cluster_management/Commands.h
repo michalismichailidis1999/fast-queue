@@ -286,3 +286,48 @@ public:
 
 	friend class Command;
 };
+
+class RegisterTransactionGroupCommand {
+private:
+	int node_id;
+	unsigned long long transaction_group_id;
+	std::vector<std::string> registered_queues;
+
+public:
+	RegisterTransactionGroupCommand(int node_id, unsigned long long transaction_group_id, std::vector<std::string>* registered_queues);
+
+	RegisterTransactionGroupCommand(void* metadata);
+
+	int get_node_id();
+
+	unsigned long long get_transaction_group_id();
+
+	std::vector<std::string>* get_registered_queues();
+
+	std::shared_ptr<char> get_metadata_bytes();
+
+	std::string get_command_key();
+
+	friend class Command;
+};
+
+class UnregisterTransactionGroupCommand {
+private:
+	int node_id;
+	unsigned long long transaction_group_id;
+
+public:
+	UnregisterTransactionGroupCommand(int node_id, unsigned long long transaction_group_id);
+
+	UnregisterTransactionGroupCommand(void* metadata);
+
+	int get_node_id();
+
+	unsigned long long get_transaction_group_id();
+
+	std::shared_ptr<char> get_metadata_bytes();
+
+	std::string get_command_key();
+
+	friend class Command;
+};

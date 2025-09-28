@@ -797,3 +797,72 @@ std::string RemoveLaggingFollowerCommand::get_command_key() {
 }
 
 // ================================================================
+
+// Register Transaction Group
+
+RegisterTransactionGroupCommand::RegisterTransactionGroupCommand(int node_id, unsigned long long transaction_group_id, std::vector<std::string>* registered_queues) {
+	this->node_id = node_id;
+	this->transaction_group_id = transaction_group_id;
+	this->registered_queues = std::vector<std::string>(registered_queues->size());
+
+	int i = 0;
+	for (const std::string& queue_name : *registered_queues) {
+		this->registered_queues[i] = queue_name;
+		i++;
+	}
+}
+
+RegisterTransactionGroupCommand::RegisterTransactionGroupCommand(void* metadata) {
+	// TODO: Complete this
+}
+
+int RegisterTransactionGroupCommand::get_node_id() {
+	return this->node_id;
+}
+
+unsigned long long RegisterTransactionGroupCommand::get_transaction_group_id() {
+	return this->transaction_group_id;
+}
+
+std::vector<std::string>* RegisterTransactionGroupCommand::get_registered_queues() {
+	return &this->registered_queues;
+}
+
+std::shared_ptr<char> RegisterTransactionGroupCommand::get_metadata_bytes() {
+	return nullptr;
+}
+
+std::string RegisterTransactionGroupCommand::get_command_key() {
+	return "rtg_" + std::to_string(this->transaction_group_id);
+}
+
+// ================================================================
+
+// Unegister Transaction Group
+
+UnregisterTransactionGroupCommand::UnregisterTransactionGroupCommand(int node_id, unsigned long long transaction_group_id) {
+	this->node_id = node_id;
+	this->transaction_group_id = transaction_group_id;
+}
+
+UnregisterTransactionGroupCommand::UnregisterTransactionGroupCommand(void* metadata) {
+	// TODO: Complete this
+}
+
+int UnregisterTransactionGroupCommand::get_node_id() {
+	return this->node_id;
+}
+
+unsigned long long UnregisterTransactionGroupCommand::get_transaction_group_id() {
+	return this->transaction_group_id;
+}
+
+std::shared_ptr<char> UnregisterTransactionGroupCommand::get_metadata_bytes() {
+	return nullptr;
+}
+
+std::string UnregisterTransactionGroupCommand::get_command_key() {
+	return "urtg_" + std::to_string(this->transaction_group_id);
+}
+
+// ================================================================
