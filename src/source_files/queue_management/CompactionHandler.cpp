@@ -347,6 +347,27 @@ unsigned int CompactionHandler::get_key_offset(const std::string& queue_name, vo
 		case CommandType::ALTER_PARTITION_LEADER_ASSIGNMENT: return PLA_COMMAND_TOTAL_BYTES;
 		case CommandType::REGISTER_DATA_NODE: return RDN_COMMAND_TOTAL_BYTES;
 		case CommandType::UNREGISTER_DATA_NODE: return UDN_COMMAND_TOTAL_BYTES;
+		case CommandType::REGISTER_CONSUMER_GROUP: return RCG_COMMAND_TOTAL_BYTES;
+		case CommandType::UNREGISTER_CONSUMER_GROUP: return UCG_COMMAND_TOTAL_BYTES;
+		case CommandType::ADD_LAGGING_FOLLOWER: return ALF_COMMAND_TOTAL_BYTES;
+		case CommandType::REMOVE_LAGGING_FOLLOWER: return RLF_COMMAND_TOTAL_BYTES;
+		case CommandType::REGISTER_TRANSACTION_GROUP: {
+			int total_queues = 0;
+			memcpy_s(&total_queues, RTG_COMMAND_QUEUES_COUNT_SIZE, (char*)message_data + RTG_COMMAND_QUEUES_COUNT_OFFSET, RTG_COMMAND_QUEUES_COUNT_SIZE);
+
+			int offset = RTG_COMMAND_TOTAL_BYTES;
+
+			for (int i = 0; i < total_queues; i++) {
+				int queue_name_size = 0;
+
+				memcpy_s(&queue_name_size, sizeof(int), (char*)message_data + offset, sizeof(int));
+
+				offset += sizeof(int) + queue_name_size;
+			}
+
+			return offset;
+		}
+		case CommandType::UNREGISTER_TRANSACTION_GROUP: return UTG_COMMAND_TOTAL_BYTES;
 		default: return 0;
 	}
 }

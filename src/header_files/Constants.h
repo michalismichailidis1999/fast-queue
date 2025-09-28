@@ -273,6 +273,20 @@ static const unsigned int RLF_COMMAND_NODE_ID_OFFSET = RLF_COMMAND_PARTITION_ID_
 static const unsigned int RLF_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + RLF_COMMAND_QUEUE_NAME_LENGTH_SIZE + RLF_COMMAND_QUEUE_NAME_SIZE
 + RLF_COMMAND_PARTITION_ID_SIZE + RLF_COMMAND_NODE_ID_SIZE;
 
+static const unsigned int RTG_COMMAND_NODE_ID_SIZE = sizeof(int);
+static const unsigned int RTG_COMMAND_NODE_ID_OFFSET = COMMAND_TOTAL_BYTES;
+static const unsigned int RTG_COMMAND_GROUP_ID_SIZE = sizeof(unsigned long long);
+static const unsigned int RTG_COMMAND_GROUP_ID_OFFSET = RTG_COMMAND_NODE_ID_SIZE + RTG_COMMAND_NODE_ID_OFFSET;
+static const unsigned int RTG_COMMAND_QUEUES_COUNT_SIZE = sizeof(int);
+static const unsigned int RTG_COMMAND_QUEUES_COUNT_OFFSET = RTG_COMMAND_GROUP_ID_SIZE + RTG_COMMAND_GROUP_ID_OFFSET;
+static const unsigned int RTG_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + RTG_COMMAND_NODE_ID_SIZE + RTG_COMMAND_GROUP_ID_SIZE + RTG_COMMAND_QUEUES_COUNT_SIZE;
+
+static const unsigned int UTG_COMMAND_NODE_ID_SIZE = sizeof(int);
+static const unsigned int UTG_COMMAND_NODE_ID_OFFSET = COMMAND_TOTAL_BYTES;
+static const unsigned int UTG_COMMAND_GROUP_ID_SIZE = sizeof(unsigned long long);
+static const unsigned int UTG_COMMAND_GROUP_ID_OFFSET = UTG_COMMAND_NODE_ID_SIZE + UTG_COMMAND_NODE_ID_OFFSET;
+static const unsigned int UTG_COMMAND_TOTAL_BYTES = COMMAND_TOTAL_BYTES + UTG_COMMAND_NODE_ID_SIZE + UTG_COMMAND_GROUP_ID_SIZE;
+
 // =================================================================
 
 // Consumer Offset

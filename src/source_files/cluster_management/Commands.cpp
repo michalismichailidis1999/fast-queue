@@ -50,6 +50,12 @@ Command::Command(void* metadata) {
 	case CommandType::REMOVE_LAGGING_FOLLOWER:
 		this->command_info = std::shared_ptr<RemoveLaggingFollowerCommand>(new RemoveLaggingFollowerCommand(metadata));
 		break;
+	case CommandType::REGISTER_TRANSACTION_GROUP:
+		this->command_info = std::shared_ptr<RegisterTransactionGroupCommand>(new RegisterTransactionGroupCommand(metadata));
+		break;
+	case CommandType::UNREGISTER_TRANSACTION_GROUP:
+		this->command_info = std::shared_ptr<UnregisterTransactionGroupCommand>(new UnregisterTransactionGroupCommand(metadata));
+		break;
 	default:
 		break;
 	}
@@ -148,6 +154,22 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		size_dif = RLF_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
 		key_offset = RLF_COMMAND_TOTAL_BYTES;
 		break;
+	case CommandType::REGISTER_TRANSACTION_GROUP:
+		key = ((RegisterTransactionGroupCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = UTG_COMMAND_TOTAL_BYTES + key.size();
+
+		for (const std::string& queue_name : *(((RegisterTransactionGroupCommand*)(this->command_info.get()))->get_registered_queues()))
+			total_bytes += sizeof(int) + queue_name.size();
+
+		size_dif = total_bytes - key.size() - COMMAND_TOTAL_BYTES;
+		key_offset = total_bytes - key.size();
+		break;
+	case CommandType::UNREGISTER_TRANSACTION_GROUP:
+		key = ((UnregisterTransactionGroupCommand*)(this->command_info.get()))->get_command_key();
+		total_bytes = UTG_COMMAND_TOTAL_BYTES + key.size();
+		size_dif = UTG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+		key_offset = UTG_COMMAND_TOTAL_BYTES;
+		break;
 	default:
 		return std::tuple<long, std::shared_ptr<char>>(0, nullptr);
 	}
@@ -237,6 +259,22 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 			bytes.get() + COMMAND_TOTAL_BYTES,
 			size_dif,
 			((RemoveLaggingFollowerCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
+			size_dif
+		);
+		break;
+	case CommandType::REGISTER_TRANSACTION_GROUP:
+		memcpy_s(
+			bytes.get() + COMMAND_TOTAL_BYTES,
+			size_dif,
+			((RegisterTransactionGroupCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
+			size_dif
+		);
+		break;
+	case CommandType::UNREGISTER_TRANSACTION_GROUP:
+		memcpy_s(
+			bytes.get() + COMMAND_TOTAL_BYTES,
+			size_dif,
+			((UnregisterTransactionGroupCommand*)(this->command_info.get()))->get_metadata_bytes().get(),
 			size_dif
 		);
 		break;
@@ -813,7 +851,25 @@ RegisterTransactionGroupCommand::RegisterTransactionGroupCommand(int node_id, un
 }
 
 RegisterTransactionGroupCommand::RegisterTransactionGroupCommand(void* metadata) {
-	// TODO: Complete this
+	memcpy_s(&this->node_id, RTG_COMMAND_NODE_ID_SIZE, (char*)metadata + RTG_COMMAND_NODE_ID_OFFSET, RTG_COMMAND_NODE_ID_SIZE);
+	memcpy_s(&this->transaction_group_id, RTG_COMMAND_GROUP_ID_SIZE, (char*)metadata + RTG_COMMAND_GROUP_ID_OFFSET, RTG_COMMAND_GROUP_ID_SIZE);
+
+	int total_registered_queues = 0;
+
+	memcpy_s(&total_registered_queues, RTG_COMMAND_QUEUES_COUNT_SIZE, (char*)metadata + RTG_COMMAND_QUEUES_COUNT_OFFSET, RTG_COMMAND_QUEUES_COUNT_SIZE);
+
+	this->registered_queues = std::vector<std::string>(total_registered_queues);
+
+	int offset = RTG_COMMAND_TOTAL_BYTES;
+	for (int i = 0; i < total_registered_queues; i++) {
+		int queue_name_size = 0;
+
+		memcpy_s(&queue_name_size, sizeof(int), (char*)metadata + offset, sizeof(int));
+
+		this->registered_queues[i] = std::string((char*)metadata + offset + sizeof(int), queue_name_size);
+
+		offset += sizeof(int) + queue_name_size;
+	}
 }
 
 int RegisterTransactionGroupCommand::get_node_id() {
@@ -829,7 +885,32 @@ std::vector<std::string>* RegisterTransactionGroupCommand::get_registered_queues
 }
 
 std::shared_ptr<char> RegisterTransactionGroupCommand::get_metadata_bytes() {
-	return nullptr;
+	unsigned int total_bytes = RTG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+
+	for (const std::string& queue_name : this->registered_queues)
+		total_bytes += sizeof(int) + queue_name.size();
+
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[total_bytes]);
+
+	memcpy_s(bytes.get() + RTG_COMMAND_NODE_ID_OFFSET - COMMAND_TOTAL_BYTES, RTG_COMMAND_NODE_ID_SIZE, &this->node_id, RTG_COMMAND_NODE_ID_SIZE);
+	memcpy_s(bytes.get() + RTG_COMMAND_GROUP_ID_OFFSET - COMMAND_TOTAL_BYTES, RTG_COMMAND_GROUP_ID_SIZE, &this->transaction_group_id, RTG_COMMAND_GROUP_ID_SIZE);
+
+	int total_queues = this->registered_queues.size();
+
+	memcpy_s(bytes.get() + RTG_COMMAND_QUEUES_COUNT_OFFSET - COMMAND_TOTAL_BYTES, RTG_COMMAND_QUEUES_COUNT_SIZE, &total_queues, RTG_COMMAND_QUEUES_COUNT_SIZE);
+
+	int offset = RTG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES;
+
+	for (const std::string& queue_name : this->registered_queues) {
+		int queue_size = queue_name.size();
+
+		memcpy_s(bytes.get() + offset, sizeof(int), &queue_size, sizeof(int));
+		memcpy_s(bytes.get() + offset + sizeof(int), queue_size, queue_name.c_str(), queue_size);
+
+		offset += sizeof(int) + queue_size;
+	}
+
+	return bytes;
 }
 
 std::string RegisterTransactionGroupCommand::get_command_key() {
@@ -846,7 +927,8 @@ UnregisterTransactionGroupCommand::UnregisterTransactionGroupCommand(int node_id
 }
 
 UnregisterTransactionGroupCommand::UnregisterTransactionGroupCommand(void* metadata) {
-	// TODO: Complete this
+	memcpy_s(&this->node_id, UTG_COMMAND_NODE_ID_SIZE, (char*)metadata + UTG_COMMAND_NODE_ID_OFFSET, UTG_COMMAND_NODE_ID_SIZE);
+	memcpy_s(&this->transaction_group_id, UTG_COMMAND_GROUP_ID_SIZE, (char*)metadata + UTG_COMMAND_GROUP_ID_OFFSET, UTG_COMMAND_GROUP_ID_SIZE);
 }
 
 int UnregisterTransactionGroupCommand::get_node_id() {
@@ -858,7 +940,12 @@ unsigned long long UnregisterTransactionGroupCommand::get_transaction_group_id()
 }
 
 std::shared_ptr<char> UnregisterTransactionGroupCommand::get_metadata_bytes() {
-	return nullptr;
+	std::shared_ptr<char> bytes = std::shared_ptr<char>(new char[UTG_COMMAND_TOTAL_BYTES - COMMAND_TOTAL_BYTES]);
+
+	memcpy_s(bytes.get() + UTG_COMMAND_NODE_ID_OFFSET - COMMAND_TOTAL_BYTES, UTG_COMMAND_NODE_ID_SIZE, &this->node_id, UTG_COMMAND_NODE_ID_SIZE);
+	memcpy_s(bytes.get() + UTG_COMMAND_GROUP_ID_OFFSET - COMMAND_TOTAL_BYTES, UTG_COMMAND_GROUP_ID_SIZE, &this->transaction_group_id, UTG_COMMAND_GROUP_ID_SIZE);
+
+	return bytes;
 }
 
 std::string UnregisterTransactionGroupCommand::get_command_key() {
