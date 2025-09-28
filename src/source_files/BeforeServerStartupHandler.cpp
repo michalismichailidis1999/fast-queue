@@ -1,9 +1,10 @@
 #include "../header_files/BeforeServerStartupHandler.h"
 
-BeforeServerStartupHandler::BeforeServerStartupHandler(Controller* controller, DataNode* data_node, ClusterMetadataApplyHandler* cmah, QueueManager* qm, MessageOffsetAckHandler* oah, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
+BeforeServerStartupHandler::BeforeServerStartupHandler(Controller* controller, DataNode* data_node, ClusterMetadataApplyHandler* cmah, TransactionHandler* th, QueueManager* qm, MessageOffsetAckHandler* oah, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings) {
     this->controller = controller;
     this->data_node = data_node;
     this->cmah = cmah;
+    this->th = th;
     this->qm = qm;
     this->oah = oah;
     this->sa = sa;
@@ -25,6 +26,9 @@ void BeforeServerStartupHandler::initialize_required_folders_and_queues() {
 
     // Creating required subfolders to run the broker
     this->fh->create_directory(this->pm->get_queue_folder_path(CLUSTER_METADATA_QUEUE_NAME));
+
+    if (this->settings->get_is_controller_node())
+        this->fh->create_directory(this->pm->get_transactions_folder_path());
 
     this->clear_unnecessary_files_and_initialize_queues();
 
@@ -270,8 +274,15 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
         this->fh->execute_action_to_dir_subfiles(path, queue_partition_segment_func);
     };
 
+    bool transaction_folder_path_handled = false;
+
     auto queue_func = [&](const std::filesystem::directory_entry& dir_entry) {
         const std::string& path = this->fh->get_dir_entry_path(dir_entry);
+
+        if (!transaction_folder_path_handled && path == this->pm->get_transactions_folder_path()) {
+            this->handle_transaction_segments();
+            transaction_folder_path_handled = true;
+        }
 
         partitions.clear();
 
@@ -642,6 +653,11 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
     segment->set_total_written_bytes(total_written_bytes);
     partition->set_last_message_offset(segment->get_last_message_offset());
     partition->set_last_message_leader_epoch(message_leader_epoch);
+}
+
+void BeforeServerStartupHandler::handle_transaction_segments() {
+    for (int i = 0; i < this->settings->get_transactions_partition_count(); i++)
+        this->th->init_transaction_segment(i);
 }
 
 // ========================================================

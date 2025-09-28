@@ -36,6 +36,7 @@
 #include "./src/header_files/queue_management/messages_management/index_management/SegmentMessageMap.h"
 #include "./src/header_files/queue_management/messages_management/index_management/BPlusTreeIndexHandler.h"
 #include "./src/header_files/queue_management/messages_management/index_management/BTreeNode.h"
+#include "./src/header_files/queue_management/TransactionHandler.h"
 #include "./src/header_files/queue_management/QueueManager.h"
 #include "./src/header_files/queue_management/CompactionHandler.h"
 #include "./src/header_files/queue_management/RetentionHandler.h"

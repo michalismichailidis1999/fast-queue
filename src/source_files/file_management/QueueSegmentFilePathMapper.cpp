@@ -11,6 +11,18 @@ std::string QueueSegmentFilePathMapper::get_queue_folder_path(const std::string&
 		+ queue_name;
 }
 
+std::string QueueSegmentFilePathMapper::get_transactions_folder_path() {
+	return this->settings->get_log_path() + "/" + TRANSACTIONS_QUEUE_NAME;
+}
+
+std::string QueueSegmentFilePathMapper::get_transactions_segment_path(unsigned int segment_id) {
+	return this->get_transactions_folder_path() + "/__segment_" + std::to_string(segment_id);
+}
+
+std::string QueueSegmentFilePathMapper::get_transactions_segment_key(unsigned int segment_id) {
+	return "ts_" + std::to_string(segment_id);
+}
+
 std::string QueueSegmentFilePathMapper::get_partition_folder_key(const std::string& queue_name, int partition_id) {
 	return queue_name + "_p_" + std::to_string(partition_id);
 }

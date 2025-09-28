@@ -19,6 +19,12 @@ public:
 
 	std::string get_queue_folder_path(const std::string& queue_name);
 
+	std::string get_transactions_folder_path();
+
+	std::string get_transactions_segment_path(unsigned int segment_id);
+
+	std::string get_transactions_segment_key(unsigned int segment_id);
+
 	std::string get_partition_folder_key(const std::string& queue_name, int partition_id);
 
 	std::string get_partition_folder_path(const std::string& queue_name, int partition_id);

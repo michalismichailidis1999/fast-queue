@@ -61,7 +61,7 @@ bool Helper::has_valid_checksum(void* metadata) {
 }
 
 bool Helper::is_internal_queue(const std::string& queue_name) {
-	return queue_name == CLUSTER_METADATA_QUEUE_NAME;
+	return queue_name == CLUSTER_METADATA_QUEUE_NAME || queue_name == TRANSACTIONS_QUEUE_NAME;
 }
 
 unsigned int Helper::abs(int val) {

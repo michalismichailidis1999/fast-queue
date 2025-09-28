@@ -53,6 +53,8 @@ private:
 	unsigned int check_for_missing_pool_connections_ms;
 	unsigned int ping_connections_check_ms;
 
+	unsigned int transactions_partition_count;
+
 	std::string log_path;
 	std::string trace_log_path;
 	// -------------------------------------------
@@ -130,6 +132,8 @@ public:
 
 	unsigned int get_check_for_missing_pool_connections_ms();
 	unsigned int get_ping_connections_check_ms();
+
+	unsigned int get_transactions_partition_count();
 
 	const std::string& get_log_path();
 	const std::string& get_trace_log_path();

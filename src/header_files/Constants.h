@@ -30,6 +30,7 @@ static const unsigned int LAZY_KEY_EXPIRATION_COUNTER = 5;
 static const unsigned int CACHE_KEY_TTL_MILLI = 60000;
 
 static const std::string CLUSTER_METADATA_QUEUE_NAME = "__cluster_metadata";
+static const std::string TRANSACTIONS_QUEUE_NAME = "__transactions";
 
 static const unsigned int HEARTBEAT_SIGNAL_MIN_BOUND = 1000;
 static const unsigned int HEARTBEAT_SIGNAL_MAX_BOUND = 3000;

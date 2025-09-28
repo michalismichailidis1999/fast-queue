@@ -114,5 +114,6 @@ public:
 
 	friend class Controller;
 	friend class DataNode;
+	friend class TransactionHandler;
 	friend class BeforeServerStartupHandler;
 };

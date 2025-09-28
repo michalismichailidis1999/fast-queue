@@ -2,6 +2,7 @@
 #include <regex>
 #include <string>
 #include <memory>
+#include "./queue_management/TransactionHandler.h"
 #include "./queue_management/QueueManager.h"
 #include "./queue_management/QueueMetadata.h"
 #include "./queue_management/Partition.h"
@@ -29,6 +30,7 @@ private:
 	Controller* controller;
 	DataNode* data_node;
 	ClusterMetadataApplyHandler* cmah;
+	TransactionHandler* th;
 	QueueManager* qm;
 	MessageOffsetAckHandler* oah;
 	SegmentAllocator* sa;
@@ -54,8 +56,10 @@ private:
 	void set_segment_last_message_offset_and_timestamp(Partition* partition, PartitionSegment* segment);
 
 	void handle_compacted_segment(const std::string& queue_name, int partition_id, unsigned long long segment_id, bool is_internal_queue);
+
+	void handle_transaction_segments();
 public:
-	BeforeServerStartupHandler(Controller* controller, DataNode* data_node, ClusterMetadataApplyHandler* cmah, QueueManager* qm, MessageOffsetAckHandler* oah, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings);
+	BeforeServerStartupHandler(Controller* controller, DataNode* data_node, ClusterMetadataApplyHandler* cmah, TransactionHandler* th, QueueManager* qm, MessageOffsetAckHandler* oah, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings);
 
 	void initialize_required_folders_and_queues();
 
