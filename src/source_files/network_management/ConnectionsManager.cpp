@@ -376,7 +376,7 @@ void ConnectionsManager::keep_pool_connections_to_maximum() {
 			this->logger->log_error(err_msg);
 		}
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_check_for_missing_pool_connections_ms()));
 	}
 }
 
@@ -394,7 +394,7 @@ void ConnectionsManager::ping_pool_connections() {
 			this->logger->log_error(err_msg);
 		}
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(15000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_ping_connections_check_ms()));
 	}
 }
 

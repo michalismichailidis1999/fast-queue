@@ -77,6 +77,8 @@ void Settings::set_default_values() {
 	this->fetch_from_leader_ms = 1000;
 	this->lag_time_ms = 5000;
 	this->lag_followers_check_ms = 3000;
+	this->check_for_missing_pool_connections_ms = 5000;
+	this->ping_connections_check_ms = 15000;
 }
 
 void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_pos, int equal_pos) {
@@ -114,6 +116,8 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "fetch_from_leader_ms"
 			|| lhs == "lag_time_ms"
 			|| lhs == "lag_followers_check_ms"
+			|| lhs == "check_for_missing_pool_connections_ms"
+			|| lhs == "ping_connections_check_ms"
 		) {
 			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
@@ -136,7 +140,9 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 				: lhs == "dead_consumer_expire_ms" ? &this->dead_consumer_expire_ms
 				: lhs == "fetch_from_leader_ms" ? &this->fetch_from_leader_ms
 				: lhs == "lag_time_ms" ? &this->lag_time_ms
-				: &this->lag_followers_check_ms;
+				: lhs == "lag_followers_check_ms" ? &this->lag_followers_check_ms
+				: lhs == "check_for_missing_pool_connections_ms" ? &this->check_for_missing_pool_connections_ms
+				: &this->ping_connections_check_ms;
 
 			*(val) = rhs_size > 0 ? std::atoi(rhs.c_str()) : 0;
 		}
@@ -378,6 +384,16 @@ unsigned int Settings::get_lag_time_ms() {
 unsigned int Settings::get_lag_followers_check_ms() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->lag_followers_check_ms;
+}
+
+unsigned int Settings::get_check_for_missing_pool_connections_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->check_for_missing_pool_connections_ms;
+}
+
+unsigned int Settings::get_ping_connections_check_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->ping_connections_check_ms;
 }
 
 const std::string& Settings::get_log_path() {

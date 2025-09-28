@@ -50,6 +50,9 @@ private:
 	unsigned int lag_time_ms;
 	unsigned int lag_followers_check_ms;
 
+	unsigned int check_for_missing_pool_connections_ms;
+	unsigned int ping_connections_check_ms;
+
 	std::string log_path;
 	std::string trace_log_path;
 	// -------------------------------------------
@@ -124,6 +127,9 @@ public:
 	unsigned int get_fetch_from_leader_ms();
 	unsigned int get_lag_time_ms();
 	unsigned int get_lag_followers_check_ms();
+
+	unsigned int get_check_for_missing_pool_connections_ms();
+	unsigned int get_ping_connections_check_ms();
 
 	const std::string& get_log_path();
 	const std::string& get_trace_log_path();
