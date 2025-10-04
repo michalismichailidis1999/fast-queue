@@ -274,14 +274,12 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
         this->fh->execute_action_to_dir_subfiles(path, queue_partition_segment_func);
     };
 
-    bool transaction_folder_path_handled = false;
-
     auto queue_func = [&](const std::filesystem::directory_entry& dir_entry) {
         const std::string& path = this->fh->get_dir_entry_path(dir_entry);
 
-        if (!transaction_folder_path_handled && path == this->pm->get_transactions_folder_path()) {
+        if (path == this->pm->get_transactions_folder_path()) {
             this->handle_transaction_segments();
-            transaction_folder_path_handled = true;
+            return;
         }
 
         partitions.clear();

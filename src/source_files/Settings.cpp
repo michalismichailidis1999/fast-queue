@@ -79,6 +79,7 @@ void Settings::set_default_values() {
 	this->lag_followers_check_ms = 3000;
 	this->check_for_missing_pool_connections_ms = 5000;
 	this->ping_connections_check_ms = 15000;
+	this->transactions_partition_count = 10;
 }
 
 void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_pos, int equal_pos) {
