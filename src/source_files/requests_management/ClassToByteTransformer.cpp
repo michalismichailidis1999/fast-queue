@@ -1039,6 +1039,37 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(UnegisterTransactionGroupResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+
+	ResponseValueKey ok_type = ResponseValueKey::OK;
+	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
+
+	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
+	offset += sizeof(ErrorCode);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &ok_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
+	offset += sizeof(bool);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &leader_id_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->leader_id, sizeof(int));
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(RegisterTransactionGroupResponse* obj) {
 	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) + sizeof(unsigned long long) + 2 * sizeof(ResponseValueKey);
 

@@ -45,4 +45,6 @@ public:
 	void handle_add_lagging_follower_request(SOCKET_ID socket, SSL* ssl, AddLaggingFollowerRequest* request);
 
 	void handle_remove_lagging_follower_request(SOCKET_ID socket, SSL* ssl, RemoveLaggingFollowerRequest* request);
+
+	void handle_unregister_transaction_group_request(SOCKET_ID socket, SSL* ssl, UnregisterTransactionGroupRequest* request);
 };

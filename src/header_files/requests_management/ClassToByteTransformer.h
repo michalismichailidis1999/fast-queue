@@ -46,6 +46,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(AddLaggingFollowerResponse* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(RemoveLaggingFollowerResponse* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(UnegisterTransactionGroupResponse* obj);
     // --
 
     // -- External

@@ -384,6 +384,18 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
+		case RequestType::UNREGISTER_TRANSACTION_GROUP:
+		{
+			this->logger->log_info("Received and executing request type of UNREGISTER_TRANSACTION_GROUP");
+
+			std::unique_ptr<UnregisterTransactionGroupRequest> request = this->mapper->to_unregister_transaction_group_request(recvbuf.get(), res_buffer_length);
+
+			this->internal_request_executor->handle_unregister_transaction_group_request(socket, ssl, request.get());
+
+			request_type_str = "UNREGISTER_TRANSACTION_GROUP";
+
+			break;
+		}
 		default:
 			this->logger->log_error("Received invalid request type " + std::to_string((int)recvbuf.get()[0]));
 

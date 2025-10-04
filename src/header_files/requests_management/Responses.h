@@ -55,6 +55,11 @@ struct FetchMessagesResponse {
 	void* consumer_offsets_data;
 };
 
+struct UnegisterTransactionGroupResponse {
+	bool ok;
+	int leader_id;
+};
+
 // =======================================================
 
 // External Responses

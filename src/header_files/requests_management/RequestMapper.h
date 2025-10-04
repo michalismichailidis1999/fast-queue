@@ -30,6 +30,8 @@ public:
 
 	std::unique_ptr<FetchMessagesRequest> to_fetch_messages_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<UnregisterTransactionGroupRequest> to_unregister_transaction_group_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 
 	// External Requests

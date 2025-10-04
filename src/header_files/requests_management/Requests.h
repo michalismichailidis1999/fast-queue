@@ -78,6 +78,11 @@ struct FetchMessagesRequest {
 	unsigned long long message_offset;
 };
 
+struct UnregisterTransactionGroupRequest {
+	int node_id;
+	unsigned long long transaction_group_id;
+};
+
 // ======================================================================
 
 // External Requests

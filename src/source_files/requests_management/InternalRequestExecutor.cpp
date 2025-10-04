@@ -316,3 +316,20 @@ void InternalRequestExecutor::handle_remove_lagging_follower_request(SOCKET_ID s
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
+
+void InternalRequestExecutor::handle_unregister_transaction_group_request(SOCKET_ID socket, SSL* ssl, UnregisterTransactionGroupRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Transaction group removal can only be handled by a controller node");
+		return;
+	}
+
+	std::unique_ptr<UnegisterTransactionGroupResponse> res = std::make_unique<UnegisterTransactionGroupResponse>();
+	res.get()->leader_id = this->controller->get_leader_id();
+	res.get()->ok = res.get()->leader_id == this->settings->get_node_id();
+
+	if (res.get()->ok) this->controller->unregister_transaction_group(request->node_id, request->transaction_group_id);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
