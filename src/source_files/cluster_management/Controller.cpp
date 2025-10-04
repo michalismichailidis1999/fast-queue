@@ -45,6 +45,10 @@ Controller::Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler
 	this->half_quorum_nodes_count = total_controllers / 2 + 1;
 }
 
+void Controller::set_transaction_handler(TransactionHandler* th) {
+	this->th = th;
+}
+
 void Controller::update_quorum_communication_values() {
 	this->term = this->future_cluster_metadata.get()->get_current_term();
 	this->last_log_term = this->future_cluster_metadata.get()->get_current_term();
@@ -1123,6 +1127,18 @@ void Controller::execute_command(void* command_metadata) {
 
 		this->data_nodes_heartbeats.erase(command_info->get_node_id());
 		this->follower_indexes.erase(command_info->get_node_id());
+	}
+	else if (command.get_command_type() == CommandType::REGISTER_TRANSACTION_GROUP) {
+		RegisterTransactionGroupCommand* command_info = (RegisterTransactionGroupCommand*)command.get_command_info();
+
+		if (command_info->get_node_id() == this->settings->get_node_id())
+			this->th->add_transaction_group(command_info->get_transaction_group_id());
+	}
+	else if (command.get_command_type() == CommandType::UNREGISTER_TRANSACTION_GROUP) {
+		UnregisterTransactionGroupCommand* command_info = (UnregisterTransactionGroupCommand*)command.get_command_info();
+
+		if (command_info->get_node_id() == this->settings->get_node_id())
+			this->th->remove_transaction_group(command_info->get_transaction_group_id());
 	}
 }
 

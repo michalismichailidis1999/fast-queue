@@ -98,10 +98,12 @@ int main(int argc, char* argv[])
     std::unique_ptr<CompactionHandler> ch = std::unique_ptr<CompactionHandler>(new CompactionHandler(controller.get(), qm.get(), mh.get(), lm.get(), cmah.get(), fh.get(), pm.get(), server_logger.get(), settings.get()));
 
     std::unique_ptr<DataNode> data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), qm.get(), mh.get(), oah.get(), request_mapper.get(), response_mapper.get(), transformer.get(), util.get(), fh.get(), settings.get(), server_logger.get()));
-
+    
     std::unique_ptr<TransactionHandler> th = std::unique_ptr<TransactionHandler>(
-        new TransactionHandler(cm.get(), fh.get(), pm.get(), controller.get()->get_cluster_metadata(), settings.get(), server_logger.get())
+        new TransactionHandler(cm.get(), fh.get(), pm.get(), controller.get()->get_cluster_metadata(), util.get(), settings.get(), server_logger.get())
     );
+
+    controller.get()->set_transaction_handler(th.get());
 
     std::unique_ptr<BeforeServerStartupHandler> startup_handler = std::unique_ptr<BeforeServerStartupHandler>(
         new BeforeServerStartupHandler(

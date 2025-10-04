@@ -13,6 +13,7 @@
 #include "../queue_management/messages_management/MessagesHandler.h"
 #include "../queue_management/QueueManager.h"
 #include "../queue_management/QueueMetadata.h"
+#include "../queue_management/TransactionHandler.h"
 #include "../requests_management/ClassToByteTransformer.h"
 #include "./ClusterMetadata.h"
 #include "./ClusterMetadataApplyHandler.h"
@@ -36,6 +37,7 @@ private:
 	QueueManager* qm;
 	MessagesHandler* mh;
 	ClusterMetadataApplyHandler* cmah;
+	TransactionHandler* th;
 	Util* util;
 	Logger* logger;
 	Settings* settings;
@@ -105,6 +107,8 @@ private:
 	bool is_controller_node(int node_id);
 public:
 	Controller(ConnectionsManager* cm, QueueManager* qm, MessagesHandler* mh, ClusterMetadataApplyHandler* cmah, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Logger* logger, Settings* settings, std::atomic_bool* should_terminate);
+
+	void set_transaction_handler(TransactionHandler* th);
 
 	void update_quorum_communication_values();
 
