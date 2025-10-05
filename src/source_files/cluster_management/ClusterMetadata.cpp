@@ -428,6 +428,11 @@ void ClusterMetadata::apply_register_transaction_group_command(RegisterTransacti
 		command->get_node_id(),
 		this->nodes_transaction_groups_counts->get(command->get_node_id()) + 1
 	);
+
+	{
+		std::lock_guard<std::mutex> ts_lock(this->transaction_ids_mut);
+		this->transaction_ids[command->get_transaction_group_id()] = 0;
+	}
 }
 
 void ClusterMetadata::apply_unregister_transaction_group_command(UnregisterTransactionGroupCommand* command) {
@@ -445,6 +450,11 @@ void ClusterMetadata::apply_unregister_transaction_group_command(UnregisterTrans
 
 	if (--count > 0)
 		this->nodes_transaction_groups_counts->insert(command->get_node_id(), count);
+
+	{
+		std::lock_guard<std::mutex> ts_lock(this->transaction_ids_mut);
+		this->transaction_ids.erase(command->get_transaction_group_id());
+	}
 }
 
 void ClusterMetadata::copy_from(ClusterMetadata* obj) {

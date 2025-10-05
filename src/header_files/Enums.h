@@ -189,3 +189,12 @@ enum class CleanupPolicyType {
 	DELETE_SEGMENTS = 0,
 	COMPACT_SEGMENTS = 1
 };
+
+enum class TransactionStatus {
+	BEGIN,
+	PRECOMMIT,
+	PREABORT,
+	COMMIT,
+	ABORT,
+	END
+};

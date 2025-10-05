@@ -60,11 +60,13 @@ private:
 	std::unordered_map<std::string, std::shared_ptr<QueueMetadata>> queues;
 
 	std::unordered_map<int, std::shared_ptr<std::unordered_map<unsigned long long, std::shared_ptr<std::unordered_set<std::string>>>>> nodes_transaction_groups;
+	std::unordered_map<unsigned long long, unsigned long long> transaction_ids;
 
 	std::shared_mutex nodes_partitions_mut;
 	std::mutex queues_mut;
 	std::shared_mutex consumers_mut;
 	std::shared_mutex transaction_groups_mut;
+	std::mutex transaction_ids_mut;
 
 	void apply_create_queue_command(CreateQueueCommand* command);
 	void apply_delete_queue_command(DeleteQueueCommand* command);

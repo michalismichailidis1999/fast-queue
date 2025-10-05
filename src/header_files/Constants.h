@@ -47,6 +47,7 @@ static const unsigned int CONSUMER_OFFSETS_REWRITE_BYTES_DIFF = 4096 * 4; // 16K
 static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
 static const unsigned int MAX_PARTITION_OFFSETS_SIZE = 4096 * 100000; // 100MB
+static const unsigned int MAX_TRANSACTION_SEGMENT_SIZE = 4096 * 100000; // 100MB
 
 static const unsigned int MAX_ADDRESS_CHARS = 39;
 
@@ -301,5 +302,17 @@ static const unsigned int CONSUMER_ID_OFFSET = CONSUMER_GROUP_ID_SIZE + CONSUMER
 static const unsigned int CONSUMER_MESSAGE_ACK_SIZE = sizeof(unsigned long long);
 static const unsigned int CONSUMER_MESSAGE_ACK_OFFSET = CONSUMER_ID_SIZE + CONSUMER_ID_OFFSET;
 static const unsigned int CONSUMER_ACK_TOTAL_BYTES = CONSUMER_GROUP_ID_LENGTH_SIZE + CONSUMER_GROUP_ID_SIZE + CONSUMER_ID_SIZE + CONSUMER_MESSAGE_ACK_SIZE;
+
+// =================================================================
+
+// Transaction
+
+static const unsigned int TX_CHANGE_GROUP_ID_SIZE = sizeof(unsigned long long);
+static const unsigned int TX_CHANGE_GROUP_ID_OFFSET = 0;
+static const unsigned int TX_CHANGE_ID_SIZE = sizeof(unsigned long long);
+static const unsigned int TX_CHANGE_ID_OFFSET = TX_CHANGE_GROUP_ID_SIZE + TX_CHANGE_GROUP_ID_OFFSET;
+static const unsigned int TX_CHANGE_STATUS_SIZE = sizeof(unsigned int);
+static const unsigned int TX_CHANGE_STATUS_OFFSET = TX_CHANGE_ID_SIZE + TX_CHANGE_ID_OFFSET;
+static const unsigned int TX_CHANGE_TOTAL_BYTES = TX_CHANGE_GROUP_ID_SIZE + TX_CHANGE_ID_SIZE + TX_CHANGE_STATUS_SIZE;
 
 // =================================================================
