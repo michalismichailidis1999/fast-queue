@@ -314,4 +314,17 @@ static const unsigned int TX_CHANGE_STATUS_SIZE = sizeof(unsigned int);
 static const unsigned int TX_CHANGE_STATUS_OFFSET = TX_CHANGE_ID_SIZE + TX_CHANGE_ID_OFFSET;
 static const unsigned int TX_CHANGE_TOTAL_BYTES = TX_CHANGE_ID_SIZE + TX_CHANGE_STATUS_SIZE;
 
+static const unsigned int TX_MSG_CAPTURE_TX_ID_SIZE = sizeof(unsigned long long);
+static const unsigned int TX_MSG_CAPTURE_TX_ID_OFFSET = 0;
+static const unsigned int TX_MSG_CAPTURE_STATUS_SIZE = sizeof(unsigned int);
+static const unsigned int TX_MSG_CAPTURE_STATUS_OFFSET = TX_MSG_CAPTURE_TX_ID_SIZE + TX_MSG_CAPTURE_TX_ID_OFFSET;
+static const unsigned int TX_MSG_CAPTURE_FILE_START_POS_SIZE = sizeof(long long);
+static const unsigned int TX_MSG_CAPTURE_FILE_START_POS_OFFSET = TX_MSG_CAPTURE_STATUS_SIZE + TX_MSG_CAPTURE_STATUS_OFFSET;
+static const unsigned int TX_MSG_CAPTURE_FILE_END_POS_SIZE = sizeof(long long);
+static const unsigned int TX_MSG_CAPTURE_FILE_END_POS_OFFSET = TX_MSG_CAPTURE_FILE_START_POS_SIZE + TX_MSG_CAPTURE_FILE_START_POS_OFFSET;
+static const unsigned int TX_MSG_CAPTURE_MSG_ID_SIZE = sizeof(unsigned long long);
+static const unsigned int TX_MSG_CAPTURE_MSG_ID_OFFSET = TX_MSG_CAPTURE_FILE_END_POS_SIZE + TX_MSG_CAPTURE_FILE_END_POS_OFFSET;
+static const unsigned int TX_MSG_CAPTURE_TOTAL_BYTES = TX_MSG_CAPTURE_TX_ID_SIZE + TX_MSG_CAPTURE_STATUS_SIZE + TX_MSG_CAPTURE_FILE_START_POS_SIZE
++ TX_MSG_CAPTURE_FILE_END_POS_SIZE + TX_MSG_CAPTURE_MSG_ID_SIZE;
+
 // =================================================================

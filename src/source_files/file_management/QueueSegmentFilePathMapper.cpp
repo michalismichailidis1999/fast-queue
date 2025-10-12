@@ -104,3 +104,16 @@ std::string QueueSegmentFilePathMapper::get_partition_offsets_path(const std::st
 std::string QueueSegmentFilePathMapper::get_partition_offsets_key(const std::string& queue_name, int partition, bool temp_file) {
 	return queue_name + "_p_" + std::to_string(partition) + (temp_file ? "_t" : "") + "_off";
 }
+
+std::string QueueSegmentFilePathMapper::get_partition_tx_changes_path(const std::string& queue_name, int partition, bool temp_file) {
+	return this->settings->get_log_path()
+		+ "/"
+		+ queue_name
+		+ "/partition-" + std::to_string(partition) + "/__transaction_changes"
+		+ (temp_file ? "_temp" : "")
+		+ FILE_EXTENSION;
+}
+
+std::string QueueSegmentFilePathMapper::get_partition_tx_changes_key(const std::string& queue_name, int partition, bool temp_file) {
+	return queue_name + "_p_" + std::to_string(partition) + (temp_file ? "_t" : "") + "_tx_changes";
+}

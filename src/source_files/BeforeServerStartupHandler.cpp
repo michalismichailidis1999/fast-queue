@@ -332,8 +332,10 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
         for (auto& iter : partitions) {
             this->set_partition_active_segment(iter.second.get(), is_cluster_metadata_queue);
 
-            if (!is_cluster_metadata_queue)
+            if (!is_cluster_metadata_queue) {
                 this->set_partition_replicated_offset(iter.second.get());
+                this->set_partition_transaction_changes(iter.second.get());
+            }
 
             queue->add_partition(iter.second);
         }
@@ -422,15 +424,15 @@ void BeforeServerStartupHandler::set_partition_replicated_offset(Partition* part
     std::string offsets_key = this->pm->get_partition_offsets_key(partition->get_queue_name(), partition->get_partition_id());
     std::string offsets_path = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id());
 
+    std::string temp_offsets_key = this->pm->get_partition_offsets_key(partition->get_queue_name(), partition->get_partition_id(), true);
     std::string temp_offsets_path = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id(), true);
 
     partition->set_offsets(offsets_key, offsets_path);
 
     unsigned long long last_replicated_offset = 0;
 
-    if (!this->fh->check_if_exists(offsets_path) && this->fh->check_if_exists(temp_offsets_path)) {
-        this->fh->rename_file("", temp_offsets_path, offsets_path);
-    }
+    if (!this->fh->check_if_exists(offsets_path) && this->fh->check_if_exists(temp_offsets_path))
+        this->fh->rename_file(temp_offsets_key, temp_offsets_path, offsets_path);
 
     if (this->fh->check_if_exists(offsets_path)) {
         this->fh->read_from_file(
@@ -463,6 +465,30 @@ void BeforeServerStartupHandler::set_partition_replicated_offset(Partition* part
         buff.get(),
         offsets_key,
         true
+    );
+}
+
+void BeforeServerStartupHandler::set_partition_transaction_changes(Partition* partition) {
+    std::string tx_changes_key = this->pm->get_partition_tx_changes_key(partition->get_queue_name(), partition->get_partition_id());
+    std::string tx_changes_path = this->pm->get_partition_tx_changes_path(partition->get_queue_name(), partition->get_partition_id());
+
+    std::string temp_tx_changes_key = this->pm->get_partition_tx_changes_key(partition->get_queue_name(), partition->get_partition_id(), true);
+    std::string temp_tx_changes_path = this->pm->get_partition_tx_changes_path(partition->get_queue_name(), partition->get_partition_id(), true);
+
+    if (!this->fh->check_if_exists(tx_changes_path) && this->fh->check_if_exists(temp_tx_changes_path))
+        this->fh->rename_file(temp_tx_changes_key, temp_tx_changes_path, tx_changes_path);
+
+    if (this->fh->check_if_exists(tx_changes_path)) {
+        // TODO: Compact transaction changes
+        return;
+    }
+
+    this->fh->create_new_file(
+        tx_changes_path,
+        0,
+        NULL,
+        tx_changes_key,
+        false
     );
 }
 

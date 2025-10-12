@@ -248,3 +248,7 @@ void TransactionHandler::compact_transaction_segment(TransactionFileSegment* ts_
 	this->fh->delete_dir_or_file(ts_segment->file_path, ts_segment->file_key);
 	this->fh->rename_file(ts_segment->temp_file_key, ts_segment->temp_file_key, ts_segment->file_path);
 }
+
+void TransactionHandler::capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture) {
+	// TODO: Complete method
+}

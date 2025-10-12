@@ -30,6 +30,9 @@ private:
 	std::string offsets_key;
 	std::string offsets_path;
 
+	std::string tx_changes_key;
+	std::string tx_changes_path;
+
 	unsigned long long last_message_offset;
 	unsigned long long last_message_leader_epoch;
 
@@ -57,6 +60,7 @@ public:
 
 	void set_message_map(const std::string& message_map_key, const std::string& message_map_path);
 	void set_offsets(const std::string& offsets_key, const std::string& offsets_path);
+	void set_transaction_changes(const std::string& tx_changes_key, const std::string& tx_changes_path);
 
 	void set_smallest_uncompacted_segment_id(unsigned long long segment_id);
 	unsigned long long get_smallest_uncompacted_segment_id();
@@ -79,6 +83,9 @@ public:
 
 	const std::string& get_offsets_key();
 	const std::string& get_offsets_path();
+
+	const std::string& get_transaction_changes_key();
+	const std::string& get_transaction_changes_path();
 
 	PartitionSegment* get_active_segment();
 	std::shared_ptr<PartitionSegment> get_active_segment_ref();

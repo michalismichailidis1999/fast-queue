@@ -11,6 +11,7 @@
 #include "../network_management/ConnectionsManager.h"
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
+#include "../queue_management/Partition.h"
 #include "../util/Util.h"
 #include "../Constants.h"
 #include "../Enums.h"
@@ -26,6 +27,13 @@ typedef struct {
 	unsigned long long written_bytes;
 	int segment_id;
 } TransactionFileSegment;
+
+typedef struct {
+	long long file_start_offset;
+	long long file_end_offset;
+	unsigned long long first_message_id;
+	unsigned long long transaction_id;
+} TransactionChangeCapture;
 
 class TransactionHandler {
 private:
@@ -71,6 +79,8 @@ public:
 	void add_transaction_group(unsigned long long transaction_group_id);
 
 	void remove_transaction_group(unsigned long long transaction_group_id);
+
+	void capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture);
 
 	unsigned long long init_transaction(unsigned long long transaction_group_id);
 };

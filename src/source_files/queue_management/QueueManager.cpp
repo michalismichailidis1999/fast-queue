@@ -119,6 +119,9 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 	std::string off_key = this->pm->get_partition_offsets_key(queue_name, partition_id);
 	std::string off_path = this->pm->get_partition_offsets_path(queue_name, partition_id);
 
+	std::string tx_changes_key = this->pm->get_partition_tx_changes_key(queue_name, partition_id);
+	std::string tx_changes_path = this->pm->get_partition_tx_changes_path(queue_name, partition_id);
+
 	std::shared_ptr<PartitionSegment> segment = std::shared_ptr<PartitionSegment>(new PartitionSegment(1, segment_key, segment_path));
 
 	segment.get()->set_index(index_key, index_path);
@@ -127,6 +130,7 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 
 	partition.get()->set_message_map(mm_key, mm_path);
 	partition.get()->set_offsets(off_key, off_path);
+	partition.get()->set_transaction_changes(tx_changes_key, tx_changes_path);
 
 	if (!this->fh->check_if_exists(segment_path))
 	{

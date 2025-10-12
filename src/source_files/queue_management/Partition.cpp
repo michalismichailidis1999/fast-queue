@@ -65,6 +65,12 @@ void Partition::set_offsets(const std::string& offsets_key, const std::string& o
 	this->offsets_path = offsets_path;
 }
 
+void Partition::set_transaction_changes(const std::string& tx_changes_key, const std::string& tx_changes_path) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+	this->tx_changes_key = tx_changes_key;
+	this->tx_changes_path = tx_changes_path;
+}
+
 const std::string& Partition::get_message_map_key() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->message_map_key;
@@ -83,6 +89,16 @@ const std::string& Partition::get_offsets_key() {
 const std::string& Partition::get_offsets_path() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->offsets_path;
+}
+
+const std::string& Partition::get_transaction_changes_key() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->tx_changes_key;
+}
+
+const std::string& Partition::get_transaction_changes_path() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->tx_changes_path;
 }
 
 void Partition::set_smallest_uncompacted_segment_id(unsigned long long segment_id) {
