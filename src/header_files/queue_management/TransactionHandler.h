@@ -1,7 +1,6 @@
 #pragma once
 #include <unordered_map>
 #include <set>
-#include <queue>
 #include <string>
 #include <memory>
 #include <chrono>
@@ -50,14 +49,14 @@ private:
 	std::shared_mutex transactions_mut;
 
 	// Will handle them in the backgroun (only in case when transaction group is unregistered due to timeout)
-	std::queue<unsigned long long> transactions_to_close;
+	std::set<unsigned long long> transactions_to_close;
 	std::mutex transactions_to_close_mut;
 
 	int get_transaction_segment(unsigned long long transaction_id);
 
 	unsigned long long get_new_transaction_id(unsigned long long transaction_group_id);
 
-	void write_transaction_change_to_segment(unsigned long long transaction_group_id, unsigned long long tx_id, int segment_id, TransactionStatus status_change);
+	void write_transaction_change_to_segment(unsigned long long tx_id, int segment_id, TransactionStatus status_change);
 
 	void compact_transaction_segment(TransactionFileSegment* ts_segment);
 public:

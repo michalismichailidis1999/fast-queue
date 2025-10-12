@@ -307,12 +307,11 @@ static const unsigned int CONSUMER_ACK_TOTAL_BYTES = CONSUMER_GROUP_ID_LENGTH_SI
 
 // Transaction
 
-static const unsigned int TX_CHANGE_GROUP_ID_SIZE = sizeof(unsigned long long);
-static const unsigned int TX_CHANGE_GROUP_ID_OFFSET = 0;
+
 static const unsigned int TX_CHANGE_ID_SIZE = sizeof(unsigned long long);
-static const unsigned int TX_CHANGE_ID_OFFSET = TX_CHANGE_GROUP_ID_SIZE + TX_CHANGE_GROUP_ID_OFFSET;
+static const unsigned int TX_CHANGE_ID_OFFSET = 0;
 static const unsigned int TX_CHANGE_STATUS_SIZE = sizeof(unsigned int);
 static const unsigned int TX_CHANGE_STATUS_OFFSET = TX_CHANGE_ID_SIZE + TX_CHANGE_ID_OFFSET;
-static const unsigned int TX_CHANGE_TOTAL_BYTES = TX_CHANGE_GROUP_ID_SIZE + TX_CHANGE_ID_SIZE + TX_CHANGE_STATUS_SIZE;
+static const unsigned int TX_CHANGE_TOTAL_BYTES = TX_CHANGE_ID_SIZE + TX_CHANGE_STATUS_SIZE;
 
 // =================================================================

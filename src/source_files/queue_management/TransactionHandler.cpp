@@ -61,7 +61,7 @@ void TransactionHandler::remove_transaction_group(unsigned long long transaction
 
 		if (open_txs != nullptr && open_txs.get()->size() > 0)
 			for (unsigned long long open_tx_id : *(open_txs.get()))
-				this->transactions_to_close.push(open_tx_id);
+				this->transactions_to_close.insert(open_tx_id);
 	}
 
 	{
@@ -78,7 +78,7 @@ unsigned long long TransactionHandler::init_transaction(unsigned long long trans
 
 	int segment_id = this->get_transaction_segment(new_tx_id);
 
-	this->write_transaction_change_to_segment(transaction_group_id, new_tx_id, segment_id, TransactionStatus::BEGIN);
+	this->write_transaction_change_to_segment(new_tx_id, segment_id, TransactionStatus::BEGIN);
 
 	this->update_transaction_group_heartbeat(transaction_group_id);
 
@@ -109,7 +109,7 @@ unsigned long long TransactionHandler::get_new_transaction_id(unsigned long long
 	return ++this->cluster_metadata->transaction_ids[transaction_group_id];
 }
 
-void TransactionHandler::write_transaction_change_to_segment(unsigned long long transaction_group_id, unsigned long long tx_id, int segment_id, TransactionStatus status_change) {
+void TransactionHandler::write_transaction_change_to_segment(unsigned long long tx_id, int segment_id, TransactionStatus status_change) {
 	std::shared_ptr<TransactionFileSegment> ts_segment = this->transaction_segment_files[segment_id];
 
 	if (ts_segment == nullptr) {
@@ -121,7 +121,6 @@ void TransactionHandler::write_transaction_change_to_segment(unsigned long long 
 	
 	std::unique_ptr<char> tx_change_bytes = std::unique_ptr<char>(new char[TX_CHANGE_TOTAL_BYTES]);
 
-	memcpy_s(tx_change_bytes.get() + TX_CHANGE_GROUP_ID_OFFSET, TX_CHANGE_GROUP_ID_SIZE, &transaction_group_id, TX_CHANGE_GROUP_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_CHANGE_ID_OFFSET, TX_CHANGE_ID_SIZE, &tx_id, TX_CHANGE_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_CHANGE_STATUS_OFFSET, TX_CHANGE_STATUS_SIZE, &status_change, TX_CHANGE_STATUS_SIZE);
 
