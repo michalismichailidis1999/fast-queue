@@ -500,7 +500,7 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 				continue;
 			}
 
-			leader_id == this->controller->get_leader_id();
+			leader_id = this->controller->get_leader_id();
 
 			pool = leader_id != this->settings->get_node_id() && pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
 

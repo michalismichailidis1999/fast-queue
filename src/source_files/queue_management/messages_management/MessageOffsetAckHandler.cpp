@@ -20,40 +20,42 @@ void MessageOffsetAckHandler::flush_consumer_offset_ack(Partition* partition, Co
 	memcpy_s(message_ack.get() + CONSUMER_ID_OFFSET, CONSUMER_ID_SIZE, &consumer_id, CONSUMER_ID_SIZE);
 	memcpy_s(message_ack.get() + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE, &offset, CONSUMER_MESSAGE_ACK_SIZE);
 
-	if (!this->fh->check_if_exists(partition->get_offsets_path())) {
+	long long written_pos = -1;
+
+	try {
+		written_pos = this->fh->write_to_file(
+			partition->get_offsets_key(),
+			partition->get_offsets_path(),
+			CONSUMER_ACK_TOTAL_BYTES,
+			-1,
+			message_ack.get(),
+			true
+		);
+	} catch (const std::exception& ex) {
 		std::string temp_offsets = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id(), true);
+		std::string temp_offsets_key = this->pm->get_partition_offsets_key(partition->get_queue_name(), partition->get_partition_id(), true);
 
 		if (this->fh->check_if_exists(temp_offsets)) {
-			this->fh->delete_dir_or_file(partition->get_offsets_path(), partition->get_offsets_key());
-			this->fh->rename_file("", temp_offsets, partition->get_offsets_path());
-		}
-		else {
-			unsigned long long last_replicated_offset = partition->get_last_replicated_offset();
+			this->fh->rename_file(temp_offsets_key, temp_offsets, partition->get_offsets_path());
 
-			this->fh->create_new_file(
-				partition->get_offsets_path(),
-				sizeof(unsigned long long),
-				&last_replicated_offset,
+			written_pos = this->fh->write_to_file(
 				partition->get_offsets_key(),
+				partition->get_offsets_path(),
+				CONSUMER_ACK_TOTAL_BYTES,
+				-1,
+				message_ack.get(),
 				true
 			);
 		}
+		else throw ex;
 	}
-
-	long long written_pos = this->fh->write_to_file(
-		partition->get_offsets_key(),
-		partition->get_offsets_path(),
-		CONSUMER_ACK_TOTAL_BYTES,
-		-1,
-		message_ack.get(),
-		true
-	);
 
 	if (written_pos >= MAX_PARTITION_OFFSETS_SIZE) this->compact_partition_offsets(partition);
 }
 
 void MessageOffsetAckHandler::compact_partition_offsets(Partition* partition) {
 	std::string temp_offsets = this->pm->get_partition_offsets_path(partition->get_queue_name(), partition->get_partition_id(), true);
+	std::string temp_offsets_key = this->pm->get_partition_offsets_key(partition->get_queue_name(), partition->get_partition_id(), true);
 
 	unsigned long long last_replicated_offset = partition->get_last_replicated_offset();
 
@@ -61,7 +63,7 @@ void MessageOffsetAckHandler::compact_partition_offsets(Partition* partition) {
 		temp_offsets,
 		sizeof(unsigned long long),
 		&last_replicated_offset,
-		"",
+		temp_offsets_key,
 		true
 	);
 
@@ -117,7 +119,7 @@ void MessageOffsetAckHandler::compact_partition_offsets(Partition* partition) {
 		memcpy_s(message_ack.get() + CONSUMER_MESSAGE_ACK_OFFSET, CONSUMER_MESSAGE_ACK_SIZE, &iter.second, CONSUMER_MESSAGE_ACK_SIZE);
 
 		this->fh->write_to_file(
-			"",
+			temp_offsets_key,
 			temp_offsets,
 			CONSUMER_ACK_TOTAL_BYTES,
 			-1,
@@ -127,7 +129,7 @@ void MessageOffsetAckHandler::compact_partition_offsets(Partition* partition) {
 	}
 
 	this->fh->delete_dir_or_file(partition->get_offsets_path(), partition->get_offsets_key());
-	this->fh->rename_file("", temp_offsets, partition->get_offsets_path());
+	this->fh->rename_file(temp_offsets_key, temp_offsets, partition->get_offsets_path());
 }
 
 void MessageOffsetAckHandler::assign_latest_offset_to_partition_consumers(Partition* partition) {
