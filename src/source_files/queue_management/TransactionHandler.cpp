@@ -272,6 +272,10 @@ void TransactionHandler::compact_transaction_segment(TransactionFileSegment* ts_
 void TransactionHandler::capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture) {
 	// NOTE: No need to lock partition transaction changes file because it will be called from
 	// message handler which already locks the partition
+	this->capture_transaction_change_to_memory(change_capture);
+
+	std::shared_lock<std::shared_mutex> slock(this->transaction_changes_mut);
+
 	std::unique_ptr<char> tx_change_bytes = std::unique_ptr<char>(new char[TX_MSG_CAPTURE_TOTAL_BYTES]);
 
 	TransactionStatus no_status = TransactionStatus::NONE;
@@ -325,13 +329,13 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 		else throw ex;
 	}
 
-	// Add similar logic here as compaction of tx status capture function above
+	slock.unlock();
+
 	if (write_pos >= MAX_TRANSACTION_SEGMENT_SIZE)
 		std::thread([this, partition]() {
+			std::unique_lock<std::shared_mutex> xlock(this->transaction_changes_mut);
 			this->compact_transaction_change_captures(partition);
 		}).detach();
-
-	this->capture_transaction_change_to_memory(change_capture);
 }
 
 void TransactionHandler::capture_transaction_change_to_memory(TransactionChangeCapture& change_capture) {

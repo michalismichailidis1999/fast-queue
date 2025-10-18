@@ -58,6 +58,7 @@ private:
 	std::unordered_map<unsigned long long, std::shared_ptr<std::set<unsigned long long>>> open_transactions;
 	std::unordered_map<std::string, std::shared_ptr<std::queue<std::shared_ptr<TransactionChangeCapture>>>> transaction_changes;
 	std::shared_mutex transactions_mut;
+	std::shared_mutex transaction_changes_mut;
 
 	// Will handle them in the backgroun (only in case when transaction group is unregistered due to timeout)
 	std::set<unsigned long long> transactions_to_close;
