@@ -191,6 +191,7 @@ enum class CleanupPolicyType {
 };
 
 enum class TransactionStatus {
+	NONE = 0,
 	BEGIN,
 	PRECOMMIT,
 	PREABORT,
