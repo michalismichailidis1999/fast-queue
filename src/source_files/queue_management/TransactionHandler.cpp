@@ -76,9 +76,11 @@ void TransactionHandler::remove_transaction_group(unsigned long long transaction
 unsigned long long TransactionHandler::init_transaction(unsigned long long transaction_group_id) {
 	unsigned long long new_tx_id = this->get_new_transaction_id(transaction_group_id);
 
+	if (new_tx_id == 0) return new_tx_id;
+
 	int segment_id = this->get_transaction_segment(new_tx_id);
 
-	this->write_transaction_change_to_segment(new_tx_id, segment_id, TransactionStatus::BEGIN);
+	this->write_transaction_change_to_segment(transaction_group_id, new_tx_id, segment_id, TransactionStatus::BEGIN);
 
 	this->update_transaction_group_heartbeat(transaction_group_id);
 
@@ -108,10 +110,14 @@ int TransactionHandler::get_transaction_segment(unsigned long long transaction_i
 
 unsigned long long TransactionHandler::get_new_transaction_id(unsigned long long transaction_group_id) {
 	std::lock_guard<std::mutex> lock(this->cluster_metadata->transaction_ids_mut);
+
+	if (this->cluster_metadata->transaction_ids.find(transaction_group_id) == this->cluster_metadata->transaction_ids.end())
+		return 0;
+
 	return ++this->cluster_metadata->transaction_ids[transaction_group_id];
 }
 
-void TransactionHandler::write_transaction_change_to_segment(unsigned long long tx_id, int segment_id, TransactionStatus status_change) {
+void TransactionHandler::write_transaction_change_to_segment(unsigned long long transaction_group_id, unsigned long long tx_id, int segment_id, TransactionStatus status_change) {
 	std::shared_ptr<TransactionFileSegment> ts_segment = this->transaction_segment_files[segment_id];
 
 	if (ts_segment == nullptr) {
@@ -125,6 +131,7 @@ void TransactionHandler::write_transaction_change_to_segment(unsigned long long 
 
 	long long current_timestamp = this->util->get_current_time_milli().count();
 
+	memcpy_s(tx_change_bytes.get() + TX_CHANGE_GROUP_ID_OFFSET, TX_CHANGE_GROUP_ID_SIZE, &transaction_group_id, TX_CHANGE_GROUP_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_CHANGE_ID_OFFSET, TX_CHANGE_ID_SIZE, &tx_id, TX_CHANGE_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_CHANGE_STATUS_OFFSET, TX_CHANGE_STATUS_SIZE, &status_change, TX_CHANGE_STATUS_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_CHANGE_TIMESTAMP_OFFSET, TX_CHANGE_TIMESTAMP_SIZE, &current_timestamp, TX_CHANGE_TIMESTAMP_SIZE);
@@ -161,12 +168,15 @@ void TransactionHandler::write_transaction_change_to_segment(unsigned long long 
 
 	slock.unlock();
 
-	std::lock_guard<std::shared_mutex> xlock(ts_segment.get()->mut);
+	std::unique_lock<std::shared_mutex> xlock(ts_segment.get()->mut);
 	ts_segment.get()->written_bytes += TX_CHANGE_TOTAL_BYTES;
 
 	if (ts_segment.get()->written_bytes >= MAX_TRANSACTION_SEGMENT_SIZE) {
-		this->compact_transaction_segment(ts_segment.get());
 		ts_segment.get()->written_bytes = 0;
+
+		std::thread([this, ts_segment, lock = std::move(xlock)]() mutable {
+			this->compact_transaction_segment(ts_segment.get());
+		}).detach();
 	}
 }
 
@@ -176,7 +186,7 @@ void TransactionHandler::compact_transaction_segment(TransactionFileSegment* ts_
 		return;
 	}
 
-	std::unordered_map<unsigned long long, std::shared_ptr<std::vector<std::shared_ptr<char>>>> transactions;
+	std::unordered_map<std::string, std::shared_ptr<std::vector<std::shared_ptr<char>>>> transactions;
 
 	unsigned int read_batch_size = (READ_MESSAGES_BATCH_SIZE / TX_CHANGE_TOTAL_BYTES) * TX_CHANGE_TOTAL_BYTES;
 
@@ -192,28 +202,34 @@ void TransactionHandler::compact_transaction_segment(TransactionFileSegment* ts_
 		batch.get()
 	);
 
+	unsigned long long transaction_group_id = 0;
 	unsigned long long transaction_id = 0;
-	TransactionStatus status = TransactionStatus::BEGIN;
+	TransactionStatus status = TransactionStatus::NONE;
+
+	std::string tx_key = "";
 
 	while (bytes_read > 0) {
 
 		unsigned int offset = 0;
 
 		while (offset < bytes_read) {
+			memcpy_s(&transaction_group_id, TX_CHANGE_GROUP_ID_SIZE, batch.get() + offset + TX_CHANGE_GROUP_ID_OFFSET, TX_CHANGE_GROUP_ID_SIZE);
 			memcpy_s(&transaction_id, TX_CHANGE_ID_SIZE, batch.get() + offset + TX_CHANGE_ID_OFFSET, TX_CHANGE_ID_SIZE);
 			memcpy_s(&status, TX_CHANGE_STATUS_SIZE, batch.get() + offset + TX_CHANGE_STATUS_OFFSET, TX_CHANGE_STATUS_SIZE);
 
+			tx_key = std::to_string(transaction_group_id) + "_" + std::to_string(transaction_id);
+
 			if (status == TransactionStatus::END) {
-				transactions.erase(transaction_id);
+				transactions.erase(tx_key);
 				offset += TX_CHANGE_TOTAL_BYTES;
 				continue;
 			}
 
 			if (status == TransactionStatus::BEGIN)
-				transactions[transaction_id] = std::make_shared<std::vector<std::shared_ptr<char>>>();
+				transactions[tx_key] = std::make_shared<std::vector<std::shared_ptr<char>>>();
 
 			std::shared_ptr<char> tx_change_info = std::shared_ptr<char>(new char[TX_CHANGE_TOTAL_BYTES]);
-			transactions[transaction_id].get()->emplace_back(tx_change_info);
+			transactions[tx_key].get()->emplace_back(tx_change_info);
 
 			offset += TX_CHANGE_TOTAL_BYTES;
 		}
@@ -267,6 +283,7 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 	long long current_timestamp = this->util->get_current_time_milli().count();
 	unsigned long long segment_id = partition->get_active_segment()->get_id();
 
+	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_TX_GROUP_ID_OFFSET, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE, &change_capture.transaction_group_id, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_TX_ID_OFFSET, TX_MSG_CAPTURE_TX_ID_SIZE, &change_capture.transaction_id, TX_MSG_CAPTURE_TX_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_STATUS_OFFSET, TX_MSG_CAPTURE_STATUS_SIZE, &no_status, TX_MSG_CAPTURE_STATUS_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_TIMESTAMP_OFFSET, TX_MSG_CAPTURE_TIMESTAMP_SIZE, &current_timestamp, TX_MSG_CAPTURE_TIMESTAMP_SIZE);
@@ -313,6 +330,7 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 		else throw ex;
 	}
 
+	// Add similar logic here as compaction of tx status capture function above
 	if (write_pos >= MAX_TRANSACTION_SEGMENT_SIZE) {
 		// TODO: Compact partition transaction changes file to keep only open transactions
 	}

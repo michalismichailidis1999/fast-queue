@@ -68,7 +68,7 @@ private:
 
 	unsigned long long get_new_transaction_id(unsigned long long transaction_group_id);
 
-	void write_transaction_change_to_segment(unsigned long long tx_id, int segment_id, TransactionStatus status_change);
+	void write_transaction_change_to_segment(unsigned long long transaction_group_id, unsigned long long tx_id, int segment_id, TransactionStatus status_change);
 
 	void compact_transaction_segment(TransactionFileSegment* ts_segment);
 

@@ -110,6 +110,8 @@ struct ProduceMessagesRequest : AuthRequest {
 	int queue_name_length;
 	char* queue_name;
 	int partition;
+	unsigned long long transaction_group_id;
+	unsigned long long transaction_id;
 	std::shared_ptr<std::vector<char*>> messages;
 	std::shared_ptr<std::vector<char*>> messages_keys;
 	std::shared_ptr<std::vector<int>> messages_sizes;

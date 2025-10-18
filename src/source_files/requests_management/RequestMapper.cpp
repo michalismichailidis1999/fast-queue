@@ -84,6 +84,9 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 	req.get()->messages_keys_sizes = std::make_shared<std::vector<int>>();
 
 	req.get()->queue_name_length = 0;
+	req.get()->partition = -1;
+	req.get()->transaction_group_id = 0;
+	req.get()->transaction_id = 0;
 
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
@@ -95,6 +98,12 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 		} else if (*key == RequestValueKey::PARTITION) {
 			req.get()->partition = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
+		} else if (*key == RequestValueKey::TRANSACTION_GROUP_ID) {
+			req.get()->transaction_group_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		} else if (*key == RequestValueKey::TRANSACTION_ID) {
+			req.get()->transaction_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
 		} else if (*key == RequestValueKey::MESSAGES) {
 			int messages_total_bytes = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);

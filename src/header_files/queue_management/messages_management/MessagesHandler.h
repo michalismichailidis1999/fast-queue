@@ -7,6 +7,7 @@
 #include "../../util/Helper.h"
 #include "../Partition.h"
 #include "../SegmentLockManager.h"
+#include "../TransactionHandler.h"
 #include "./SegmentAllocator.h"
 #include "../../Settings.h"
 #include "./index_management/BPlusTreeIndexHandler.h"
@@ -26,6 +27,7 @@ private:
 	SegmentAllocator* sa;
 	SegmentMessageMap* smm;
 	SegmentLockManager* lock_manager;
+	TransactionHandler* th;
 	BPlusTreeIndexHandler* index_handler;
 	Util* util;
 	Settings* settings;
@@ -58,7 +60,9 @@ private:
 public:
 	MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_reader, QueueSegmentFilePathMapper* pm, SegmentAllocator* sa, SegmentMessageMap* smm, SegmentLockManager* lock_manager, BPlusTreeIndexHandler* index_handler, Util* util, Settings* settings, Logger* logger);
 
-	bool save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write = nullptr, bool cache_messages = true);
+	void set_transaction_handler(TransactionHandler* th);
+
+	bool save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write = nullptr, bool cache_messages = true, unsigned long long transaction_group_id = 0, unsigned long long transaction_id = 0);
 
 	bool save_messages(Partition* partition, ProduceMessagesRequest* request, bool cache_messages = true, bool has_replication = false, unsigned long long leader_id = 0);
 

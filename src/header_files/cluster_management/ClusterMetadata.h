@@ -60,6 +60,7 @@ private:
 	std::unordered_map<std::string, std::shared_ptr<QueueMetadata>> queues;
 
 	std::unordered_map<int, std::shared_ptr<std::unordered_map<unsigned long long, std::shared_ptr<std::unordered_set<std::string>>>>> nodes_transaction_groups;
+	std::unordered_map<unsigned long long, int> transaction_group_nodes;
 	std::unordered_map<unsigned long long, unsigned long long> transaction_ids;
 
 	std::shared_mutex nodes_partitions_mut;

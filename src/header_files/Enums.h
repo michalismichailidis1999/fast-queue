@@ -70,6 +70,8 @@ enum class RequestValueKey {
 	MESSAGE_OFFSET,
 	READ_SINGLE_OFFSET_ONLY,
 	REGISTERED_QUEUES,
+	TRANSACTION_GROUP_ID,
+	TRANSACTION_ID,
 
 	// Internal Communication
 	NODE_ID,
@@ -80,7 +82,6 @@ enum class RequestValueKey {
 	COMMAND_ID,
 	REGISTER_NODE,
 	EXPIRED_CONSUMERS,
-	TRANSACTION_GROUP_ID,
 
 	// Raft
 	LEADER_ID,

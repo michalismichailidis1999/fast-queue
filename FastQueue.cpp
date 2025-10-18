@@ -71,6 +71,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<RequestMapper> request_mapper = std::unique_ptr<RequestMapper>(new RequestMapper(server_logger.get()));
     std::unique_ptr<ResponseMapper> response_mapper = std::unique_ptr<ResponseMapper>(new ResponseMapper(server_logger.get()));
 
+    std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), ssl_context_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
+
     std::unique_ptr<CacheHandler> cache_handler = std::unique_ptr<CacheHandler>(new CacheHandler(util.get(), settings.get()));
 
     std::unique_ptr<DiskFlusher> df = std::unique_ptr<DiskFlusher>(new DiskFlusher(fh.get(), cache_handler.get(), server_logger.get(), settings.get(), &should_terminate));
@@ -86,9 +88,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<SegmentLockManager> lm = std::unique_ptr<SegmentLockManager>(new SegmentLockManager());
 
     std::unique_ptr<SegmentAllocator> sa = std::unique_ptr<SegmentAllocator>(new SegmentAllocator(smm.get(), lm.get(), pm.get(), df.get(), server_logger.get()));
+    
     std::unique_ptr<MessagesHandler> mh = std::unique_ptr<MessagesHandler>(new MessagesHandler(df.get(), dr.get(), pm.get(), sa.get(), smm.get(), lm.get(), ih.get(), util.get(), settings.get(), server_logger.get()));
-
-    std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), ssl_context_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
 
     std::unique_ptr<ClusterMetadataApplyHandler> cmah = std::unique_ptr<ClusterMetadataApplyHandler>(new ClusterMetadataApplyHandler(qm.get(), cm.get(), fh.get(), pm.get(), settings.get(), server_logger.get()));
     
@@ -102,6 +103,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<TransactionHandler> th = std::unique_ptr<TransactionHandler>(
         new TransactionHandler(cm.get(), fh.get(), pm.get(), controller.get()->get_cluster_metadata(), util.get(), settings.get(), server_logger.get())
     );
+
+    mh.get()->set_transaction_handler(th.get());
 
     controller.get()->set_transaction_handler(th.get());
 

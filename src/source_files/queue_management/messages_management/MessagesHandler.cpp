@@ -16,6 +16,10 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 	this->cluster_metadata_file_path = this->pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
 }
 
+void MessagesHandler::set_transaction_handler(TransactionHandler* th) {
+	this->th = th;
+}
+
 bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest* request, bool cache_messages, bool has_replication, unsigned long long leader_id) {
 	std::lock_guard<std::mutex> lock(partition->write_mut);
 	
@@ -34,6 +38,8 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 
 	unsigned long long message_offset = 0;
 
+	bool is_commited = request->transaction_id == 0;
+
 	for (int i = 0; i < request->messages.get()->size(); i++) {
 		auto& message_size = (*(request->messages_sizes.get()))[i];
 		auto& message_body = (*(request->messages.get()))[i];
@@ -44,6 +50,7 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 
 		memcpy_s(messages_data.get() + offset + MESSAGE_PAYLOAD_OFFSET, MESSAGE_PAYLOAD_SIZE, &message_size, MESSAGE_PAYLOAD_SIZE);
 		memcpy_s(messages_data.get() + offset + MESSAGE_TOTAL_BYTES + message_key_size, message_size, message_body, message_size);
+		memcpy_s(messages_data.get() + offset + MESSAGE_IS_COMMITED_OFFSET, MESSAGE_IS_COMMITED_SIZE, &is_commited, MESSAGE_IS_COMMITED_OFFSET);
 
 		Helper::add_message_metadata_values(messages_data.get() + offset, message_offset, current_timestamp, message_key_size, message_key, MESSAGE_TOTAL_BYTES, leader_id);
 
@@ -74,7 +81,7 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 	return success;
 }
 
-bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write, bool cache_messages) {
+bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write, bool cache_messages, unsigned long long transaction_group_id, unsigned long long transaction_id) {
 	std::shared_ptr<PartitionSegment> active_segment = segment_to_write;
 	
 	try
@@ -98,7 +105,7 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 			0
 		};
 
-		unsigned long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
+		long long first_message_pos = this->disk_flusher->append_data_to_end_of_file(
 			active_segment.get()->get_segment_key(),
 			active_segment.get()->get_segment_path(),
 			messages,
@@ -114,6 +121,21 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 		}
 
 		unsigned long total_segment_bytes = active_segment.get()->add_written_bytes(total_bytes);
+
+		if (transaction_group_id > 0 && transaction_id > 0) {
+			unsigned long long first_written_message_id = 0;
+			memcpy_s(&first_written_message_id, MESSAGE_ID_SIZE, (char*)messages + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+			TransactionChangeCapture change_capture = TransactionChangeCapture{
+				first_message_pos, 
+				first_message_pos + total_bytes,
+				first_written_message_id,
+				transaction_id,
+				transaction_group_id
+			};
+
+			this->th->capture_transaction_changes(partition, change_capture);
+		}
 
 		if (segment_to_write == nullptr && this->settings->get_segment_size() < total_segment_bytes) {
 			if (segment_to_write == nullptr)
