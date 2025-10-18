@@ -36,9 +36,9 @@ void TransactionHandler::update_transaction_group_heartbeat(unsigned long long t
 	this->ts_groups_heartbeats[transaction_group_id] = this->util->get_current_time_milli();
 }
 
-void TransactionHandler::update_transaction_heartbeat(unsigned long long tx_id) {
+void TransactionHandler::update_transaction_heartbeat(unsigned long long transaction_group_id, unsigned long long tx_id) {
 	std::lock_guard<std::shared_mutex> lock(this->transactions_heartbeats_mut);
-	this->transactions_heartbeats[tx_id] = this->util->get_current_time_milli();
+	this->transactions_heartbeats[this->get_transaction_key(transaction_group_id, tx_id)] = this->util->get_current_time_milli();
 }
 
 void TransactionHandler::add_transaction_group(unsigned long long transaction_group_id) {
@@ -95,11 +95,9 @@ unsigned long long TransactionHandler::init_transaction(unsigned long long trans
 		}
 
 		ts_group_open_txs.get()->insert(new_tx_id);
-
-		this->transactions_groups_map[new_tx_id] = transaction_group_id;
 	}
 
-	this->update_transaction_heartbeat(new_tx_id);
+	this->update_transaction_heartbeat(transaction_group_id, new_tx_id);
 
 	return new_tx_id;
 }
@@ -217,7 +215,7 @@ void TransactionHandler::compact_transaction_segment(TransactionFileSegment* ts_
 			memcpy_s(&transaction_id, TX_CHANGE_ID_SIZE, batch.get() + offset + TX_CHANGE_ID_OFFSET, TX_CHANGE_ID_SIZE);
 			memcpy_s(&status, TX_CHANGE_STATUS_SIZE, batch.get() + offset + TX_CHANGE_STATUS_OFFSET, TX_CHANGE_STATUS_SIZE);
 
-			tx_key = std::to_string(transaction_group_id) + "_" + std::to_string(transaction_id);
+			tx_key = this->get_transaction_key(transaction_group_id, transaction_id);
 
 			if (status == TransactionStatus::END) {
 				transactions.erase(tx_key);
@@ -229,6 +227,7 @@ void TransactionHandler::compact_transaction_segment(TransactionFileSegment* ts_
 				transactions[tx_key] = std::make_shared<std::vector<std::shared_ptr<char>>>();
 
 			std::shared_ptr<char> tx_change_info = std::shared_ptr<char>(new char[TX_CHANGE_TOTAL_BYTES]);
+			memcpy_s(tx_change_info.get(), TX_CHANGE_TOTAL_BYTES, batch.get() + offset, TX_CHANGE_TOTAL_BYTES);
 			transactions[tx_key].get()->emplace_back(tx_change_info);
 
 			offset += TX_CHANGE_TOTAL_BYTES;
@@ -273,10 +272,6 @@ void TransactionHandler::compact_transaction_segment(TransactionFileSegment* ts_
 void TransactionHandler::capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture) {
 	// NOTE: No need to lock partition transaction changes file because it will be called from
 	// message handler which already locks the partition
-
-	this->update_transaction_heartbeat(change_capture.transaction_id);
-	this->update_transaction_group_heartbeat(change_capture.transaction_group_id);
-
 	std::unique_ptr<char> tx_change_bytes = std::unique_ptr<char>(new char[TX_MSG_CAPTURE_TOTAL_BYTES]);
 
 	TransactionStatus no_status = TransactionStatus::NONE;
@@ -331,9 +326,10 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 	}
 
 	// Add similar logic here as compaction of tx status capture function above
-	if (write_pos >= MAX_TRANSACTION_SEGMENT_SIZE) {
-		// TODO: Compact partition transaction changes file to keep only open transactions
-	}
+	if (write_pos >= MAX_TRANSACTION_SEGMENT_SIZE)
+		std::thread([this, partition]() {
+			this->compact_transaction_change_captures(partition);
+		}).detach();
 
 	this->capture_transaction_change_to_memory(change_capture);
 }
@@ -348,12 +344,113 @@ void TransactionHandler::capture_transaction_change_to_memory(TransactionChangeC
 	tx_capture_copy.get()->file_start_offset = change_capture.file_start_offset;
 	tx_capture_copy.get()->file_end_offset = change_capture.file_end_offset;
 
-	auto tx_captured_changes = this->transaction_changes[change_capture.transaction_id];
+	std::string key = this->get_transaction_key(change_capture.transaction_group_id, change_capture.transaction_id);
+
+	auto tx_captured_changes = this->transaction_changes[key];
 
 	if (tx_captured_changes == nullptr) {
 		tx_captured_changes = std::make_shared<std::queue<std::shared_ptr<TransactionChangeCapture>>>();
-		this->transaction_changes[change_capture.transaction_id] = tx_captured_changes;
+		this->transaction_changes[key] = tx_captured_changes;
 	}
 
 	tx_captured_changes.get()->emplace(tx_capture_copy);
+}
+
+void TransactionHandler::compact_transaction_change_captures(Partition* partition) {
+	std::string temp_tx_captures_key = this->pm->get_partition_tx_changes_key(partition->get_queue_name(), partition->get_partition_id(), true);
+	std::string temp_tx_captures_path = this->pm->get_partition_tx_changes_path(partition->get_queue_name(), partition->get_partition_id(), true);
+
+	if (this->fh->check_if_exists(temp_tx_captures_path) || !this->fh->check_if_exists(partition->get_transaction_changes_path())) {
+		this->logger->log_error("Cannot compact queue's " + partition->get_queue_name() + " partition's " + std::to_string(partition->get_partition_id()) + " transaction changes. Something went wrong with their files");
+		return;
+	}
+
+	std::unordered_map<std::string, std::shared_ptr<std::vector<std::shared_ptr<char>>>> transaction_change_captures;
+
+	unsigned int read_batch_size = (READ_MESSAGES_BATCH_SIZE / TX_MSG_CAPTURE_TOTAL_BYTES) * TX_MSG_CAPTURE_TOTAL_BYTES;
+
+	std::unique_ptr<char> batch = std::unique_ptr<char>(new char[read_batch_size]);
+
+	unsigned int read_pos = 0;
+
+	unsigned int bytes_read = this->fh->read_from_file(
+		partition->get_transaction_changes_key(),
+		partition->get_transaction_changes_path(),
+		read_batch_size,
+		read_pos,
+		batch.get()
+	);
+
+	unsigned long long transaction_group_id = 0;
+	unsigned long long transaction_id = 0;
+	TransactionStatus status = TransactionStatus::NONE;
+
+	std::string tx_key = "";
+
+	while (bytes_read > 0) {
+
+		unsigned int offset = 0;
+
+		while (offset < bytes_read) {
+			memcpy_s(&transaction_group_id, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE, batch.get() + offset + TX_MSG_CAPTURE_TX_GROUP_ID_OFFSET, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE);
+			memcpy_s(&transaction_id, TX_MSG_CAPTURE_TX_ID_SIZE, batch.get() + offset + TX_MSG_CAPTURE_TX_ID_OFFSET, TX_MSG_CAPTURE_TX_ID_SIZE);
+			memcpy_s(&status, TX_MSG_CAPTURE_STATUS_SIZE, batch.get() + offset + TX_MSG_CAPTURE_STATUS_OFFSET, TX_MSG_CAPTURE_STATUS_SIZE);
+
+			tx_key = this->get_transaction_key(transaction_group_id, transaction_id);
+
+			if (status == TransactionStatus::END) {
+				transaction_change_captures.erase(tx_key);
+				offset += TX_MSG_CAPTURE_TOTAL_BYTES;
+				continue;
+			}
+
+			if (status == TransactionStatus::BEGIN)
+				transaction_change_captures[tx_key] = std::make_shared<std::vector<std::shared_ptr<char>>>();
+
+			std::shared_ptr<char> tx_change_info = std::shared_ptr<char>(new char[TX_MSG_CAPTURE_TOTAL_BYTES]);
+			memcpy_s(tx_change_info.get(), TX_MSG_CAPTURE_TOTAL_BYTES, batch.get() + offset, TX_MSG_CAPTURE_TOTAL_BYTES);
+
+			transaction_change_captures[tx_key].get()->emplace_back(tx_change_info);
+
+			offset += TX_MSG_CAPTURE_TOTAL_BYTES;
+		}
+
+		if (bytes_read < read_batch_size) break;
+
+		read_pos += read_batch_size;
+
+		this->fh->read_from_file(
+			partition->get_transaction_changes_key(),
+			partition->get_transaction_changes_path(),
+			read_batch_size,
+			read_pos,
+			batch.get()
+		);
+	}
+
+	this->fh->create_new_file(
+		temp_tx_captures_path,
+		0,
+		NULL,
+		temp_tx_captures_key,
+		false
+	);
+
+	for (auto& iter : transaction_change_captures)
+		for (auto& tx_info : *(iter.second.get()))
+			this->fh->write_to_file(
+				temp_tx_captures_key,
+				temp_tx_captures_path,
+				TX_CHANGE_TOTAL_BYTES,
+				-1,
+				tx_info.get(),
+				true
+			);
+
+	this->fh->delete_dir_or_file(partition->get_transaction_changes_path(), partition->get_transaction_changes_key());
+	this->fh->rename_file(temp_tx_captures_key, temp_tx_captures_path, partition->get_transaction_changes_path());
+}
+
+std::string TransactionHandler::get_transaction_key(unsigned long long transaction_group_id, unsigned long long transaction_id) {
+	return std::to_string(transaction_group_id) + "_" + std::to_string(transaction_id);
 }

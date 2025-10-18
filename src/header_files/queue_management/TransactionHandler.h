@@ -52,12 +52,11 @@ private:
 	std::unordered_map<unsigned long long, std::chrono::milliseconds> ts_groups_heartbeats;
 	std::shared_mutex ts_groups_heartbeats_mut;
 
-	std::unordered_map<unsigned long long, std::chrono::milliseconds> transactions_heartbeats;
+	std::unordered_map<std::string, std::chrono::milliseconds> transactions_heartbeats;
 	std::shared_mutex transactions_heartbeats_mut;
 
 	std::unordered_map<unsigned long long, std::shared_ptr<std::set<unsigned long long>>> open_transactions;
-	std::unordered_map<unsigned long long, unsigned long long> transactions_groups_map;
-	std::unordered_map<unsigned long long, std::shared_ptr<std::queue<std::shared_ptr<TransactionChangeCapture>>>> transaction_changes;
+	std::unordered_map<std::string, std::shared_ptr<std::queue<std::shared_ptr<TransactionChangeCapture>>>> transaction_changes;
 	std::shared_mutex transactions_mut;
 
 	// Will handle them in the backgroun (only in case when transaction group is unregistered due to timeout)
@@ -72,7 +71,11 @@ private:
 
 	void compact_transaction_segment(TransactionFileSegment* ts_segment);
 
+	void compact_transaction_change_captures(Partition* partition);
+
 	void capture_transaction_change_to_memory(TransactionChangeCapture& change_capture);
+
+	std::string get_transaction_key(unsigned long long transaction_group_id, unsigned long long transaction_id);
 public:
 	TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, Util* util, Settings* settings, Logger* logger);
 
@@ -80,7 +83,7 @@ public:
 
 	void update_transaction_group_heartbeat(unsigned long long transaction_group_id);
 
-	void update_transaction_heartbeat(unsigned long long tx_id);
+	void update_transaction_heartbeat(unsigned long long transaction_group_id, unsigned long long tx_id);
 
 	void add_transaction_group(unsigned long long transaction_group_id);
 
