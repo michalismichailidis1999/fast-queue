@@ -13,7 +13,7 @@ Distributed message broker written in C++
 6. Connection pooling + handling of idle connections
 
 # How to use
-To try this project, a python client has been created (you can find it on this [link](https://github.com/michalismichailidis1999/message-broker-python-library)).
+To try this project, a python client has been created (you can find it on this [link](https://github.com/michalismichailidis1999/fast-queue-python-library)).
 After cloning the python client, you can start the c++ server by running the `compose.yaml` file (or start the server in debug mode if you are working on Visual Studio in Windows).
 
 After the server started successfully you can run the `test_produer_app.py` or `test_consumer_app.py` from the python client to test the message broker.
