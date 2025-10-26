@@ -121,17 +121,19 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 		}
 
 		unsigned long total_segment_bytes = active_segment.get()->add_written_bytes(total_bytes);
+		unsigned long long first_message_id = 0;
 
 		if (transaction_group_id > 0 && transaction_id > 0) {
-			unsigned long long first_written_message_id = 0;
-			memcpy_s(&first_written_message_id, MESSAGE_ID_SIZE, (char*)messages + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+			memcpy_s(&first_message_id, MESSAGE_ID_SIZE, (char*)messages + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
 			TransactionChangeCapture change_capture = TransactionChangeCapture{
 				first_message_pos, 
 				first_message_pos + total_bytes,
-				first_written_message_id,
+				first_message_id,
 				transaction_id,
-				transaction_group_id
+				transaction_group_id,
+				partition->get_queue_name(),
+				partition->get_partition_id()
 			};
 
 			this->th->capture_transaction_changes(partition, change_capture);
@@ -145,7 +147,6 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 		}
 
 		if (this->remove_from_partition_remaining_bytes(this->get_queue_partition_key(partition), total_bytes) == 0) {
-			unsigned long long first_message_id = 0;
 			memcpy_s(&first_message_id, MESSAGE_ID_SIZE, (char*)messages + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 			this->index_handler->add_message_to_index(partition, first_message_id, first_message_pos, cache_messages, segment_to_write.get());
 		}

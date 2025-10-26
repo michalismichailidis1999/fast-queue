@@ -61,7 +61,7 @@ void TransactionHandler::remove_transaction_group(unsigned long long transaction
 
 		if (open_txs != nullptr && open_txs.get()->size() > 0)
 			for (unsigned long long open_tx_id : *(open_txs.get()))
-				this->transactions_to_close.insert(open_tx_id);
+				this->transactions_to_close.insert(this->get_transaction_key(transaction_group_id, open_tx_id));
 	}
 
 	{
@@ -95,11 +95,70 @@ unsigned long long TransactionHandler::init_transaction(unsigned long long trans
 		}
 
 		ts_group_open_txs.get()->insert(new_tx_id);
+
+		this->open_transactions_statuses[this->get_transaction_key(transaction_group_id, new_tx_id)] = TransactionStatus::BEGIN;
 	}
 
 	this->update_transaction_heartbeat(transaction_group_id, new_tx_id);
 
 	return new_tx_id;
+}
+
+// PRECOMMIT and PREABORT will work as indicators of what the transaction group is going to do
+// For example even if COMMIT or ABORT status has already been written in WAL, in case of a failure PREABORT is going to be written again
+// in WAL to tell the transaction group to try and abort again, to ensure all nodes respond accordingly before END status is written in WAL
+void TransactionHandler::finalize_transaction(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit) {
+	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
+	int segment_id = this->get_transaction_segment(tx_id);
+
+	try
+	{
+		std::shared_ptr<std::unordered_set<int>> tx_nodes = this->find_all_transaction_nodes(transaction_group_id);
+
+		TransactionStatus pre_finalize_status = commit ? TransactionStatus::PRECOMMIT : TransactionStatus::PREABORT;
+		TransactionStatus finalize_status = commit ? TransactionStatus::COMMIT : TransactionStatus::ABORT;
+
+		this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, pre_finalize_status);
+
+		{
+			std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
+			this->open_transactions_statuses[tx_key] = pre_finalize_status;
+		}
+
+		// TODO: Notify all necessary nodes about finalize action and if everything goes right, just end the transaction
+
+		this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, TransactionStatus::END);
+	}
+	catch (const std::exception& ex)
+	{
+		this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, TransactionStatus::PREABORT);
+
+		{
+			std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
+			this->open_transactions_statuses[tx_key] = TransactionStatus::PREABORT;
+		}
+
+		{
+			std::lock_guard<std::mutex> tx_to_close_mut(this->transactions_to_close_mut);
+			this->transactions_to_close.insert(tx_key);
+		}
+
+		std::string err_msg = "Finalization of transaction "
+			+ std::to_string(tx_id)
+			+ " from transaction group "
+			+ std::to_string(transaction_group_id)
+			+ " failed. Reason: "
+			+ std::string(ex.what());
+
+		this->logger->log_error(err_msg);
+
+		throw ex;
+	}
+}
+
+void TransactionHandler::finalize_transaction_changes(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit) {
+	// TODO: Complete this function
+	// NOTE: Partition tx changes file will need locking
 }
 
 int TransactionHandler::get_transaction_segment(unsigned long long transaction_id) {
@@ -281,6 +340,7 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 	TransactionStatus no_status = TransactionStatus::NONE;
 	long long current_timestamp = this->util->get_current_time_milli().count();
 	unsigned long long segment_id = partition->get_active_segment()->get_id();
+	unsigned int queue_name_length = change_capture.queue.size();
 
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_TX_GROUP_ID_OFFSET, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE, &change_capture.transaction_group_id, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_TX_ID_OFFSET, TX_MSG_CAPTURE_TX_ID_SIZE, &change_capture.transaction_id, TX_MSG_CAPTURE_TX_ID_SIZE);
@@ -290,6 +350,9 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_FILE_END_POS_OFFSET, TX_MSG_CAPTURE_FILE_END_POS_SIZE, &change_capture.file_end_offset, TX_MSG_CAPTURE_FILE_END_POS_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_MSG_ID_OFFSET, TX_MSG_CAPTURE_MSG_ID_SIZE, &change_capture.first_message_id, TX_MSG_CAPTURE_MSG_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_SEG_ID_OFFSET, TX_MSG_CAPTURE_SEG_ID_SIZE, &segment_id, TX_MSG_CAPTURE_SEG_ID_SIZE);
+	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_QUEUE_NAME_LENGTH_OFFSET, TX_MSG_CAPTURE_QUEUE_NAME_LENGTH_SIZE, &queue_name_length, TX_MSG_CAPTURE_QUEUE_NAME_LENGTH_SIZE);
+	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_QUEUE_NAME_OFFSET, queue_name_length, change_capture.queue.c_str(), queue_name_length);
+	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_PARTITION_ID_OFFSET, TX_MSG_CAPTURE_PARTITION_ID_SIZE, &change_capture.partition_id, TX_MSG_CAPTURE_PARTITION_ID_SIZE);
 
 	long long write_pos = -1;
 
@@ -457,4 +520,56 @@ void TransactionHandler::compact_transaction_change_captures(Partition* partitio
 
 std::string TransactionHandler::get_transaction_key(unsigned long long transaction_group_id, unsigned long long transaction_id) {
 	return std::to_string(transaction_group_id) + "_" + std::to_string(transaction_id);
+}
+
+std::shared_ptr<std::unordered_set<int>> TransactionHandler::find_all_transaction_nodes(unsigned long long transaction_group_id) {
+	int node_id = 0;
+
+	{
+		std::shared_lock<std::shared_mutex> slock1(this->cluster_metadata->transaction_groups_mut);
+		node_id = this->cluster_metadata->transaction_group_nodes[transaction_group_id];
+	}
+
+	if (node_id <= 0)
+		throw std::runtime_error("Transaction's group " + std::to_string(transaction_group_id) + " assigned node not found");
+
+	std::shared_ptr<std::unordered_set<std::string>> tx_group_assigned_queues = nullptr;
+
+	{
+		std::shared_lock<std::shared_mutex> slock2(this->cluster_metadata->transaction_groups_mut);
+
+		auto node_tx_groups = this->cluster_metadata->nodes_transaction_groups[transaction_group_id];
+
+		if (node_tx_groups == nullptr || node_tx_groups.get()->find(transaction_group_id) == node_tx_groups.get()->end())
+			throw std::runtime_error("Transaction group " + std::to_string(transaction_group_id) + " not found");
+
+		tx_group_assigned_queues = (*(node_tx_groups.get()))[transaction_group_id];
+
+		if (tx_group_assigned_queues == nullptr)
+			throw std::runtime_error("No assigned queues found for transaction group " + std::to_string(transaction_group_id));
+	}
+
+	std::shared_ptr<std::unordered_set<int>> transaction_nodes = std::make_shared<std::unordered_set<int>>();
+
+	std::shared_lock<std::shared_mutex> slock2(this->cluster_metadata->nodes_partitions_mut);
+
+	for (const std::string& tx_assigned_queue : *(tx_group_assigned_queues.get()))
+	{
+		if (this->cluster_metadata->partition_leader_nodes.find(tx_assigned_queue) == this->cluster_metadata->partition_leader_nodes.end()
+			|| this->cluster_metadata->partition_leader_nodes[tx_assigned_queue] == nullptr)
+			throw std::runtime_error("Queue partition leaders not found for assigned transaction group's " + std::to_string(transaction_group_id) + " queue " + tx_assigned_queue);
+
+		QueueMetadata* metadata = this->cluster_metadata->get_queue_metadata(tx_assigned_queue);
+
+		if (metadata == NULL)
+			throw std::runtime_error("Queue metadata not found for assigned transaction group's " + std::to_string(transaction_group_id) + " queue " + tx_assigned_queue);
+
+		if (metadata->get_partitions() != this->cluster_metadata->partition_leader_nodes[tx_assigned_queue].get()->size())
+			throw std::runtime_error("Not all queue partitions have assigned leaders on assigned transaction group's " + std::to_string(transaction_group_id) + " queue " + tx_assigned_queue);
+
+		for (auto& iter : *(this->cluster_metadata->partition_leader_nodes[tx_assigned_queue].get()))
+			transaction_nodes.get()->insert(iter.second);
+	}
+
+	return transaction_nodes;
 }

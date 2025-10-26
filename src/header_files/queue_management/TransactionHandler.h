@@ -1,6 +1,7 @@
 #pragma once
 #include <unordered_map>
 #include <set>
+#include <unordered_set>
 #include <queue>
 #include <string>
 #include <memory>
@@ -35,6 +36,8 @@ typedef struct {
 	unsigned long long first_message_id;
 	unsigned long long transaction_id;
 	unsigned long long transaction_group_id;
+	std::string queue;
+	unsigned int partition_id;
 } TransactionChangeCapture;
 
 class TransactionHandler {
@@ -57,11 +60,12 @@ private:
 
 	std::unordered_map<unsigned long long, std::shared_ptr<std::set<unsigned long long>>> open_transactions;
 	std::unordered_map<std::string, std::shared_ptr<std::queue<std::shared_ptr<TransactionChangeCapture>>>> transaction_changes;
+	std::unordered_map<std::string, TransactionStatus> open_transactions_statuses;
 	std::shared_mutex transactions_mut;
 	std::shared_mutex transaction_changes_mut;
 
 	// Will handle them in the backgroun (only in case when transaction group is unregistered due to timeout)
-	std::set<unsigned long long> transactions_to_close;
+	std::set<std::string> transactions_to_close;
 	std::mutex transactions_to_close_mut;
 
 	int get_transaction_segment(unsigned long long transaction_id);
@@ -77,6 +81,8 @@ private:
 	void capture_transaction_change_to_memory(TransactionChangeCapture& change_capture);
 
 	std::string get_transaction_key(unsigned long long transaction_group_id, unsigned long long transaction_id);
+
+	std::shared_ptr<std::unordered_set<int>> find_all_transaction_nodes(unsigned long long transaction_group_id);
 public:
 	TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, Util* util, Settings* settings, Logger* logger);
 
@@ -93,4 +99,8 @@ public:
 	void capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture);
 
 	unsigned long long init_transaction(unsigned long long transaction_group_id);
+
+	void finalize_transaction(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit);
+
+	void finalize_transaction_changes(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit);
 };
