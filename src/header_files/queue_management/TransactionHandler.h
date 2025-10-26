@@ -2,11 +2,12 @@
 #include <unordered_map>
 #include <set>
 #include <unordered_set>
-#include <queue>
 #include <string>
 #include <memory>
 #include <chrono>
 #include <shared_mutex>
+#include <future>
+#include <vector>
 #include "../Settings.h"
 #include "../logging/Logger.h"
 #include "../cluster_management/ClusterMetadata.h"
@@ -59,7 +60,7 @@ private:
 	std::shared_mutex transactions_heartbeats_mut;
 
 	std::unordered_map<unsigned long long, std::shared_ptr<std::set<unsigned long long>>> open_transactions;
-	std::unordered_map<std::string, std::shared_ptr<std::queue<std::shared_ptr<TransactionChangeCapture>>>> transaction_changes;
+	std::unordered_map<std::string, std::shared_ptr<std::vector<std::shared_ptr<TransactionChangeCapture>>>> transaction_changes;
 	std::unordered_map<std::string, TransactionStatus> open_transactions_statuses;
 	std::shared_mutex transactions_mut;
 	std::shared_mutex transaction_changes_mut;
@@ -83,6 +84,8 @@ private:
 	std::string get_transaction_key(unsigned long long transaction_group_id, unsigned long long transaction_id);
 
 	std::shared_ptr<std::unordered_set<int>> find_all_transaction_nodes(unsigned long long transaction_group_id);
+
+	bool notify_node_about_transaction_status_change(int node_id, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
 public:
 	TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, Util* util, Settings* settings, Logger* logger);
 
@@ -102,5 +105,5 @@ public:
 
 	void finalize_transaction(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit);
 
-	void finalize_transaction_changes(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit);
+	void handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
 };

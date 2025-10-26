@@ -125,21 +125,50 @@ void TransactionHandler::finalize_transaction(unsigned long long transaction_gro
 			this->open_transactions_statuses[tx_key] = pre_finalize_status;
 		}
 
-		// TODO: Notify all necessary nodes about finalize action and if everything goes right, just end the transaction
+		std::vector<std::future<bool>> node_notifications;
+		std::vector<TransactionStatus> statuses = std::vector<TransactionStatus>(2);
+		statuses[0] = pre_finalize_status;
+		statuses[1] = finalize_status;
+
+		for (auto status : statuses) {
+			for (int node_id : *(tx_nodes.get()))
+				node_notifications.emplace_back(
+					std::async(
+						std::launch::async,
+						[this, node_id, transaction_group_id, tx_id, status]() {
+							return this->notify_node_about_transaction_status_change(
+								node_id, transaction_group_id, tx_id, status
+							);
+						}
+					)
+				);
+
+			for (auto& res : node_notifications)
+				if (!res.get())
+					throw std::runtime_error("Communication with node failed due to network issue or internal server error");
+
+			node_notifications.clear();
+		}
+
+		this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, finalize_status);
 
 		this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, TransactionStatus::END);
 	}
 	catch (const std::exception& ex)
 	{
-		this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, TransactionStatus::PREABORT);
+		std::unique_lock<std::shared_mutex> transactions_lock(this->transactions_mut);
 
-		{
-			std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
+		if (this->open_transactions_statuses[tx_key] == TransactionStatus::BEGIN) {
+			transactions_lock.unlock();
+			this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, TransactionStatus::PREABORT);
+
+			transactions_lock.lock();
 			this->open_transactions_statuses[tx_key] = TransactionStatus::PREABORT;
+			transactions_lock.unlock();
 		}
 
 		{
-			std::lock_guard<std::mutex> tx_to_close_mut(this->transactions_to_close_mut);
+			std::lock_guard<std::mutex> tx_to_close_lock(this->transactions_to_close_mut);
 			this->transactions_to_close.insert(tx_key);
 		}
 
@@ -154,11 +183,6 @@ void TransactionHandler::finalize_transaction(unsigned long long transaction_gro
 
 		throw ex;
 	}
-}
-
-void TransactionHandler::finalize_transaction_changes(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit) {
-	// TODO: Complete this function
-	// NOTE: Partition tx changes file will need locking
 }
 
 int TransactionHandler::get_transaction_segment(unsigned long long transaction_id) {
@@ -416,11 +440,11 @@ void TransactionHandler::capture_transaction_change_to_memory(TransactionChangeC
 	auto tx_captured_changes = this->transaction_changes[key];
 
 	if (tx_captured_changes == nullptr) {
-		tx_captured_changes = std::make_shared<std::queue<std::shared_ptr<TransactionChangeCapture>>>();
+		tx_captured_changes = std::make_shared<std::vector<std::shared_ptr<TransactionChangeCapture>>>();
 		this->transaction_changes[key] = tx_captured_changes;
 	}
 
-	tx_captured_changes.get()->emplace(tx_capture_copy);
+	tx_captured_changes.get()->emplace_back(tx_capture_copy);
 }
 
 void TransactionHandler::compact_transaction_change_captures(Partition* partition) {
@@ -572,4 +596,46 @@ std::shared_ptr<std::unordered_set<int>> TransactionHandler::find_all_transactio
 	}
 
 	return transaction_nodes;
+}
+
+bool TransactionHandler::notify_node_about_transaction_status_change(int node_id, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
+	if (node_id == this->settings->get_node_id()) {
+		this->handle_transaction_status_change_notification(transaction_group_id, tx_id, status_change);
+		return true;
+	}
+
+	// TODO: Add new request type here and have internal request handler to use transaction handler to call method handle_transaction_status_change_notification
+
+	return false;
+}
+
+void TransactionHandler::handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
+	std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>> updated_queue_partitions;
+
+	{
+		std::shared_lock<std::shared_mutex> slock(this->transaction_changes_mut);
+
+		std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
+
+		if (this->transaction_changes.find(tx_key) == this->transaction_changes.end()) return;
+
+		auto changes = this->transaction_changes[tx_key];
+
+		if (changes == nullptr) return;
+
+		for (auto change : *(changes.get())) {
+			if (change.get() == nullptr) continue;
+
+			auto queue_partitions = updated_queue_partitions[change.get()->queue];
+
+			if (queue_partitions == nullptr) {
+				queue_partitions = std::make_shared<std::unordered_set<int>>();
+				updated_queue_partitions[change.get()->queue] = queue_partitions;
+			}
+
+			queue_partitions.get()->insert(change.get()->partition_id);
+		}
+	}
+
+	// TODO: Use QueueManager to retrieve queue & partition to finalize changes
 }
