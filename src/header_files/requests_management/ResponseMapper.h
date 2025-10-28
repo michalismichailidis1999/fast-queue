@@ -27,4 +27,6 @@ public:
 	std::unique_ptr<RemoveLaggingFollowerResponse> to_remove_lagging_follower_response(char* res_buf, long res_buf_len);
 
 	std::unique_ptr<FetchMessagesResponse> to_fetch_messages_response(char* res_buf, long res_buf_len);
+
+	std::unique_ptr<TransactionStatusUpdateResponse> to_transaction_status_update_response(char* res_buf, long res_buf_len);
 };

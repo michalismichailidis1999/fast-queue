@@ -8,6 +8,7 @@
 #include <shared_mutex>
 #include <future>
 #include <vector>
+#include <tuple>
 #include "../Settings.h"
 #include "../logging/Logger.h"
 #include "../cluster_management/ClusterMetadata.h"
@@ -15,7 +16,12 @@
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../queue_management/Partition.h"
+#include "../requests_management/Requests.h"
+#include "../requests_management/Responses.h"
+#include "../requests_management/ResponseMapper.h"
+#include "../requests_management/ClassToByteTransformer.h"
 #include "../util/Util.h"
+#include "../util/ConnectionPool.h"
 #include "../Constants.h"
 #include "../Enums.h"
 
@@ -47,6 +53,8 @@ private:
 	FileHandler* fh;
 	QueueSegmentFilePathMapper* pm;
 	ClusterMetadata* cluster_metadata;
+	ResponseMapper* response_mapper;
+	ClassToByteTransformer* transformer;
 	Util* util;
 	Settings* settings;
 	Logger* logger;
@@ -87,7 +95,7 @@ private:
 
 	bool notify_node_about_transaction_status_change(int node_id, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
 public:
-	TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, Util* util, Settings* settings, Logger* logger);
+	TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
 
 	void init_transaction_segment(int segment_id);
 

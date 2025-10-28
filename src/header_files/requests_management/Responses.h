@@ -60,6 +60,10 @@ struct UnegisterTransactionGroupResponse {
 	int leader_id;
 };
 
+struct TransactionStatusUpdateResponse {
+	bool ok;
+};
+
 // =======================================================
 
 // External Responses

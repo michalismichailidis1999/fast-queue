@@ -926,6 +926,47 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(TransactionStatusUpdateRequest* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + 3 * sizeof(RequestValueKey) + sizeof(int) + 2 * sizeof(unsigned long long);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	RequestType req_type = RequestType::TRANSACTION_STATUS_UPDATE;
+
+	RequestValueKey transaction_group_id_type = RequestValueKey::TRANSACTION_GROUP_ID;
+	RequestValueKey transaction_id_type = RequestValueKey::TRANSACTION_ID;
+	RequestValueKey transaction_status_type = RequestValueKey::TRANSACTION_STATUS;
+
+	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
+	offset += sizeof(RequestType);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &transaction_group_id_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->transaction_group_id, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &transaction_id_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->transaction_id, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &transaction_status_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->status, sizeof(int));
+	offset += sizeof(int);
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(FetchMessagesResponse* obj) {
 	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 3 * sizeof(int) + 4 * sizeof(unsigned long long) + obj->messages_total_bytes + 6 * sizeof(ResponseValueKey) + obj->consumer_offsets_count * CONSUMER_ACK_TOTAL_BYTES;
 
@@ -1092,6 +1133,32 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	offset += sizeof(ResponseValueKey);
 
 	memcpy_s(buf.get() + offset, sizeof(int), &obj->leader_id, sizeof(int));
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(TransactionStatusUpdateResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
+
+	ResponseValueKey ok_type = ResponseValueKey::OK;
+
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
+	offset += sizeof(ErrorCode);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &ok_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
+	offset += sizeof(bool);
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }

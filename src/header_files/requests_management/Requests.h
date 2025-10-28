@@ -83,6 +83,12 @@ struct UnregisterTransactionGroupRequest {
 	unsigned long long transaction_group_id;
 };
 
+struct TransactionStatusUpdateRequest {
+	unsigned long long transaction_group_id;
+	unsigned long long transaction_id;
+	TransactionStatus status;
+};
+
 // ======================================================================
 
 // External Requests

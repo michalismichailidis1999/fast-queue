@@ -230,3 +230,24 @@ std::unique_ptr<FetchMessagesResponse> ResponseMapper::to_fetch_messages_respons
 
 	return res;
 }
+
+std::unique_ptr<TransactionStatusUpdateResponse> ResponseMapper::to_transaction_status_update_response(char* res_buf, long res_buf_len) {
+	long offset = sizeof(ErrorCode); // skip error code
+
+	std::unique_ptr<TransactionStatusUpdateResponse> res = std::make_unique<TransactionStatusUpdateResponse>();
+
+	while (offset < res_buf_len) {
+		ResponseValueKey* key = (ResponseValueKey*)(res_buf + offset);
+
+		if (*key == ResponseValueKey::OK) {
+			res.get()->ok = *(bool*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(bool);
+		}
+		else {
+			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type TransactionStatusUpdateResponse");
+			return nullptr;
+		}
+	}
+
+	return res;
+}

@@ -1,10 +1,12 @@
 #include "../../header_files/queue_management/TransactionHandler.h"
 
-TransactionHandler::TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, Util* util, Settings* settings, Logger* logger) {
+TransactionHandler::TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
 	this->cm = cm;
 	this->fh = fh;
 	this->pm = pm;
 	this->cluster_metadata = cluster_metadata;
+	this->response_mapper = response_mapper;
+	this->transformer = transformer;
 	this->util = util;
 	this->settings = settings;
 	this->logger = logger;
@@ -604,9 +606,35 @@ bool TransactionHandler::notify_node_about_transaction_status_change(int node_id
 		return true;
 	}
 
-	// TODO: Add new request type here and have internal request handler to use transaction handler to call method handle_transaction_status_change_notification
+	std::shared_ptr<ConnectionPool> pool = this->cm->get_node_connection_pool(node_id);
 
-	return false;
+	if (pool == nullptr) {
+		this->logger->log_error("Could not notify node " + std::to_string(node_id) + " about transaction status change. No connection pool found.");
+		return false;
+	}
+
+	std::unique_ptr<TransactionStatusUpdateRequest> req = std::make_unique<TransactionStatusUpdateRequest>();
+	req.get()->transaction_group_id = transaction_group_id;
+	req.get()->transaction_id = tx_id;
+	req.get()->status = status_change;
+
+	auto req_buf = this->transformer->transform(req.get());
+
+	auto res_buf = this->cm->send_request_to_socket(
+		pool.get(),
+		1,
+		std::get<1>(req_buf).get(),
+		std::get<0>(req_buf),
+		"TransactionStatusUpdate"
+	);
+
+	if (std::get<1>(res_buf) == -1) return false;
+
+	std::unique_ptr<TransactionStatusUpdateResponse> res = this->response_mapper->to_transaction_status_update_response(
+		std::get<1>(req_buf).get(), std::get<0>(req_buf)
+	);
+
+	return res != nullptr && res.get()->ok;
 }
 
 void TransactionHandler::handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
