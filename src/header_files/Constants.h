@@ -42,8 +42,6 @@ static const unsigned int MAX_QUEUE_NAME_CHARS = 100;
 static const unsigned int MAX_MESSAGE_KEY_CHARS = 140;
 static const unsigned int MAX_CONSUMER_GROUP_ID_CHARS = 75;
 
-static const unsigned int CONSUMER_OFFSETS_REWRITE_BYTES_DIFF = 4096 * 4; // 16KB
-
 static const unsigned int MAX_QUEUE_PARTITIONS = 1000;
 
 static const unsigned int MAX_PARTITION_OFFSETS_SIZE = 104857600; // 100MB
@@ -53,7 +51,7 @@ static const unsigned int MAX_ADDRESS_CHARS = 39;
 
 static const unsigned int INDEX_PAGE_SIZE = 4096; // 4KB
 
-static const unsigned int READ_MESSAGES_BATCH_SIZE = 4096 * 4; // 16KB
+static const unsigned int READ_MESSAGES_BATCH_SIZE = 4096 * 8; // 32KB
 
 static const unsigned int MESSAGES_LOC_MAP_PAGE_SIZE = 4096; // 4KB
 // first position will hold starting segment id of the next N segments contained in the page 
