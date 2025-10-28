@@ -16,6 +16,7 @@
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../queue_management/Partition.h"
+#include "../queue_management/QueueManager.h"
 #include "../requests_management/Requests.h"
 #include "../requests_management/Responses.h"
 #include "../requests_management/ResponseMapper.h"
@@ -49,6 +50,7 @@ typedef struct {
 
 class TransactionHandler {
 private:
+	QueueManager* qm;
 	ConnectionsManager* cm;
 	FileHandler* fh;
 	QueueSegmentFilePathMapper* pm;
@@ -99,7 +101,7 @@ private:
 
 	void remove_transaction(unsigned long long transaction_group_id, unsigned long long tx_id);
 public:
-	TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
+	TransactionHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
 
 	void init_transaction_segment(int segment_id);
 

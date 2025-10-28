@@ -329,16 +329,28 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
 
         queue = std::shared_ptr<Queue>(new Queue(metadata));
 
+        std::vector<std::future<void>> partition_setups;
+
         for (auto& iter : partitions) {
-            this->set_partition_active_segment(iter.second.get(), is_cluster_metadata_queue);
+            partition_setups.emplace_back(
+                std::async(
+                    std::launch::async,
+                    [this, &iter, &queue, is_cluster_metadata_queue]() {
+                        this->set_partition_active_segment(iter.second.get(), is_cluster_metadata_queue);
 
-            if (!is_cluster_metadata_queue) {
-                this->set_partition_replicated_offset(iter.second.get());
-                this->set_partition_transaction_changes(iter.second.get());
-            }
+                        if (!is_cluster_metadata_queue) {
+                            this->set_partition_replicated_offset(iter.second.get());
+                            this->set_partition_transaction_changes(iter.second.get());
+                        }
 
-            queue->add_partition(iter.second);
+                        queue->add_partition(iter.second);
+                    }
+                )
+            );
         }
+
+        for (auto& partition_setup : partition_setups)
+            partition_setup.get();
 
         qm->add_queue(queue);
     };
@@ -478,10 +490,7 @@ void BeforeServerStartupHandler::set_partition_transaction_changes(Partition* pa
     if (!this->fh->check_if_exists(tx_changes_path) && this->fh->check_if_exists(temp_tx_changes_path))
         this->fh->rename_file(temp_tx_changes_key, temp_tx_changes_path, tx_changes_path);
 
-    if (this->fh->check_if_exists(tx_changes_path)) {
-        // TODO: Compact transaction changes
-        return;
-    }
+    if (this->fh->check_if_exists(tx_changes_path)) return;
 
     this->fh->create_new_file(
         tx_changes_path,

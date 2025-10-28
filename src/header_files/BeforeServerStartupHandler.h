@@ -2,6 +2,8 @@
 #include <regex>
 #include <string>
 #include <memory>
+#include <future>
+#include <vector>
 #include "./queue_management/TransactionHandler.h"
 #include "./queue_management/QueueManager.h"
 #include "./queue_management/QueueMetadata.h"

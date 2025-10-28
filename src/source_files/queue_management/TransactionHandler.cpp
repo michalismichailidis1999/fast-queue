@@ -1,6 +1,7 @@
 #include "../../header_files/queue_management/TransactionHandler.h"
 
-TransactionHandler::TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
+TransactionHandler::TransactionHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
+	this->qm = qm;
 	this->cm = cm;
 	this->fh = fh;
 	this->pm = pm;
@@ -622,6 +623,12 @@ std::tuple<bool, int> TransactionHandler::notify_node_about_transaction_status_c
 }
 
 void TransactionHandler::handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
+	if (status_change == TransactionStatus::END) {
+		// TODO: Increase consume pointer in all partitions
+		this->remove_transaction(transaction_group_id, tx_id);
+		return;
+	}
+	
 	std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>> updated_queue_partitions;
 
 	{
@@ -650,10 +657,6 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 	}
 
 	// TODO: Use QueueManager to retrieve queue & partition to finalize changes
-
-	if (status_change != TransactionStatus::END) return;
-
-	this->remove_transaction(transaction_group_id, tx_id);
 }
 
 void TransactionHandler::notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
