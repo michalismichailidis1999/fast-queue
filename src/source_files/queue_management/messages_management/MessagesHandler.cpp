@@ -38,7 +38,9 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 
 	unsigned long long message_offset = 0;
 
-	bool is_commited = request->transaction_id == 0;
+	MessageCommitStatus commit_status = request->transaction_id == 0 
+		? MessageCommitStatus::COMMITED 
+		: MessageCommitStatus::UNCOMMITED;
 
 	for (int i = 0; i < request->messages.get()->size(); i++) {
 		auto& message_size = (*(request->messages_sizes.get()))[i];
@@ -50,7 +52,7 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 
 		memcpy_s(messages_data.get() + offset + MESSAGE_PAYLOAD_OFFSET, MESSAGE_PAYLOAD_SIZE, &message_size, MESSAGE_PAYLOAD_SIZE);
 		memcpy_s(messages_data.get() + offset + MESSAGE_TOTAL_BYTES + message_key_size, message_size, message_body, message_size);
-		memcpy_s(messages_data.get() + offset + MESSAGE_IS_COMMITED_OFFSET, MESSAGE_IS_COMMITED_SIZE, &is_commited, MESSAGE_IS_COMMITED_OFFSET);
+		memcpy_s(messages_data.get() + offset + MESSAGE_COMMIT_STATUS_OFFSET, MESSAGE_COMMIT_STATUS_SIZE, &commit_status, MESSAGE_COMMIT_STATUS_SIZE);
 
 		Helper::add_message_metadata_values(messages_data.get() + offset, message_offset, current_timestamp, message_key_size, message_key, MESSAGE_TOTAL_BYTES, leader_id);
 

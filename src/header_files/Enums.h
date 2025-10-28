@@ -202,3 +202,9 @@ enum class TransactionStatus {
 	ABORT,
 	END
 };
+
+enum class MessageCommitStatus {
+	UNCOMMITED = 0,
+	COMMITED,
+	ABORTED
+};
