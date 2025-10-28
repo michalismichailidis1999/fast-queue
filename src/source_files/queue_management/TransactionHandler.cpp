@@ -106,13 +106,15 @@ unsigned long long TransactionHandler::init_transaction(unsigned long long trans
 	return new_tx_id;
 }
 
-// PRECOMMIT and PREABORT will work as indicators of what the transaction group is going to do
-// For example even if COMMIT or ABORT status has already been written in WAL, in case of a failure PREABORT is going to be written again
-// in WAL to tell the transaction group to try and abort again, to ensure all nodes respond accordingly before END status is written in WAL
+// Distributed transactions steps (If any failure occurs the transaction closure will run in the background)
+// 1) init_transaction method will initialize the transaction in transaction group assignee node
+// 2) Client will call either commit() or abort() to finalize the transaction and request manager will redirect the request to this method
+// 3) Pre-finalize status will be sent with fan-out approach to all necessary nodes (nodes that at least contains 1 partition leader from all transaction group queues)
+// 4) Pre-finalize status will be written to transaction segment and update status in memory
+// 5) Finalize status will be sent with fan-out approach to all necessary nodes (nodes that at least contains 1 partition leader from all transaction group queues)
+// 6) Finalize status will be written to transaction segment and update status in memory
+// 7) End transaction
 void TransactionHandler::finalize_transaction(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit) {
-	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
-	int segment_id = this->get_transaction_segment(tx_id);
-
 	try
 	{
 		std::shared_ptr<std::unordered_set<int>> tx_nodes = this->find_all_transaction_nodes(transaction_group_id);
@@ -120,47 +122,29 @@ void TransactionHandler::finalize_transaction(unsigned long long transaction_gro
 		TransactionStatus pre_finalize_status = commit ? TransactionStatus::PRECOMMIT : TransactionStatus::PREABORT;
 		TransactionStatus finalize_status = commit ? TransactionStatus::COMMIT : TransactionStatus::ABORT;
 
-		this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, pre_finalize_status);
-
-		{
-			std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
-			this->open_transactions_statuses[tx_key] = pre_finalize_status;
-		}
-
-		std::vector<std::future<bool>> node_notifications;
-		std::vector<TransactionStatus> statuses = std::vector<TransactionStatus>(2);
+		std::vector<std::future<std::tuple<bool, int>>> node_notifications;
+		std::vector<TransactionStatus> statuses = std::vector<TransactionStatus>(3);
 		statuses[0] = pre_finalize_status;
 		statuses[1] = finalize_status;
+		statuses[1] = TransactionStatus::END;
 
-		for (auto status : statuses) {
-			for (int node_id : *(tx_nodes.get()))
-				node_notifications.emplace_back(
-					std::async(
-						std::launch::async,
-						[this, node_id, transaction_group_id, tx_id, status]() {
-							return this->notify_node_about_transaction_status_change(
-								node_id, transaction_group_id, tx_id, status
-							);
-						}
-					)
-				);
-
-			for (auto& res : node_notifications)
-				if (!res.get())
-					throw std::runtime_error("Communication with node failed due to network issue or internal server error");
-
-			node_notifications.clear();
-		}
-
-		this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, finalize_status);
-
-		this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, TransactionStatus::END);
+		for (auto status : statuses)
+			this->notify_group_nodes_node_about_transaction_status_change(
+				tx_nodes, transaction_group_id, tx_id, status
+			);
 	}
 	catch (const std::exception& ex)
 	{
 		std::unique_lock<std::shared_mutex> transactions_lock(this->transactions_mut);
 
-		if (this->open_transactions_statuses[tx_key] == TransactionStatus::BEGIN) {
+		std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
+		int segment_id = this->get_transaction_segment(tx_id);
+
+		// if not finalize status (COMMIT or ABORT) have been written yet, prepare transaction to be aborted
+		// else if either have been written background job of to-close transactions will try to end it
+		if (this->open_transactions_statuses[tx_key] == TransactionStatus::BEGIN 
+			|| this->open_transactions_statuses[tx_key] == TransactionStatus::PRECOMMIT
+		) {
 			transactions_lock.unlock();
 			this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, TransactionStatus::PREABORT);
 
@@ -600,17 +584,17 @@ std::shared_ptr<std::unordered_set<int>> TransactionHandler::find_all_transactio
 	return transaction_nodes;
 }
 
-bool TransactionHandler::notify_node_about_transaction_status_change(int node_id, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
+std::tuple<bool, int> TransactionHandler::notify_node_about_transaction_status_change(int node_id, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
 	if (node_id == this->settings->get_node_id()) {
 		this->handle_transaction_status_change_notification(transaction_group_id, tx_id, status_change);
-		return true;
+		return std::tuple<bool, int>(true, node_id);
 	}
 
 	std::shared_ptr<ConnectionPool> pool = this->cm->get_node_connection_pool(node_id);
 
 	if (pool == nullptr) {
 		this->logger->log_error("Could not notify node " + std::to_string(node_id) + " about transaction status change. No connection pool found.");
-		return false;
+		return std::tuple<bool, int>(false, node_id);
 	}
 
 	std::unique_ptr<TransactionStatusUpdateRequest> req = std::make_unique<TransactionStatusUpdateRequest>();
@@ -628,13 +612,13 @@ bool TransactionHandler::notify_node_about_transaction_status_change(int node_id
 		"TransactionStatusUpdate"
 	);
 
-	if (std::get<1>(res_buf) == -1) return false;
+	if (std::get<1>(res_buf) == -1) return std::tuple<bool, int>(false, node_id);
 
 	std::unique_ptr<TransactionStatusUpdateResponse> res = this->response_mapper->to_transaction_status_update_response(
 		std::get<1>(req_buf).get(), std::get<0>(req_buf)
 	);
 
-	return res != nullptr && res.get()->ok;
+	return std::tuple<bool, int>(res != nullptr && res.get()->ok, node_id);
 }
 
 void TransactionHandler::handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
@@ -666,4 +650,75 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 	}
 
 	// TODO: Use QueueManager to retrieve queue & partition to finalize changes
+
+	if (status_change != TransactionStatus::END) return;
+
+	this->remove_transaction(transaction_group_id, tx_id);
+}
+
+void TransactionHandler::notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
+	std::vector<std::future<std::tuple<bool, int>>> node_notifications;
+
+	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
+	unsigned int segment_id = this->get_transaction_segment(tx_id);
+	
+	for (int node_id : *(tx_nodes.get()))
+		node_notifications.emplace_back(
+			std::async(
+				std::launch::async,
+				[this, node_id, transaction_group_id, tx_id, status_change]() {
+					return this->notify_node_about_transaction_status_change(
+						node_id, transaction_group_id, tx_id, status_change
+					);
+				}
+			)
+		);
+
+	for (auto& res : node_notifications) {
+		auto tup = res.get();
+
+		if (!std::get<0>(tup))
+			throw std::runtime_error(
+				"Communication with node "
+				+ std::to_string(std::get<1>(tup))
+				+ " failed due to network issue or internal server error"
+			);
+	}
+
+	this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, status_change);
+
+	{
+		std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
+		this->open_transactions_statuses[tx_key] = status_change;
+	}
+
+	if (status_change != TransactionStatus::END) {
+		this->update_transaction_heartbeat(transaction_group_id, tx_id);
+		return;
+	}
+
+	this->remove_transaction(transaction_group_id, tx_id);
+}
+
+void TransactionHandler::remove_transaction(unsigned long long transaction_group_id, unsigned long long tx_id) {
+	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
+
+	{
+		std::lock_guard<std::shared_mutex> xlock2(this->transactions_heartbeats_mut);
+		this->transactions_heartbeats.erase(tx_key);
+	}
+
+	{
+		std::lock_guard<std::shared_mutex> xlock3(this->transaction_changes_mut);
+		this->transaction_changes.erase(tx_key);
+	}
+
+	{
+		std::lock_guard<std::shared_mutex> xlock3(this->transactions_mut);
+		this->open_transactions_statuses.erase(tx_key);
+
+		if (this->open_transactions.find(transaction_group_id) != this->open_transactions.end()
+			&& this->open_transactions[transaction_group_id] != nullptr)
+			this->open_transactions[transaction_group_id].get()->erase(tx_id);
+	}
 }

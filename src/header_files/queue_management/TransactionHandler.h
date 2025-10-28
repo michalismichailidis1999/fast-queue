@@ -93,7 +93,11 @@ private:
 
 	std::shared_ptr<std::unordered_set<int>> find_all_transaction_nodes(unsigned long long transaction_group_id);
 
-	bool notify_node_about_transaction_status_change(int node_id, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
+	std::tuple<bool, int> notify_node_about_transaction_status_change(int node_id, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
+
+	void notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
+
+	void remove_transaction(unsigned long long transaction_group_id, unsigned long long tx_id);
 public:
 	TransactionHandler(ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
 

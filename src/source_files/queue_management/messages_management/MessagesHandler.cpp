@@ -11,6 +11,7 @@ MessagesHandler::MessagesHandler(DiskFlusher* disk_flusher, DiskReader* disk_rea
 	this->util = util;
 	this->settings = settings;
 	this->logger = logger;
+	this->th = NULL;
 
 	this->cluster_metadata_file_key = this->pm->get_metadata_file_key(CLUSTER_METADATA_QUEUE_NAME);
 	this->cluster_metadata_file_path = this->pm->get_metadata_file_path(CLUSTER_METADATA_QUEUE_NAME);
