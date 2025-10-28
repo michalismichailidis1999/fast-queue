@@ -13,8 +13,10 @@ RequestManager::RequestManager(ConnectionsManager* cm, Settings* settings, Clien
 
 	bool success = true;
 
+	this->ping_res_buff_size -= sizeof(unsigned int);
 	memcpy_s(this->ping_res.get(), sizeof(int), &this->ping_res_buff_size, sizeof(int));
 	memcpy_s(this->ping_res.get() + sizeof(int), sizeof(bool), &success, sizeof(bool));
+	this->ping_res_buff_size += sizeof(unsigned int);
 }
 
 bool RequestManager::is_user_authorized_for_action(AuthRequest* request) {
@@ -56,8 +58,6 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 		}
 
 		int res_buffer_length = *((int*)req_size_buf.get());
-
-		res_buffer_length -= sizeof(int);
 
 		if (res_buffer_length <= 0) {
 			this->logger->log_error("Received invalid request body format");

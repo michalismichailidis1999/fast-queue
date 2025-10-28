@@ -21,8 +21,9 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	ErrorCode error = ErrorCode::NONE;
 
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	if (used_as_response) {
@@ -90,8 +91,9 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	RequestValueKey last_log_term_type = RequestValueKey::LAST_LOG_TERM;
 
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
@@ -138,8 +140,9 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
@@ -204,8 +207,9 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
 
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
@@ -250,12 +254,13 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey term_type = ResponseValueKey::TERM;
 	ResponseValueKey log_matched_type = ResponseValueKey::LOG_MATCHED;
 	ResponseValueKey success_type = ResponseValueKey::SUCCESS;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -288,11 +293,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey term_type = ResponseValueKey::TERM;
 	ResponseValueKey vote_granted_type = ResponseValueKey::VOTE_GRANTED;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -319,11 +325,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -350,11 +357,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -381,11 +389,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey queue_created_type = ResponseValueKey::QUEUE_CREATED;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -413,11 +422,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey queue_deleted_type = ResponseValueKey::QUEUE_DELETED;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -450,11 +460,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 	ResponseValueKey connection_info_type = ResponseValueKey::CONTROLLER_CONNECTION_INFO;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -497,10 +508,11 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -521,10 +533,11 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -550,11 +563,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey total_partitions_type = ResponseValueKey::TOTAL_PARTITIONS;
 	ResponseValueKey connection_info_type = ResponseValueKey::PARTITION_NODE_CONNECTION_INFO;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -601,11 +615,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey consumer_id_type = ResponseValueKey::CONSUMER_ID;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -632,12 +647,13 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey assigned_partitions_type = ResponseValueKey::ASSIGNED_PARTITIONS;
 
 	int total_assigned_partitions = obj->partitions.size();
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -664,10 +680,11 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey messages_type = ResponseValueKey::MESSAGES;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -695,10 +712,11 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -728,8 +746,9 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	RequestValueKey expired_consumers_type = RequestValueKey::EXPIRED_CONSUMERS;
 
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
@@ -780,8 +799,9 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
 
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
@@ -823,8 +843,9 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
 
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
@@ -867,8 +888,9 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	RequestValueKey message_offset_type = RequestValueKey::MESSAGE_OFFSET;
 
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
-	memcpy_s(buf.get() + offset, sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
@@ -911,6 +933,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey last_message_offset_type = ResponseValueKey::LAST_MESSAGE_OFFSET;
 	ResponseValueKey prev_message_offset_type = ResponseValueKey::PREV_MESSAGE_OFFSET;
@@ -919,7 +942,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	ResponseValueKey messages_type = ResponseValueKey::MESSAGES;
 	ResponseValueKey consumers_acks_type = ResponseValueKey::CONSUMERS_ACKS;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -984,11 +1007,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -1015,11 +1039,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -1046,11 +1071,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey ok_type = ResponseValueKey::OK;
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
@@ -1077,11 +1103,12 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	ErrorCode err_code = ErrorCode::NONE;
 	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
 
 	ResponseValueKey leader_id_type = ResponseValueKey::LEADER_ID;
 	ResponseValueKey transaction_group_id_type = ResponseValueKey::TRANSACTION_GROUP_ID;
 
-	memcpy_s(buf.get(), sizeof(unsigned int), &buf_size, sizeof(unsigned int));
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));

@@ -20,6 +20,7 @@ ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, SslContext
 
 	unsigned int offset = 0;
 
+	this->ping_req_bytes_size -= sizeof(unsigned int);
 	memcpy_s(this->ping_req.get() + offset, sizeof(unsigned int), &this->ping_req_bytes_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
@@ -28,6 +29,8 @@ ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, SslContext
 
 	memcpy_s(this->ping_req.get() + offset, sizeof(bool), &success, sizeof(bool));
 	offset += sizeof(bool);
+
+	this->ping_req_bytes_size += sizeof(unsigned int);
 }
 
 bool ConnectionsManager::receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char* res_buf, unsigned int res_buf_len) {
@@ -99,10 +102,11 @@ bool ConnectionsManager::respond_to_socket_with_error(SOCKET_ID socket, SSL* ssl
 	ResponseValueKey error_message_type = ResponseValueKey::ERROR_MESSAGE;
 
 	unsigned int offset = 0;
+	unsigned int req_err_buf_size = err_buf_size - sizeof(unsigned int);
 
 	std::unique_ptr<char> err_buf = std::unique_ptr<char>(new char[err_buf_size]);
 
-	memcpy_s(err_buf.get() + offset, sizeof(unsigned int), &err_buf_size, sizeof(unsigned int));
+	memcpy_s(err_buf.get() + offset, sizeof(unsigned int), &req_err_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
 
 	memcpy_s(err_buf.get() + offset, sizeof(ErrorCode), &error_code, sizeof(ErrorCode));
@@ -137,8 +141,6 @@ std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to
 		success = this->receive_socket_buffer(socket, ssl, (char*)&response_size, sizeof(unsigned int));
 
 		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
-
-		response_size -= sizeof(long);
 
 		std::shared_ptr<char> res_buf = std::shared_ptr<char>(new char[response_size]);
 
