@@ -14,6 +14,7 @@
 #include "../cluster_management/ClusterMetadata.h"
 #include "../network_management/ConnectionsManager.h"
 #include "../file_management/FileHandler.h"
+#include "../file_management/CacheHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../queue_management/Partition.h"
 #include "../queue_management/QueueManager.h"
@@ -23,6 +24,7 @@
 #include "../requests_management/ClassToByteTransformer.h"
 #include "../util/Util.h"
 #include "../util/ConnectionPool.h"
+#include "../util/Helper.h"
 #include "../Constants.h"
 #include "../Enums.h"
 
@@ -46,6 +48,7 @@ typedef struct {
 	unsigned long long transaction_group_id;
 	std::string queue;
 	unsigned int partition_id;
+	unsigned long long segment_id;
 } TransactionChangeCapture;
 
 class TransactionHandler {
@@ -53,6 +56,7 @@ private:
 	QueueManager* qm;
 	ConnectionsManager* cm;
 	FileHandler* fh;
+	CacheHandler* ch;
 	QueueSegmentFilePathMapper* pm;
 	ClusterMetadata* cluster_metadata;
 	ResponseMapper* response_mapper;
@@ -101,7 +105,7 @@ private:
 
 	void remove_transaction(unsigned long long transaction_group_id, unsigned long long tx_id);
 public:
-	TransactionHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
+	TransactionHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, CacheHandler* ch, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
 
 	void init_transaction_segment(int segment_id);
 

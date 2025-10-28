@@ -137,6 +137,23 @@ void CacheHandler::remove_expired_keys() {
 	this->cache_search_count = 0;
 }
 
+void CacheHandler::update_message_commit_status(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long message_id, TransactionStatus commit_status) {
+	std::lock_guard<std::shared_mutex> lock(this->mut);
+
+	std::string key = this->get_message_cache_key(queue_name, partition, segment_id, message_id);
+
+	if (this->unflushed_data_cache.find(key) != this->unflushed_data_cache.end()) {
+		auto msg_tup = this->unflushed_data_cache[key];
+		memcpy_s(std::get<0>(msg_tup).get() + MESSAGE_COMMIT_STATUS_OFFSET, MESSAGE_COMMIT_STATUS_SIZE, &commit_status, MESSAGE_COMMIT_STATUS_SIZE);
+		return;
+	}
+
+	auto msg = this->messages_cache->get(key);
+
+	if (msg != nullptr)
+		memcpy_s(msg.get() + MESSAGE_COMMIT_STATUS_OFFSET, MESSAGE_COMMIT_STATUS_SIZE, &commit_status, MESSAGE_COMMIT_STATUS_SIZE);
+}
+
 std::string CacheHandler::get_message_cache_key(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long message_id) {
 	return queue_name + "_" + std::to_string(partition) + "_" + std::to_string(segment_id) + "_m_" + std::to_string(message_id);
 }

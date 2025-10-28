@@ -1,9 +1,10 @@
 #include "../../header_files/queue_management/TransactionHandler.h"
 
-TransactionHandler::TransactionHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
+TransactionHandler::TransactionHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, CacheHandler* ch, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
 	this->qm = qm;
 	this->cm = cm;
 	this->fh = fh;
+	this->ch = ch;
 	this->pm = pm;
 	this->cluster_metadata = cluster_metadata;
 	this->response_mapper = response_mapper;
@@ -350,7 +351,6 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 
 	TransactionStatus no_status = TransactionStatus::NONE;
 	long long current_timestamp = this->util->get_current_time_milli().count();
-	unsigned long long segment_id = partition->get_active_segment()->get_id();
 	unsigned int queue_name_length = change_capture.queue.size();
 
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_TX_GROUP_ID_OFFSET, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE, &change_capture.transaction_group_id, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE);
@@ -360,7 +360,7 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_FILE_START_POS_OFFSET, TX_MSG_CAPTURE_FILE_START_POS_SIZE, &change_capture.file_start_offset, TX_MSG_CAPTURE_FILE_START_POS_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_FILE_END_POS_OFFSET, TX_MSG_CAPTURE_FILE_END_POS_SIZE, &change_capture.file_end_offset, TX_MSG_CAPTURE_FILE_END_POS_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_MSG_ID_OFFSET, TX_MSG_CAPTURE_MSG_ID_SIZE, &change_capture.first_message_id, TX_MSG_CAPTURE_MSG_ID_SIZE);
-	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_SEG_ID_OFFSET, TX_MSG_CAPTURE_SEG_ID_SIZE, &segment_id, TX_MSG_CAPTURE_SEG_ID_SIZE);
+	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_SEG_ID_OFFSET, TX_MSG_CAPTURE_SEG_ID_SIZE, &change_capture.segment_id, TX_MSG_CAPTURE_SEG_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_QUEUE_NAME_LENGTH_OFFSET, TX_MSG_CAPTURE_QUEUE_NAME_LENGTH_SIZE, &queue_name_length, TX_MSG_CAPTURE_QUEUE_NAME_LENGTH_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_QUEUE_NAME_OFFSET, queue_name_length, change_capture.queue.c_str(), queue_name_length);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_PARTITION_ID_OFFSET, TX_MSG_CAPTURE_PARTITION_ID_SIZE, &change_capture.partition_id, TX_MSG_CAPTURE_PARTITION_ID_SIZE);
@@ -622,41 +622,82 @@ std::tuple<bool, int> TransactionHandler::notify_node_about_transaction_status_c
 	return std::tuple<bool, int>(res != nullptr && res.get()->ok, node_id);
 }
 
+// TODO: Probably will add a transaction lock mechanism to release the mutex immediately after getting the changes from map
 void TransactionHandler::handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
-	if (status_change == TransactionStatus::END) {
-		// TODO: Increase consume pointer in all partitions
+	if (status_change == TransactionStatus::PRECOMMIT || status_change == TransactionStatus::PREABORT) return;
+	else if (status_change == TransactionStatus::END) {
+		// TODO: Write this to file so in case of server restart it will remove transaction changes from memory
 		this->remove_transaction(transaction_group_id, tx_id);
-		return;
+		// TODO: Increase consume pointer in all partitions
 	}
 	
-	std::unordered_map<std::string, std::shared_ptr<std::unordered_set<int>>> updated_queue_partitions;
+	std::shared_lock<std::shared_mutex> slock(this->transaction_changes_mut);
 
-	{
-		std::shared_lock<std::shared_mutex> slock(this->transaction_changes_mut);
+	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
 
-		std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
+	if (this->transaction_changes.find(tx_key) == this->transaction_changes.end()) return;
 
-		if (this->transaction_changes.find(tx_key) == this->transaction_changes.end()) return;
+	auto changes = this->transaction_changes[tx_key];
 
-		auto changes = this->transaction_changes[tx_key];
+	if (changes == nullptr) return;
 
-		if (changes == nullptr) return;
+	for (auto change : *(changes.get())) {
+		if (change.get() == nullptr) continue;
 
-		for (auto change : *(changes.get())) {
-			if (change.get() == nullptr) continue;
+		std::shared_ptr<Queue> queue = this->qm->get_queue(change.get()->queue);
 
-			auto queue_partitions = updated_queue_partitions[change.get()->queue];
+		if (queue == nullptr) continue;
 
-			if (queue_partitions == nullptr) {
-				queue_partitions = std::make_shared<std::unordered_set<int>>();
-				updated_queue_partitions[change.get()->queue] = queue_partitions;
-			}
+		std::shared_ptr<Partition> partition = queue.get()->get_partition(change.get()->partition_id);
 
-			queue_partitions.get()->insert(change.get()->partition_id);
+		if (partition == nullptr) continue;
+
+		std::string segment_key = this->pm->get_file_key(change.get()->queue, change.get()->segment_id, change.get()->partition_id);
+		std::string segment_path = this->pm->get_file_path(change.get()->queue, change.get()->segment_id, change.get()->partition_id);
+
+		unsigned int messages_batch_size = change.get()->file_end_offset - change.get()->file_start_offset;
+
+		std::unique_ptr<char> batch = std::unique_ptr<char>(new char[messages_batch_size]);
+
+		unsigned int batch_size = this->fh->read_from_file(
+			segment_key,
+			segment_path,
+			messages_batch_size,
+			change.get()->file_start_offset,
+			batch.get()
+		);
+
+		if (messages_batch_size != batch_size)
+			throw std::runtime_error("Error occured while trying to finalize uncommited messages.");
+
+		unsigned int offset = 0;
+		unsigned int message_bytes = 0;
+		unsigned long long message_id = 0;
+
+		while (offset < batch_size) {
+			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+			memcpy_s(&message_id, MESSAGE_ID_SIZE, batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+			memcpy_s(batch.get() + offset + MESSAGE_COMMIT_STATUS_OFFSET, MESSAGE_COMMIT_STATUS_SIZE, &status_change, MESSAGE_COMMIT_STATUS_OFFSET);
+
+			Helper::update_checksum(batch.get() + offset, message_bytes);
+
+			this->ch->update_message_commit_status(
+				change.get()->queue, change.get()->partition_id, change.get()->segment_id, message_id, status_change
+			);
+
+			offset += message_bytes;
 		}
-	}
 
-	// TODO: Use QueueManager to retrieve queue & partition to finalize changes
+		this->fh->write_to_file(
+			segment_key,
+			segment_path,
+			batch_size,
+			change.get()->file_start_offset,
+			batch.get(),
+			true
+		);
+	}
 }
 
 void TransactionHandler::notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {

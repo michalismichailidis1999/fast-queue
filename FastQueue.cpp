@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
     std::unique_ptr<DataNode> data_node = std::unique_ptr<DataNode>(new DataNode(controller.get(), cm.get(), qm.get(), mh.get(), oah.get(), request_mapper.get(), response_mapper.get(), transformer.get(), util.get(), fh.get(), settings.get(), server_logger.get()));
     
     std::unique_ptr<TransactionHandler> th = std::unique_ptr<TransactionHandler>(
-        new TransactionHandler(qm.get(), cm.get(), fh.get(), pm.get(), controller.get()->get_cluster_metadata(), response_mapper.get(), transformer.get(), util.get(), settings.get(), server_logger.get())
+        new TransactionHandler(qm.get(), cm.get(), fh.get(), cache_handler.get(), pm.get(), controller.get()->get_cluster_metadata(), response_mapper.get(), transformer.get(), util.get(), settings.get(), server_logger.get())
     );
 
     mh.get()->set_transaction_handler(th.get());

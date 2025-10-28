@@ -136,7 +136,8 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 				transaction_id,
 				transaction_group_id,
 				partition->get_queue_name(),
-				partition->get_partition_id()
+				partition->get_partition_id(),
+				segment_to_write.get()->get_id()
 			};
 
 			this->th->capture_transaction_changes(partition, change_capture);

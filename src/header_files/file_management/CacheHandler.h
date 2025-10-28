@@ -6,6 +6,7 @@
 #include <tuple>
 #include <vector>
 #include "../Settings.h"
+#include "../Enums.h"
 #include "../Constants.h"
 #include "../util/Cache.h"
 #include "../util/Util.h"
@@ -49,6 +50,8 @@ public:
 	void cache_index_page(const std::string& key, void* page_data, bool is_unflushed_data = false);
 
 	void clear_unflushed_data_cache();
+
+	void update_message_commit_status(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long message_id, TransactionStatus commit_status);
 
 	static std::string get_message_cache_key(const std::string& queue_name, int partition, unsigned long long segment_id, unsigned long long message_id);
 
