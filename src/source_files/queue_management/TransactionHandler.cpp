@@ -139,10 +139,11 @@ void TransactionHandler::finalize_transaction(unsigned long long transaction_gro
 		std::unique_lock<std::shared_mutex> transactions_lock(this->transactions_mut);
 
 		std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
-		int segment_id = this->get_transaction_segment(tx_id);
 
 		{
+			std::lock_guard<std::shared_mutex> heartbeats_lock(this->transactions_heartbeats_mut);
 			std::lock_guard<std::mutex> tx_to_close_lock(this->transactions_to_close_mut);
+			this->transactions_heartbeats.erase(tx_key);
 			this->transactions_to_close.insert(tx_key);
 		}
 
@@ -717,6 +718,12 @@ void TransactionHandler::notify_group_nodes_node_about_transaction_status_change
 
 	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
 	unsigned int segment_id = this->get_transaction_segment(tx_id);
+
+	{
+		std::lock_guard<std::shared_mutex> xlock(this->transactions_heartbeats_mut);
+		if (this->transactions_heartbeats.find(tx_key) == this->transactions_heartbeats.end())
+			throw std::runtime_error("The transaction is about to close or is closed already due to failure");
+	}
 	
 	for (int node_id : *(tx_nodes.get()))
 		node_notifications.emplace_back(
@@ -743,13 +750,20 @@ void TransactionHandler::notify_group_nodes_node_about_transaction_status_change
 
 	this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, status_change);
 
-	{
-		std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
-		this->open_transactions_statuses[tx_key] = status_change;
-	}
-
 	if (status_change != TransactionStatus::END) {
+		{
+			std::lock_guard<std::shared_mutex> xlock(this->transactions_heartbeats_mut);
+			if (this->transactions_heartbeats.find(tx_key) == this->transactions_heartbeats.end())
+				throw std::runtime_error("The transaction is about to close or is closed already due to failure");
+		}
+
+		{
+			std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
+			this->open_transactions_statuses[tx_key] = status_change;
+		}
+
 		this->update_transaction_heartbeat(transaction_group_id, tx_id);
+
 		return;
 	}
 
@@ -777,4 +791,23 @@ void TransactionHandler::remove_transaction(unsigned long long transaction_group
 			&& this->open_transactions[transaction_group_id] != nullptr)
 			this->open_transactions[transaction_group_id].get()->erase(tx_id);
 	}
+}
+
+void TransactionHandler::close_uncommited_open_transactions_when_leader_change(const std::string& queue_name) {
+	std::lock_guard<std::shared_mutex> lock1(this->transactions_mut);
+	std::lock_guard<std::mutex> lock2(this->transactions_to_close_mut);
+	std::lock_guard<std::shared_mutex> lock3(this->transactions_heartbeats_mut);
+
+	for (auto& iter : this->open_transactions)
+		if (this->cluster_metadata->transaction_group_contains_queue(iter.first, queue_name))
+		{
+			for (auto& tx_id : *(iter.second.get()))
+			{
+				std::string tx_key = this->get_transaction_key(iter.first, tx_id);
+				this->transactions_to_close.insert(tx_key);
+				this->transactions_heartbeats.erase(tx_key);
+			}
+
+			iter.second.get()->clear();
+		}
 }

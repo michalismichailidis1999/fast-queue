@@ -6,6 +6,7 @@
 #include "../file_management/FileHandler.h"
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../queue_management/QueueManager.h"
+#include "../queue_management/TransactionHandler.h"
 #include "../queue_management/messages_management/Consumer.h"
 #include "../Settings.h"
 #include "../logging/Logger.h"
@@ -17,6 +18,7 @@ private:
 	QueueManager* qm;
 	ConnectionsManager* cm;
 	FileHandler* fh;
+	TransactionHandler* th;
 	QueueSegmentFilePathMapper* pm;
 	Settings* settings;
 	Logger* logger;
@@ -31,6 +33,8 @@ private:
 	void apply_unregister_consumer_group_command(UnregisterConsumerGroupCommand* command);
 public:
 	ClusterMetadataApplyHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Settings* settings, Logger* logger);
+
+	void set_transaction_handler(TransactionHandler* th);
 
 	void apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, std::unordered_map<int, Command>* registered_nodes = NULL, std::unordered_map<std::string, Command>* registered_consumers = NULL, ClusterMetadata* future_cluster_metadata = NULL);
 

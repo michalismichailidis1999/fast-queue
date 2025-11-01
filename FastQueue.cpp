@@ -105,6 +105,7 @@ int main(int argc, char* argv[])
     );
 
     mh.get()->set_transaction_handler(th.get());
+    cmah.get()->set_transaction_handler(th.get());
 
     controller.get()->set_transaction_handler(th.get());
 

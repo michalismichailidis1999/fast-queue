@@ -689,3 +689,25 @@ bool ClusterMetadata::check_if_follower_is_lagging(const std::string& queue, int
 	std::shared_lock<std::shared_mutex> lock(this->nodes_partitions_mut);
 	return this->is_follower_lagging(queue, partition, follower_id);
 }
+
+bool ClusterMetadata::transaction_group_contains_queue(unsigned long long transaction_group_id, const std::string& queue) {
+	std::lock_guard<std::shared_mutex> lock(this->transaction_groups_mut);
+
+	if (this->transaction_group_nodes.find(transaction_group_id) == this->transaction_group_nodes.end())
+		return false;
+
+	int assigned_node = this->transaction_group_nodes[transaction_group_id];
+
+	if (this->nodes_transaction_groups.find(assigned_node) == this->nodes_transaction_groups.end())
+		return false;
+
+	auto node_ts_groups = this->nodes_transaction_groups[assigned_node];
+
+	if (node_ts_groups == nullptr) return false;
+
+	auto ts_group_queues = (*(node_ts_groups.get()))[transaction_group_id];
+
+	if (ts_group_queues == nullptr) return false;
+
+	return ts_group_queues.get()->find(queue) != ts_group_queues.get()->end();
+}

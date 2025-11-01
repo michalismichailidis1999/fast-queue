@@ -126,4 +126,6 @@ public:
 	void finalize_transaction(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit);
 
 	void handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
+
+	void close_uncommited_open_transactions_when_leader_change(const std::string& queue_name);
 };

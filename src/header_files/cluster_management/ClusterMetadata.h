@@ -115,6 +115,8 @@ public:
 
 	bool check_if_follower_is_lagging(const std::string& queue, int partition, int follower_id);
 
+	bool transaction_group_contains_queue(unsigned long long transaction_group_id, const std::string& queue);
+
 	friend class Controller;
 	friend class DataNode;
 	friend class TransactionHandler;

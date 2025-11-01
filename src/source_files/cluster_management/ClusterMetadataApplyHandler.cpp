@@ -4,9 +4,14 @@ ClusterMetadataApplyHandler::ClusterMetadataApplyHandler(QueueManager* qm, Conne
 	this->qm = qm;
 	this->cm = cm;
 	this->fh = fh;
+	this->th = NULL;
 	this->pm = pm;
 	this->settings = settings;
 	this->logger = logger;
+}
+
+void ClusterMetadataApplyHandler::set_transaction_handler(TransactionHandler* th) {
+	this->th = th;
 }
 
 void ClusterMetadataApplyHandler::apply_commands_from_segment(ClusterMetadata* cluster_metadata, unsigned long long segment_id, unsigned long long last_applied, std::unordered_map<int, Command>* registered_nodes, std::unordered_map<std::string, Command>* registered_consumers, ClusterMetadata* future_cluster_metadata) {
@@ -168,12 +173,14 @@ void ClusterMetadataApplyHandler::apply_partition_assignment_command(PartitionAs
 }
 
 void ClusterMetadataApplyHandler::apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {
-	// TODO: If is controller node and there is open transaction that contains this queue fail it
-
 	if (command->get_leader_id() == this->settings->get_node_id())
 		this->qm->add_transaction_changes_to_partition_leader(command->get_queue_name(), command->get_partition());
-	else if (command->get_prev_leader() == this->settings->get_node_id())
+	else if (command->get_prev_leader() == this->settings->get_node_id()) {
+		if (this->settings->get_is_controller_node())
+			this->th->close_uncommited_open_transactions_when_leader_change(command->get_queue_name());
+
 		this->qm->remove_transaction_changes_to_partition_leader(command->get_queue_name(), command->get_partition());
+	}
 }
 
 void ClusterMetadataApplyHandler::apply_delete_queue_command(ClusterMetadata* cluster_metadata, DeleteQueueCommand* command) {
