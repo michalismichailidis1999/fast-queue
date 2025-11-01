@@ -35,6 +35,7 @@ void TransactionHandler::init_transaction_segment(int segment_id) {
 	this->fh->create_new_file(transaction_segment_path, 0, NULL, transaction_segment_key);
 }
 
+// This will run only in transaction group insertion, transaction initialization or finalization
 void TransactionHandler::update_transaction_group_heartbeat(unsigned long long transaction_group_id) {
 	std::lock_guard<std::shared_mutex> lock(this->ts_groups_heartbeats_mut);
 	this->ts_groups_heartbeats[transaction_group_id] = this->util->get_current_time_milli();
@@ -111,23 +112,21 @@ unsigned long long TransactionHandler::init_transaction(unsigned long long trans
 // Distributed transactions steps (If any failure occurs the transaction closure will run in the background)
 // 1) init_transaction method will initialize the transaction in transaction group assignee node
 // 2) Client will call either commit() or abort() to finalize the transaction and request manager will redirect the request to this method
-// 3) Pre-finalize status will be sent with fan-out approach to all necessary nodes (nodes that at least contains 1 partition leader from all transaction group queues)
-// 4) Pre-finalize status will be written to transaction segment and update status in memory
-// 5) Finalize status will be sent with fan-out approach to all necessary nodes (nodes that at least contains 1 partition leader from all transaction group queues)
-// 6) Finalize status will be written to transaction segment and update status in memory
-// 7) End transaction
+// 3) Finalize status will be sent with fan-out approach to all necessary nodes (nodes that at least contains 1 partition leader from all transaction group queues)
+// 4) Finalize status will be written to transaction segment and update status in memory
+// 5) End transaction
 void TransactionHandler::finalize_transaction(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit) {
 	try
 	{
+		this->update_transaction_group_heartbeat(transaction_group_id);
+
 		std::shared_ptr<std::unordered_set<int>> tx_nodes = this->find_all_transaction_nodes(transaction_group_id);
 
-		TransactionStatus pre_finalize_status = commit ? TransactionStatus::PRECOMMIT : TransactionStatus::PREABORT;
 		TransactionStatus finalize_status = commit ? TransactionStatus::COMMIT : TransactionStatus::ABORT;
 
 		std::vector<std::future<std::tuple<bool, int>>> node_notifications;
-		std::vector<TransactionStatus> statuses = std::vector<TransactionStatus>(3);
-		statuses[0] = pre_finalize_status;
-		statuses[1] = finalize_status;
+		std::vector<TransactionStatus> statuses = std::vector<TransactionStatus>(2);
+		statuses[0] = finalize_status;
 		statuses[1] = TransactionStatus::END;
 
 		for (auto status : statuses)
@@ -141,19 +140,6 @@ void TransactionHandler::finalize_transaction(unsigned long long transaction_gro
 
 		std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
 		int segment_id = this->get_transaction_segment(tx_id);
-
-		// if not finalize status (COMMIT or ABORT) have been written yet, prepare transaction to be aborted
-		// else if either have been written background job of to-close transactions will try to end it
-		if (this->open_transactions_statuses[tx_key] == TransactionStatus::BEGIN 
-			|| this->open_transactions_statuses[tx_key] == TransactionStatus::PRECOMMIT
-		) {
-			transactions_lock.unlock();
-			this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, TransactionStatus::PREABORT);
-
-			transactions_lock.lock();
-			this->open_transactions_statuses[tx_key] = TransactionStatus::PREABORT;
-			transactions_lock.unlock();
-		}
 
 		{
 			std::lock_guard<std::mutex> tx_to_close_lock(this->transactions_to_close_mut);
@@ -340,22 +326,20 @@ void TransactionHandler::compact_transaction_segment(TransactionFileSegment* ts_
 	this->fh->rename_file(ts_segment->temp_file_key, ts_segment->temp_file_key, ts_segment->file_path);
 }
 
-void TransactionHandler::capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture) {
-	// NOTE: No need to lock partition transaction changes file because it will be called from
-	// message handler which already locks the partition
-	this->capture_transaction_change_to_memory(change_capture);
+void TransactionHandler::capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture, TransactionStatus status) {
+	if (status == TransactionStatus::NONE)
+		this->capture_transaction_change_to_memory(change_capture);
 
 	std::shared_lock<std::shared_mutex> slock(this->transaction_changes_mut);
 
 	std::unique_ptr<char> tx_change_bytes = std::unique_ptr<char>(new char[TX_MSG_CAPTURE_TOTAL_BYTES]);
 
-	TransactionStatus no_status = TransactionStatus::NONE;
 	long long current_timestamp = this->util->get_current_time_milli().count();
 	unsigned int queue_name_length = change_capture.queue.size();
 
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_TX_GROUP_ID_OFFSET, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE, &change_capture.transaction_group_id, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_TX_ID_OFFSET, TX_MSG_CAPTURE_TX_ID_SIZE, &change_capture.transaction_id, TX_MSG_CAPTURE_TX_ID_SIZE);
-	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_STATUS_OFFSET, TX_MSG_CAPTURE_STATUS_SIZE, &no_status, TX_MSG_CAPTURE_STATUS_SIZE);
+	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_STATUS_OFFSET, TX_MSG_CAPTURE_STATUS_SIZE, &status, TX_MSG_CAPTURE_STATUS_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_TIMESTAMP_OFFSET, TX_MSG_CAPTURE_TIMESTAMP_SIZE, &current_timestamp, TX_MSG_CAPTURE_TIMESTAMP_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_FILE_START_POS_OFFSET, TX_MSG_CAPTURE_FILE_START_POS_SIZE, &change_capture.file_start_offset, TX_MSG_CAPTURE_FILE_START_POS_SIZE);
 	memcpy_s(tx_change_bytes.get() + TX_MSG_CAPTURE_FILE_END_POS_OFFSET, TX_MSG_CAPTURE_FILE_END_POS_SIZE, &change_capture.file_end_offset, TX_MSG_CAPTURE_FILE_END_POS_SIZE);
@@ -410,6 +394,23 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 			std::unique_lock<std::shared_mutex> xlock(this->transaction_changes_mut);
 			this->compact_transaction_change_captures(partition);
 		}).detach();
+}
+
+void TransactionHandler::capture_transaction_changes_end(Partition* partition, TransactionChangeCapture* change_capture) {
+	TransactionChangeCapture dummy_change_capture = TransactionChangeCapture{
+		0,
+		0,
+		0,
+		change_capture->transaction_id,
+		change_capture->transaction_group_id,
+		change_capture->queue,
+		change_capture->partition_id,
+		partition->get_active_segment()->get_id()
+	};
+
+	std::lock_guard<std::mutex> lock(partition->transaction_chages_mut);
+
+	this->capture_transaction_changes(partition, dummy_change_capture, TransactionStatus::END);
 }
 
 void TransactionHandler::capture_transaction_change_to_memory(TransactionChangeCapture& change_capture) {
@@ -622,24 +623,20 @@ std::tuple<bool, int> TransactionHandler::notify_node_about_transaction_status_c
 	return std::tuple<bool, int>(res != nullptr && res.get()->ok, node_id);
 }
 
-// TODO: Probably will add a transaction lock mechanism to release the mutex immediately after getting the changes from map
 void TransactionHandler::handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
-	if (status_change == TransactionStatus::PRECOMMIT || status_change == TransactionStatus::PREABORT) return;
-	else if (status_change == TransactionStatus::END) {
-		// TODO: Write this to file so in case of server restart it will remove transaction changes from memory
-		this->remove_transaction(transaction_group_id, tx_id);
-		// TODO: Increase consume pointer in all partitions
-	}
-	
 	std::shared_lock<std::shared_mutex> slock(this->transaction_changes_mut);
 
 	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
+	std::string queue_partition_key = "";
+	std::unordered_set<std::string> captured_changes_ends;
 
 	if (this->transaction_changes.find(tx_key) == this->transaction_changes.end()) return;
 
 	auto changes = this->transaction_changes[tx_key];
 
 	if (changes == nullptr) return;
+
+	slock.unlock();
 
 	for (auto change : *(changes.get())) {
 		if (change.get() == nullptr) continue;
@@ -651,6 +648,15 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 		std::shared_ptr<Partition> partition = queue.get()->get_partition(change.get()->partition_id);
 
 		if (partition == nullptr) continue;
+
+		queue_partition_key = partition->get_queue_name() + "_" + std::to_string(partition->get_partition_id());
+
+		if (status_change == TransactionStatus::END && captured_changes_ends.find(queue_partition_key) == captured_changes_ends.end())
+		{
+			this->capture_transaction_changes_end(partition.get(), change.get());
+			captured_changes_ends.insert(queue_partition_key);
+			continue;
+		}
 
 		std::string segment_key = this->pm->get_file_key(change.get()->queue, change.get()->segment_id, change.get()->partition_id);
 		std::string segment_path = this->pm->get_file_path(change.get()->queue, change.get()->segment_id, change.get()->partition_id);
@@ -698,6 +704,12 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 			true
 		);
 	}
+
+	if (status_change != TransactionStatus::END) return;
+
+	this->remove_transaction(transaction_group_id, tx_id);
+
+	// TODO: Increase consume pointer in all partitions
 }
 
 void TransactionHandler::notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {

@@ -140,6 +140,8 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 				segment_to_write.get()->get_id()
 			};
 
+			std::lock_guard<std::mutex> tx_lock(partition->transaction_chages_mut);
+
 			this->th->capture_transaction_changes(partition, change_capture);
 		}
 

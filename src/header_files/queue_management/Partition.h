@@ -46,6 +46,7 @@ private:
 	std::shared_mutex mut;
 	std::shared_mutex consumers_mut;
 	std::mutex write_mut;
+	std::mutex transaction_chages_mut;
 
 	std::shared_ptr<Consumer> get_consumer_with_nolock(unsigned long long consumer_id);
 public:
@@ -108,5 +109,6 @@ public:
 	friend class CompactionHandler;
 	friend class MessageOffsetAckHandler;
 	friend class MessagesHandler;
+	friend class TransactionHandler;
 	friend class DataNode;
 };

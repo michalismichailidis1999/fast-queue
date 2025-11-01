@@ -117,7 +117,9 @@ public:
 
 	void remove_transaction_group(unsigned long long transaction_group_id);
 
-	void capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture);
+	void capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture, TransactionStatus status = TransactionStatus::NONE);
+
+	void capture_transaction_changes_end(Partition* partition, TransactionChangeCapture* change_capture);
 
 	unsigned long long init_transaction(unsigned long long transaction_group_id);
 
