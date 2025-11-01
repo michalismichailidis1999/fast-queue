@@ -489,16 +489,8 @@ void BeforeServerStartupHandler::set_partition_transaction_changes(Partition* pa
 
     if (!this->fh->check_if_exists(tx_changes_path) && this->fh->check_if_exists(temp_tx_changes_path))
         this->fh->rename_file(temp_tx_changes_key, temp_tx_changes_path, tx_changes_path);
-
-    if (this->fh->check_if_exists(tx_changes_path)) return;
-
-    this->fh->create_new_file(
-        tx_changes_path,
-        0,
-        NULL,
-        tx_changes_key,
-        false
-    );
+    else if (this->fh->check_if_exists(tx_changes_path) && this->fh->check_if_exists(temp_tx_changes_path))
+        this->fh->delete_dir_or_file(temp_tx_changes_path, temp_tx_changes_key);
 }
 
 void BeforeServerStartupHandler::set_partition_active_segment(Partition* partition, bool is_cluster_metadata_queue) {

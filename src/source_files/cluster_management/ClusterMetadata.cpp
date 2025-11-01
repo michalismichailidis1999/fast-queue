@@ -262,6 +262,10 @@ void ClusterMetadata::apply_partition_assignment_command(PartitionAssignmentComm
 	partitions_count = this->nodes_partition_counts->get(node_id);
 
 	this->nodes_partition_counts->insert(node_id, partitions_count - 1);
+
+	for (auto& iter : this->replicated_offets)
+		if (iter.second != nullptr && Helper::starts_with(iter.first, command->get_queue_name() + "_" + std::to_string(command->get_partition()) + "_"))
+			iter.second.get()->erase(command->get_from_node());
 }
 
 void ClusterMetadata::apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {

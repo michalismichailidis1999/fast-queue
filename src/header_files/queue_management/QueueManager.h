@@ -38,5 +38,8 @@ public:
 	void add_assigned_partition_to_queue(const std::string& queue_name, unsigned int partition_id);
 	void remove_assigned_partition_from_queue(const std::string& queue_name, unsigned int partition_id);
 
+	void add_transaction_changes_to_partition_leader(const std::string& queue_name, unsigned int partition_id);
+	void remove_transaction_changes_to_partition_leader(const std::string& queue_name, unsigned int partition_id);
+
 	void get_all_queue_names(std::vector<std::string>* queues_list);
 };

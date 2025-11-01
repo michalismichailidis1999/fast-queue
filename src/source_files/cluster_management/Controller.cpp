@@ -1259,23 +1259,29 @@ std::shared_ptr<AppendEntriesRequest> Controller::prepare_append_entries_request
 unsigned long long Controller::get_largest_replicated_index(std::vector<unsigned long long>* largest_indexes_sent, int half_nodes_count) {
 	if (largest_indexes_sent->size() == 0) return 0;
 
+	if (largest_indexes_sent->size() < half_nodes_count) return 0;
+
 	std::sort(largest_indexes_sent->begin(), largest_indexes_sent->end());
 
-	unsigned long long largest_replicated_index = (*largest_indexes_sent)[0];
+	if (half_nodes_count == 1)
+		return (*largest_indexes_sent)[largest_indexes_sent->size() - 1];
 
-	int counter = half_nodes_count;
-	unsigned long long prev_index = largest_replicated_index;
+	std::vector<int> counts = std::vector<int>(largest_indexes_sent->size());
+	unsigned long long largest_replicated_index = 0;
 
-	for (int i = 1; i < largest_indexes_sent->size(); i++) {
-		unsigned long long current = (*largest_indexes_sent)[i];
+	// Cannot return immediatelly largest_indexes_sent[half_nodes - 1] because in some cases vector size will differ
+	for (int i = largest_indexes_sent->size(); i > 0; i--) {
+		counts[i]++;
 
-		if (current == prev_index) counter--;
-		else counter = half_nodes_count;
-
-		if (counter == 0) largest_replicated_index = current;
-
-		prev_index = current;
+		for (int j = i - 1; j > 0; j--)
+			counts[j]++;
 	}
+
+	for (int i = counts.size(); i > 0; i--)
+		if (counts[i] >= half_nodes_count) {
+			largest_replicated_index = (*largest_indexes_sent)[i];
+			break;
+		}
 
 	return largest_replicated_index;
 }

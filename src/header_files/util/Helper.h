@@ -16,4 +16,5 @@ public:
 	static bool is_internal_queue(const std::string& queue_name);
 	static unsigned int abs(int val);
 	static unsigned long long get_min(unsigned long long val1, unsigned long long val2);
+	static bool starts_with(const std::string& value, const std::string& prefix);
 };

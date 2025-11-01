@@ -204,3 +204,17 @@ void QueueManager::remove_assigned_partition_from_queue(const std::string& queue
 
 	queue.get()->remove_partition(partition_id);
 }
+
+void QueueManager::add_transaction_changes_to_partition_leader(const std::string& queue_name, unsigned int partition_id) {
+	std::string tx_changes_key = this->pm->get_partition_tx_changes_key(queue_name, partition_id);
+	std::string tx_changes_path = this->pm->get_partition_tx_changes_path(queue_name, partition_id);
+
+	this->fh->create_new_file(tx_changes_path, 0, NULL, tx_changes_key);
+}
+
+void QueueManager::remove_transaction_changes_to_partition_leader(const std::string& queue_name, unsigned int partition_id) {
+	std::string tx_changes_key = this->pm->get_partition_tx_changes_key(queue_name, partition_id);
+	std::string tx_changes_path = this->pm->get_partition_tx_changes_path(queue_name, partition_id);
+
+	this->fh->delete_dir_or_file(tx_changes_path, tx_changes_key);
+}

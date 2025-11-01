@@ -161,17 +161,19 @@ void ClusterMetadataApplyHandler::apply_create_queue_command(ClusterMetadata* cl
 }
 
 void ClusterMetadataApplyHandler::apply_partition_assignment_command(PartitionAssignmentCommand* command) {
-	if (command->get_from_node() != this->settings->get_node_id() && command->get_to_node() != this->settings->get_node_id())
-		return;
-
 	if (command->get_from_node() == this->settings->get_node_id())
 		this->qm->remove_assigned_partition_from_queue(command->get_queue_name(), command->get_partition());
-	else
+	else if (command->get_to_node() == this->settings->get_node_id())
 		this->qm->add_assigned_partition_to_queue(command->get_queue_name(), command->get_partition());
 }
 
 void ClusterMetadataApplyHandler::apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {
-	// TODO: Add logic here
+	// TODO: If is controller node and there is open transaction that contains this queue fail it
+
+	if (command->get_leader_id() == this->settings->get_node_id())
+		this->qm->add_transaction_changes_to_partition_leader(command->get_queue_name(), command->get_partition());
+	else if (command->get_prev_leader() == this->settings->get_node_id())
+		this->qm->remove_transaction_changes_to_partition_leader(command->get_queue_name(), command->get_partition());
 }
 
 void ClusterMetadataApplyHandler::apply_delete_queue_command(ClusterMetadata* cluster_metadata, DeleteQueueCommand* command) {

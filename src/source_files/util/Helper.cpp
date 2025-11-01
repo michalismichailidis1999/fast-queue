@@ -71,3 +71,13 @@ unsigned int Helper::abs(int val) {
 unsigned long long Helper::get_min(unsigned long long val1, unsigned long long val2) {
 	return val1 <= val2 ? val1 : val2;
 }
+
+bool Helper::starts_with(const std::string& value, const std::string& prefix) {
+	if (value.size() < prefix.size()) return false;
+
+	for (int i = 0; i < prefix.size(); i++)
+		if (value[i] != prefix[i])
+			return false;
+
+	return true;
+}
