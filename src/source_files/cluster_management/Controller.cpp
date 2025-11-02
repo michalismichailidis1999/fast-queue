@@ -865,7 +865,7 @@ void Controller::set_new_followers_to_lagging_after_repartition(std::vector<std:
 
 		PartitionAssignmentCommand* command_info = (PartitionAssignmentCommand*)(std::get<1>(cluster_change).get());
 
-		int leader = this->future_cluster_metadata->get_partition_leader(command_info->get_queue_name(), command_info->get_partition());
+		int leader = this->future_cluster_metadata->get_partition_leader_with_no_lock(command_info->get_queue_name(), command_info->get_partition());
 
 		if (command_info->get_to_node() == leader) continue;
 
