@@ -811,3 +811,49 @@ void TransactionHandler::close_uncommited_open_transactions_when_leader_change(c
 			iter.second.get()->clear();
 		}
 }
+
+void TransactionHandler::check_for_expired_transaction_groups(std::atomic_bool* should_terminate) {
+	if (!this->settings->get_is_controller_node()) return;
+
+	while (!should_terminate->load()) {
+		try {
+			// TODO: Complete this method
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while trying to check for expired transaction groups. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_check_for_expired_transaction_groups_ms()));
+	}
+}
+
+void TransactionHandler::check_for_expired_transactions(std::atomic_bool* should_terminate) {
+	while (!should_terminate->load()) {
+		try {
+			// TODO: Complete this method
+		}
+		catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while trying to check for expired transactions. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_check_for_expired_transactions_ms()));
+	}
+}
+
+void TransactionHandler::close_failed_transactions_in_background(std::atomic_bool* should_terminate) {
+	while (!should_terminate->load()) {
+		try {
+			// TODO: Complete this method
+		} catch (const std::exception& ex)
+		{
+			std::string err_msg = "Error occured while trying to close failed transactions in background. Reason: " + std::string(ex.what());
+			this->logger->log_error(err_msg);
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_TRANSACTIONS_TO_CLOSE));
+	}
+}

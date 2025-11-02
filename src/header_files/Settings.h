@@ -54,6 +54,10 @@ private:
 	unsigned int ping_connections_check_ms;
 
 	unsigned int transactions_partition_count;
+	unsigned int transaction_group_expire_ms;
+	unsigned int transaction_expire_ms;
+	unsigned int check_for_expired_transaction_groups_ms;
+	unsigned int check_for_expired_transactions_ms;
 
 	std::string log_path;
 	std::string trace_log_path;
@@ -134,6 +138,10 @@ public:
 	unsigned int get_ping_connections_check_ms();
 
 	unsigned int get_transactions_partition_count();
+	unsigned int get_transaction_group_expire_ms();
+	unsigned int get_transaction_expire_ms();
+	unsigned int get_check_for_expired_transaction_groups_ms();
+	unsigned int get_check_for_expired_transactions_ms();
 
 	const std::string& get_log_path();
 	const std::string& get_trace_log_path();

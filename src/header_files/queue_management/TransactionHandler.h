@@ -4,6 +4,7 @@
 #include <unordered_set>
 #include <string>
 #include <memory>
+#include <atomic>
 #include <chrono>
 #include <shared_mutex>
 #include <future>
@@ -79,7 +80,7 @@ private:
 	std::shared_mutex transactions_mut;
 	std::shared_mutex transaction_changes_mut;
 
-	// Will handle them in the backgroun (only in case when transaction group is unregistered due to timeout)
+	// Will handle them in the background
 	std::set<std::string> transactions_to_close;
 	std::mutex transactions_to_close_mut;
 
@@ -128,4 +129,10 @@ public:
 	void handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
 
 	void close_uncommited_open_transactions_when_leader_change(const std::string& queue_name);
+
+	void check_for_expired_transaction_groups(std::atomic_bool* should_terminate);
+
+	void check_for_expired_transactions(std::atomic_bool* should_terminate);
+
+	void close_failed_transactions_in_background(std::atomic_bool* should_terminate);
 };

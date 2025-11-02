@@ -617,6 +617,10 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 int ClusterMetadata::get_partition_leader(const std::string& queue, int partition) {
 	std::shared_lock<std::shared_mutex> lock(this->nodes_partitions_mut);
 
+	return this->get_partition_leader_with_no_lock(queue, partition);
+}
+
+int ClusterMetadata::get_partition_leader_with_no_lock(const std::string& queue, int partition) {
 	if (this->partition_leader_nodes.find(queue) == this->partition_leader_nodes.end()) return -1;
 
 	auto queue_partition_leads = this->partition_leader_nodes[queue];

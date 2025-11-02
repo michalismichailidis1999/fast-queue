@@ -80,6 +80,10 @@ void Settings::set_default_values() {
 	this->check_for_missing_pool_connections_ms = 5000;
 	this->ping_connections_check_ms = 15000;
 	this->transactions_partition_count = 10;
+	this->transaction_group_expire_ms = 30000;
+	this->transaction_expire_ms = 10000;
+	this->check_for_expired_transaction_groups_ms = 10000;
+	this->check_for_expired_transactions_ms = 3000;
 }
 
 void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_pos, int equal_pos) {
@@ -120,6 +124,10 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			|| lhs == "check_for_missing_pool_connections_ms"
 			|| lhs == "ping_connections_check_ms"
 			|| lhs == "transactions_partition_count"
+			|| lhs == "transaction_group_expire_ms"
+			|| lhs == "transaction_expire_ms"
+			|| lhs == "check_for_expired_transaction_groups_ms"
+			|| lhs == "check_for_expired_transactions_ms"
 		) {
 			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
@@ -145,7 +153,11 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 				: lhs == "lag_followers_check_ms" ? &this->lag_followers_check_ms
 				: lhs == "check_for_missing_pool_connections_ms" ? &this->check_for_missing_pool_connections_ms
 				: lhs == "ping_connections_check_ms" ? &this->ping_connections_check_ms
-				: &this->transactions_partition_count;
+				: lhs == "transactions_partition_count" ? &this->transactions_partition_count
+				: lhs == "transaction_group_expire_ms" ? &this->transaction_group_expire_ms
+				: lhs == "transaction_expire_ms" ? &this->transaction_expire_ms
+				: lhs == "check_for_expired_transaction_groups_ms" ? &this->check_for_expired_transaction_groups_ms
+				: &this->check_for_expired_transactions_ms;
 
 			*(val) = rhs_size > 0 ? std::atoi(rhs.c_str()) : 0;
 		}
@@ -402,6 +414,26 @@ unsigned int Settings::get_ping_connections_check_ms() {
 unsigned int Settings::get_transactions_partition_count() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->transactions_partition_count;
+}
+
+unsigned int Settings::get_transaction_group_expire_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->transaction_group_expire_ms;
+}
+
+unsigned int Settings::get_transaction_expire_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->transaction_expire_ms;
+}
+
+unsigned int Settings::get_check_for_expired_transaction_groups_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->check_for_expired_transaction_groups_ms;
+}
+
+unsigned int Settings::get_check_for_expired_transactions_ms() {
+	std::shared_lock<std::shared_mutex> lock(this->mut);
+	return this->check_for_expired_transactions_ms;
 }
 
 const std::string& Settings::get_log_path() {

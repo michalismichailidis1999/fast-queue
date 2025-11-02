@@ -82,6 +82,8 @@ private:
 
 	bool is_follower_lagging(const std::string& queue, int partition, int follower_id);
 
+	int get_partition_leader_with_no_lock(const std::string& queue, int partition);
+
 public:
 	ClusterMetadata();
 

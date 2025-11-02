@@ -221,6 +221,18 @@ int main(int argc, char* argv[])
             data_node.get()->check_for_lagging_followers(&should_terminate);
         };
 
+        auto check_for_expired_transaction_groups = [&]() {
+            th.get()->check_for_expired_transaction_groups(&should_terminate);
+        };
+
+        auto check_for_expired_transactions = [&]() {
+            th.get()->check_for_expired_transactions(&should_terminate);
+        };
+
+        auto close_failed_transactions_in_background = [&]() {
+            th.get()->close_failed_transactions_in_background(&should_terminate);
+        };
+
         std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, true);
         std::thread external_listener_thread = std::thread(create_and_run_socket_listener, false);
 
@@ -240,6 +252,9 @@ int main(int argc, char* argv[])
         std::thread check_for_dead_consumers_thread = std::thread(check_for_dead_consumers);
         std::thread fetch_data_from_partition_leaders_thread = std::thread(fetch_data_from_partition_leaders);
         std::thread check_for_lagging_followers_thread = std::thread(check_for_lagging_followers);
+        std::thread check_for_expired_transaction_groups_thread = std::thread(check_for_expired_transaction_groups);
+        std::thread check_for_expired_transactions_thread = std::thread(check_for_expired_transactions);
+        std::thread close_failed_transactions_in_background_thread = std::thread(close_failed_transactions_in_background);
 
         internal_listener_thread.join();
         external_listener_thread.join();
@@ -257,6 +272,9 @@ int main(int argc, char* argv[])
         check_for_dead_consumers_thread.join();
         fetch_data_from_partition_leaders_thread.join();
         check_for_lagging_followers_thread.join();
+        check_for_expired_transaction_groups_thread.join();
+        check_for_expired_transactions_thread.join();
+        close_failed_transactions_in_background_thread.join();
     }
     catch (const std::exception&) {
         should_terminate = true;

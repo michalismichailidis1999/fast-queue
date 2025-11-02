@@ -37,6 +37,7 @@ static const unsigned int HEARTBEAT_SIGNAL_MAX_BOUND = 3000;
 static const unsigned int LEADER_TIMEOUT = 500;
 static const unsigned int CHECK_FOR_UNAPPLIED_COMMANDS = 1000;
 static const unsigned int CHECK_FOR_COMPACTION = 5000;
+static const unsigned int CHECK_FOR_TRANSACTIONS_TO_CLOSE = 3000;
 
 static const unsigned int MAX_QUEUE_NAME_CHARS = 100;
 static const unsigned int MAX_MESSAGE_KEY_CHARS = 140;

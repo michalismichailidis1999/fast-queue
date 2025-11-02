@@ -668,7 +668,7 @@ bool Controller::assign_partition_to_node(const std::string& queue_name, int par
 	return true;
 }
 
-bool Controller::assign_partition_leader_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int leader_node, bool* needs_partition_assignement_first) {
+bool Controller::assign_partition_leader_to_node(const std::string& queue_name, int partition, std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes, int leader_node) {
 	auto owned_partitions = this->future_cluster_metadata->owned_partitions[queue_name];
 	auto partition_owners = (*(owned_partitions.get()))[partition];
 
@@ -723,12 +723,7 @@ bool Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 		}
 	}
 
-	if (node_id == -1) {
-		if (partition_owners.get()->size() == 1 && needs_partition_assignement_first != NULL)
-			*needs_partition_assignement_first = true;
-
-		return false;
-	}
+	if (node_id == -1) return false;
 
 	(*(partitions_leaders.get()))[partition] = node_id;
 	this->future_cluster_metadata->nodes_leader_partition_counts->insert(node_id, min_leader_count + 1);
@@ -765,7 +760,6 @@ bool Controller::assign_partition_leader_to_node(const std::string& queue_name, 
 
 	return true;
 }
-
 
 bool Controller::repartition_node_data(int node_id) {
 	if (this->get_state() != NodeState::LEADER) {
@@ -816,7 +810,6 @@ bool Controller::repartition_node_data(int node_id) {
 			bool skip_partitions_reassignment = metadata->get_replication_factor() == 1 || metadata->get_replication_factor() > alive_nodes;
 
 			bool successful_partition_assignement = false;
-			bool needs_partition_assignment_first = false;
 
 			for (int partition : *(queue_partitions_pair.second.get())) {
 				if (this->get_state() != NodeState::LEADER) {
@@ -826,26 +819,23 @@ bool Controller::repartition_node_data(int node_id) {
 					return false;
 				}
 
-				if (!this->assign_partition_leader_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id, &needs_partition_assignment_first)) {
-					needs_repartition_again = !needs_partition_assignment_first;
-					if(needs_repartition_again) continue;
+				if (!this->assign_partition_leader_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id)) {
+					needs_repartition_again = true;
+					continue;
 				}
 
 				if (!skip_partitions_reassignment) {
 					successful_partition_assignement = this->assign_partition_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id);
-				
-					needs_repartition_again = needs_repartition_again
-						|| !successful_partition_assignement;
+					needs_repartition_again = needs_repartition_again || !successful_partition_assignement;
 				}
 				else needs_repartition_again = true;
-				
-				if (needs_partition_assignment_first && successful_partition_assignement && !this->assign_partition_leader_to_node(queue_partitions_pair.first, partition, &cluster_changes, node_id))
-					needs_repartition_again = true;
 			}
 		}
 
 		if(needs_repartition_again)
 			this->data_nodes_heartbeats[node_id] = std::chrono::milliseconds(1);
+
+		this->set_new_followers_to_lagging_after_repartition(&cluster_changes);
 
 		unsigned long long timestamp = this->util->get_current_time_milli().count();
 
@@ -867,6 +857,39 @@ bool Controller::repartition_node_data(int node_id) {
 	return !needs_repartition_again;
 }
 
+void Controller::set_new_followers_to_lagging_after_repartition(std::vector<std::tuple<CommandType, std::shared_ptr<void>>>* cluster_changes) {
+	for (auto& cluster_change : *cluster_changes) {
+		CommandType type = std::get<0>(cluster_change);
+
+		if (type != CommandType::ALTER_PARTITION_ASSIGNMENT) continue;
+
+		PartitionAssignmentCommand* command_info = (PartitionAssignmentCommand*)(std::get<1>(cluster_change).get());
+
+		int leader = this->future_cluster_metadata->get_partition_leader(command_info->get_queue_name(), command_info->get_partition());
+
+		if (command_info->get_to_node() == leader) continue;
+
+		// If above if statement is false that means a new follower partition assignment took part and new follower needs to be set as lagging
+
+		if (this->future_cluster_metadata->is_follower_lagging(command_info->get_queue_name(), command_info->get_partition(), command_info->get_to_node()))
+			continue;
+
+		auto lag_command_info = std::shared_ptr<AddLaggingFollowerCommand>(
+			new AddLaggingFollowerCommand(command_info->get_queue_name(), command_info->get_partition(), command_info->get_to_node())
+		);
+
+		Command command = Command(
+			CommandType::ADD_LAGGING_FOLLOWER,
+			this->term.load(),
+			0,
+			lag_command_info
+		);
+
+		this->future_cluster_metadata->apply_command(&command, false, true);
+
+		cluster_changes->emplace_back(CommandType::ADD_LAGGING_FOLLOWER, lag_command_info);
+	}
+}
 
 ErrorCode Controller::assign_new_queue_partitions_to_nodes(std::shared_ptr<QueueMetadata> queue_metadata) {
 	std::lock_guard<std::mutex> partition_assignment_lock(this->partition_assignment_mut);
