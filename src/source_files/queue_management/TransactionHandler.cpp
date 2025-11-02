@@ -12,6 +12,12 @@ TransactionHandler::TransactionHandler(QueueManager* qm, ConnectionsManager* cm,
 	this->util = util;
 	this->settings = settings;
 	this->logger = logger;
+
+	this->controller_unregister_transaction_group_cb = nullptr;
+}
+
+void TransactionHandler::set_controller_unregister_transaction_group_cb(std::function<bool(UnregisterTransactionGroupRequest*)> cb) {
+	this->controller_unregister_transaction_group_cb = std::move(cb);
 }
 
 void TransactionHandler::init_transaction_segment(int segment_id) {
@@ -58,23 +64,22 @@ void TransactionHandler::add_transaction_group(unsigned long long transaction_gr
 }
 
 void TransactionHandler::remove_transaction_group(unsigned long long transaction_group_id) {
-	{
-		std::shared_lock<std::shared_mutex> slock(this->transactions_mut);
-		std::lock_guard<std::mutex> tx_to_close_mut(this->transactions_to_close_mut);
+	std::shared_lock<std::shared_mutex> slock(this->transactions_mut);
+	std::lock_guard<std::mutex> tx_to_close_mut(this->transactions_to_close_mut);
+	std::lock_guard<std::shared_mutex> heartbeats_mut(this->transactions_heartbeats_mut);
+	std::lock_guard<std::shared_mutex> ts_heartbeats_mut(this->ts_groups_heartbeats_mut);
 
-		auto open_txs = this->open_transactions[transaction_group_id];
+	auto open_txs = this->open_transactions[transaction_group_id];
 
-		if (open_txs != nullptr && open_txs.get()->size() > 0)
-			for (unsigned long long open_tx_id : *(open_txs.get()))
-				this->transactions_to_close.insert(this->get_transaction_key(transaction_group_id, open_tx_id));
-	}
+	if (open_txs != nullptr && open_txs.get()->size() > 0)
+		for (unsigned long long open_tx_id : *(open_txs.get()))
+		{
+			std::string tx_key = this->get_transaction_key(transaction_group_id, open_tx_id);
+			this->transactions_to_close.insert(this->get_transaction_key(transaction_group_id, open_tx_id));
+			this->transactions_heartbeats.erase(tx_key);
+		}
 
-	{
-		std::lock_guard<std::shared_mutex> lock(this->ts_groups_heartbeats_mut);
-		this->ts_groups_heartbeats.erase(transaction_group_id);
-	}
-
-	std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
+	this->ts_groups_heartbeats.erase(transaction_group_id);
 	this->open_transactions.erase(transaction_group_id);
 }
 
@@ -814,10 +819,35 @@ void TransactionHandler::close_uncommited_open_transactions_when_leader_change(c
 
 void TransactionHandler::check_for_expired_transaction_groups(std::atomic_bool* should_terminate) {
 	if (!this->settings->get_is_controller_node()) return;
+	
+	std::unique_ptr<UnregisterTransactionGroupRequest> request = std::make_unique<UnregisterTransactionGroupRequest>();
+	request.get()->node_id = this->settings->get_node_id();
+
+	std::vector<unsigned long long> expired_transaction_groups;
 
 	while (!should_terminate->load()) {
 		try {
-			// TODO: Complete this method
+			expired_transaction_groups.clear();
+
+			{
+				std::lock_guard<std::shared_mutex> slock(this->ts_groups_heartbeats_mut);
+
+				for (auto& iter : this->ts_groups_heartbeats)
+					if (this->util->has_timeframe_expired(iter.second, this->settings->get_transaction_expire_ms()))
+						expired_transaction_groups.emplace_back(iter.first);
+
+				for (unsigned long long transaction_group_id : expired_transaction_groups)
+					this->ts_groups_heartbeats[transaction_group_id] = std::chrono::milliseconds(0);
+			}
+
+			if (expired_transaction_groups.size() == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_check_for_expired_transaction_groups_ms()));
+				continue;
+			}
+
+			for (unsigned long long transaction_group_id : expired_transaction_groups)
+				if (this->unregister_transaction_group(request.get(), transaction_group_id))
+					this->remove_transaction_group(transaction_group_id);
 		}
 		catch (const std::exception& ex)
 		{
@@ -830,9 +860,52 @@ void TransactionHandler::check_for_expired_transaction_groups(std::atomic_bool* 
 }
 
 void TransactionHandler::check_for_expired_transactions(std::atomic_bool* should_terminate) {
+	std::vector<std::string> expired_transactions;
+	unsigned long long transaction_group_id = 0;
+	unsigned long long tx_id = 0;
+
 	while (!should_terminate->load()) {
 		try {
-			// TODO: Complete this method
+			expired_transactions.clear();
+
+			{
+				std::lock_guard<std::shared_mutex> slock(this->transactions_heartbeats_mut);
+
+				for (auto& iter : this->transactions_heartbeats)
+					if (this->util->has_timeframe_expired(iter.second, this->settings->get_transaction_expire_ms()))
+						expired_transactions.emplace_back(iter.first);
+
+				for (const std::string& tx_key : expired_transactions)
+					this->transactions_heartbeats[tx_key] = std::chrono::milliseconds(0);
+			}
+
+			if (expired_transactions.size() == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(this->settings->get_check_for_expired_transactions_ms()));
+				continue;
+			}
+			
+			{
+				std::lock_guard<std::shared_mutex> xlock1(this->transactions_mut);
+				std::lock_guard<std::mutex> xlock2(this->transactions_to_close_mut);
+
+				for (const std::string& tx_key : expired_transactions) {
+					this->get_transaction_key_parts(tx_key, &transaction_group_id, &tx_id);
+
+					auto group_open_transactions = this->open_transactions.find(transaction_group_id) == this->open_transactions.end()
+						? this->open_transactions[transaction_group_id]
+						: nullptr;
+
+						if (group_open_transactions != nullptr)
+							group_open_transactions.get()->erase(tx_id);
+
+					this->transactions_to_close.insert(tx_key);
+				}
+			}
+
+			std::lock_guard<std::shared_mutex> xlock3(this->transactions_heartbeats_mut);
+
+			for (const std::string& tx_key : expired_transactions)
+				this->transactions_heartbeats.erase(tx_key);
 		}
 		catch (const std::exception& ex)
 		{
@@ -856,4 +929,48 @@ void TransactionHandler::close_failed_transactions_in_background(std::atomic_boo
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_TRANSACTIONS_TO_CLOSE));
 	}
+}
+
+void TransactionHandler::get_transaction_key_parts(const std::string& tx_key, unsigned long long* transaction_group_id, unsigned long long* tx_id) {
+	int i = 0;
+
+	for (const char c : tx_key)
+		if (i == '_') break;
+		else i++;
+
+	*transaction_group_id = std::strtoull(tx_key.data(), nullptr, 10);
+	*tx_id = std::strtoull(tx_key.data() + i, nullptr, 10);
+}
+
+bool TransactionHandler::unregister_transaction_group(UnregisterTransactionGroupRequest* request, unsigned long long transaction_group_id) {
+	request->transaction_group_id = transaction_group_id;
+
+	if (this->cluster_metadata->get_leader_id() == this->settings->get_node_id()) {
+		if (this->controller_unregister_transaction_group_cb == nullptr)
+			throw std::runtime_error("Callback to unregister transaction group through controller was not set in TransactionHandler");
+
+		return this->controller_unregister_transaction_group_cb(request);
+	}
+
+	std::shared_ptr<ConnectionPool> pool = this->cm->get_controller_node_connection(this->cluster_metadata->get_leader_id());
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(request);
+
+	auto res_buf = this->cm->send_request_to_socket(
+		pool.get(),
+		3,
+		std::get<1>(buf_tup).get(),
+		std::get<0>(buf_tup),
+		"UnregisterTransactionGroup"
+	);
+
+	if (std::get<1>(res_buf) == -1 && std::get<2>(res_buf))
+		throw std::runtime_error("Network issue occured while trying to send expire consumers request to leader node");
+	else if (std::get<1>(res_buf) == -1 && !std::get<2>(res_buf))
+		throw std::runtime_error("Error occured while trying to send expire consumers request to leader node");
+
+	std::unique_ptr<UnregisterTransactionGroupResponse> res = 
+		this->response_mapper->to_unregister_transaction_group_response(std::get<0>(res_buf).get(), std::get<1>(res_buf));
+
+	return res.get()->ok;
 }

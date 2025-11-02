@@ -171,5 +171,5 @@ public:
 
 	std::shared_ptr<RegisterTransactionGroupResponse> register_transaction_group(RegisterTransactionGroupRequest* request);
 
-	void unregister_transaction_group(int node_id, unsigned long long transaction_group_id);
+	bool unregister_transaction_group(UnregisterTransactionGroupRequest* request);
 };

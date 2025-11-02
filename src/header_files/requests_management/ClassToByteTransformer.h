@@ -30,6 +30,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(FetchMessagesRequest* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(TransactionStatusUpdateRequest* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(UnregisterTransactionGroupRequest* obj);
     // ------------------
 
     // Responses
@@ -49,7 +51,7 @@ public:
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(RemoveLaggingFollowerResponse* obj);
 
-    std::tuple<unsigned int, std::shared_ptr<char>> transform(UnegisterTransactionGroupResponse* obj);
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(UnregisterTransactionGroupResponse* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(TransactionStatusUpdateResponse* obj);
     // --

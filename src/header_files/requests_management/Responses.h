@@ -55,7 +55,7 @@ struct FetchMessagesResponse {
 	void* consumer_offsets_data;
 };
 
-struct UnegisterTransactionGroupResponse {
+struct UnregisterTransactionGroupResponse {
 	bool ok;
 	int leader_id;
 };

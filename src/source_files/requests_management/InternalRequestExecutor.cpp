@@ -323,11 +323,11 @@ void InternalRequestExecutor::handle_unregister_transaction_group_request(SOCKET
 		return;
 	}
 
-	std::unique_ptr<UnegisterTransactionGroupResponse> res = std::make_unique<UnegisterTransactionGroupResponse>();
+	std::unique_ptr<UnregisterTransactionGroupResponse> res = std::make_unique<UnregisterTransactionGroupResponse>();
 	res.get()->leader_id = this->controller->get_leader_id();
 	res.get()->ok = res.get()->leader_id == this->settings->get_node_id();
 
-	if (res.get()->ok) this->controller->unregister_transaction_group(request->node_id, request->transaction_group_id);
+	if (res.get()->ok) this->controller->unregister_transaction_group(request);
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 

@@ -109,6 +109,10 @@ int main(int argc, char* argv[])
 
     controller.get()->set_transaction_handler(th.get());
 
+    th.get()->set_controller_unregister_transaction_group_cb([&](UnregisterTransactionGroupRequest* req) -> bool {
+        return controller.get()->unregister_transaction_group(req);
+    });
+
     std::unique_ptr<BeforeServerStartupHandler> startup_handler = std::unique_ptr<BeforeServerStartupHandler>(
         new BeforeServerStartupHandler(
             controller.get(),

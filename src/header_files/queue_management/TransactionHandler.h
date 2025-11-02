@@ -84,6 +84,8 @@ private:
 	std::set<std::string> transactions_to_close;
 	std::mutex transactions_to_close_mut;
 
+	std::function<bool(UnregisterTransactionGroupRequest*)> controller_unregister_transaction_group_cb;
+
 	int get_transaction_segment(unsigned long long transaction_id);
 
 	unsigned long long get_new_transaction_id(unsigned long long transaction_group_id);
@@ -104,7 +106,11 @@ private:
 
 	void notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
 
+	void remove_transaction_group(unsigned long long transaction_group_id);
+
 	void remove_transaction(unsigned long long transaction_group_id, unsigned long long tx_id);
+
+	void get_transaction_key_parts(const std::string& tx_key, unsigned long long* transaction_group_id, unsigned long long* tx_id);
 public:
 	TransactionHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, CacheHandler* ch, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
 
@@ -115,8 +121,6 @@ public:
 	void update_transaction_heartbeat(unsigned long long transaction_group_id, unsigned long long tx_id);
 
 	void add_transaction_group(unsigned long long transaction_group_id);
-
-	void remove_transaction_group(unsigned long long transaction_group_id);
 
 	void capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture, TransactionStatus status = TransactionStatus::NONE);
 
@@ -135,4 +139,8 @@ public:
 	void check_for_expired_transactions(std::atomic_bool* should_terminate);
 
 	void close_failed_transactions_in_background(std::atomic_bool* should_terminate);
+
+	bool unregister_transaction_group(UnregisterTransactionGroupRequest* request, unsigned long long transaction_group_id);
+
+	void set_controller_unregister_transaction_group_cb(std::function<bool(UnregisterTransactionGroupRequest*)> cb);
 };

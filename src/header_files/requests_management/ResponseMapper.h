@@ -29,4 +29,6 @@ public:
 	std::unique_ptr<FetchMessagesResponse> to_fetch_messages_response(char* res_buf, long res_buf_len);
 
 	std::unique_ptr<TransactionStatusUpdateResponse> to_transaction_status_update_response(char* res_buf, long res_buf_len);
+
+	std::unique_ptr<UnregisterTransactionGroupResponse> to_unregister_transaction_group_response(char* res_buf, long res_buf_len);
 };

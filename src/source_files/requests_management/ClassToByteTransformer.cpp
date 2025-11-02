@@ -967,6 +967,40 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(UnregisterTransactionGroupRequest* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(RequestType) + 2 * sizeof(RequestValueKey) + sizeof(int) + sizeof(unsigned long long);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	RequestType req_type = RequestType::UNREGISTER_TRANSACTION_GROUP;
+
+	RequestValueKey transaction_group_id_type = RequestValueKey::TRANSACTION_GROUP_ID;
+	RequestValueKey node_id_type = RequestValueKey::NODE_ID;
+
+	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestType), &req_type, sizeof(RequestType));
+	offset += sizeof(RequestType);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &transaction_group_id_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->transaction_group_id, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(RequestValueKey), &node_id_type, sizeof(RequestValueKey));
+	offset += sizeof(RequestValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->node_id, sizeof(int));
+	offset += sizeof(int);
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(FetchMessagesResponse* obj) {
 	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 3 * sizeof(int) + 4 * sizeof(unsigned long long) + obj->messages_total_bytes + 6 * sizeof(ResponseValueKey) + obj->consumer_offsets_count * CONSUMER_ACK_TOTAL_BYTES;
 
@@ -1105,7 +1139,7 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
-std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(UnegisterTransactionGroupResponse* obj) {
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(UnregisterTransactionGroupResponse* obj) {
 	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) + sizeof(bool) + 2 * sizeof(ResponseValueKey);
 
 	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
