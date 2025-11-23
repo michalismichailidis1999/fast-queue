@@ -88,7 +88,6 @@ public:
 	void update_socket_heartbeat(SOCKET_ID socket);
 
 	void remove_data_node_connections(int node_id);
-	void remove_controller_node_connections(int node_id);
 
 	bool add_connection_to_pool(ConnectionPool* pool);
 	void close_connection_pool(ConnectionPool* pool);

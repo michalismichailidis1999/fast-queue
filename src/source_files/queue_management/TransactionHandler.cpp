@@ -718,12 +718,13 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 	// TODO: Increase consume pointer in all partitions
 }
 
-void TransactionHandler::notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change) {
+void TransactionHandler::notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change, bool closing_in_background) {
 	std::vector<std::future<std::tuple<bool, int>>> node_notifications;
 
 	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
 	unsigned int segment_id = this->get_transaction_segment(tx_id);
 
+	if (!closing_in_background)
 	{
 		std::lock_guard<std::shared_mutex> xlock(this->transactions_heartbeats_mut);
 		if (this->transactions_heartbeats.find(tx_key) == this->transactions_heartbeats.end())
@@ -755,16 +756,19 @@ void TransactionHandler::notify_group_nodes_node_about_transaction_status_change
 
 	this->write_transaction_change_to_segment(transaction_group_id, tx_id, segment_id, status_change);
 
+	{
+		std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
+		this->open_transactions_statuses[tx_key] = status_change;
+	}
+
 	if (status_change != TransactionStatus::END) {
+		if (closing_in_background)
+			return;
+
 		{
 			std::lock_guard<std::shared_mutex> xlock(this->transactions_heartbeats_mut);
 			if (this->transactions_heartbeats.find(tx_key) == this->transactions_heartbeats.end())
 				throw std::runtime_error("The transaction is about to close or is closed already due to failure");
-		}
-
-		{
-			std::lock_guard<std::shared_mutex> lock(this->transactions_mut);
-			this->open_transactions_statuses[tx_key] = status_change;
 		}
 
 		this->update_transaction_heartbeat(transaction_group_id, tx_id);
@@ -772,12 +776,13 @@ void TransactionHandler::notify_group_nodes_node_about_transaction_status_change
 		return;
 	}
 
-	this->remove_transaction(transaction_group_id, tx_id);
+	this->remove_transaction(transaction_group_id, tx_id, closing_in_background);
 }
 
-void TransactionHandler::remove_transaction(unsigned long long transaction_group_id, unsigned long long tx_id) {
+void TransactionHandler::remove_transaction(unsigned long long transaction_group_id, unsigned long long tx_id, bool closing_in_background) {
 	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
 
+	if(!closing_in_background)
 	{
 		std::lock_guard<std::shared_mutex> xlock2(this->transactions_heartbeats_mut);
 		this->transactions_heartbeats.erase(tx_key);
@@ -860,6 +865,8 @@ void TransactionHandler::check_for_expired_transaction_groups(std::atomic_bool* 
 }
 
 void TransactionHandler::check_for_expired_transactions(std::atomic_bool* should_terminate) {
+	if (!this->settings->get_is_controller_node()) return;
+
 	std::vector<std::string> expired_transactions;
 	unsigned long long transaction_group_id = 0;
 	unsigned long long tx_id = 0;
@@ -887,6 +894,7 @@ void TransactionHandler::check_for_expired_transactions(std::atomic_bool* should
 			{
 				std::lock_guard<std::shared_mutex> xlock1(this->transactions_mut);
 				std::lock_guard<std::mutex> xlock2(this->transactions_to_close_mut);
+				std::lock_guard<std::shared_mutex> xlock3(this->transactions_heartbeats_mut);
 
 				for (const std::string& tx_key : expired_transactions) {
 					this->get_transaction_key_parts(tx_key, &transaction_group_id, &tx_id);
@@ -899,13 +907,9 @@ void TransactionHandler::check_for_expired_transactions(std::atomic_bool* should
 							group_open_transactions.get()->erase(tx_id);
 
 					this->transactions_to_close.insert(tx_key);
+					this->transactions_heartbeats.erase(tx_key);
 				}
 			}
-
-			std::lock_guard<std::shared_mutex> xlock3(this->transactions_heartbeats_mut);
-
-			for (const std::string& tx_key : expired_transactions)
-				this->transactions_heartbeats.erase(tx_key);
 		}
 		catch (const std::exception& ex)
 		{
@@ -917,10 +921,70 @@ void TransactionHandler::check_for_expired_transactions(std::atomic_bool* should
 	}
 }
 
+// This method will check all transactions that failed to complete synchronously (by client's call)
+// and will try to close all those transaction in background
+// If COMMIT status was written in the WAL then this method will just try to send END transaction status to nodes
+// else it will try to abort (if transaction status is still BEGIN) and then end the transaction
 void TransactionHandler::close_failed_transactions_in_background(std::atomic_bool* should_terminate) {
+	if (!this->settings->get_is_controller_node()) return;
+
+	std::vector<std::string> txs_to_close;
+	unsigned long long transaction_group_id = 0;
+	unsigned long long tx_id = 0;
+
 	while (!should_terminate->load()) {
 		try {
-			// TODO: Complete this method
+			txs_to_close.clear();
+
+			{
+				std::lock_guard<std::mutex> lock(transactions_to_close_mut);
+
+				for (const std::string& tx_key : this->transactions_to_close)
+					txs_to_close.emplace_back(tx_key);
+			}
+
+			if (txs_to_close.size() == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_FOR_TRANSACTIONS_TO_CLOSE));
+				continue;
+			}
+
+			for (const std::string& tx_key : txs_to_close) {
+				TransactionStatus status = TransactionStatus::NONE;
+
+				{
+					std::lock_guard<std::shared_mutex> slock(this->transactions_mut);
+					if (this->open_transactions_statuses.find(tx_key) != this->open_transactions_statuses.end())
+						status = this->open_transactions_statuses[tx_key];
+				}
+
+				if (status == TransactionStatus::NONE) continue;
+
+				this->get_transaction_key_parts(tx_key, &transaction_group_id, &tx_id);
+
+				if (status == TransactionStatus::END) {
+					this->remove_transaction(transaction_group_id, tx_id, true);
+					continue;
+				}
+
+				std::shared_ptr<std::unordered_set<int>> tx_nodes = this->find_all_transaction_nodes(transaction_group_id);
+
+				if (status == TransactionStatus::BEGIN)
+					this->notify_group_nodes_node_about_transaction_status_change(
+						tx_nodes, transaction_group_id, tx_id, TransactionStatus::ABORT
+					);
+
+				this->notify_group_nodes_node_about_transaction_status_change(
+					tx_nodes, transaction_group_id, tx_id, TransactionStatus::END
+				);
+			}
+
+			{
+				std::lock_guard<std::mutex> lock(transactions_to_close_mut);
+
+				for (const std::string& tx_key : txs_to_close)
+					this->transactions_to_close.erase(tx_key);
+			}
+
 		} catch (const std::exception& ex)
 		{
 			std::string err_msg = "Error occured while trying to close failed transactions in background. Reason: " + std::string(ex.what());

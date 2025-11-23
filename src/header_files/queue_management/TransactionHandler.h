@@ -104,11 +104,11 @@ private:
 
 	std::tuple<bool, int> notify_node_about_transaction_status_change(int node_id, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
 
-	void notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
+	void notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change, bool closing_in_background = false);
 
 	void remove_transaction_group(unsigned long long transaction_group_id);
 
-	void remove_transaction(unsigned long long transaction_group_id, unsigned long long tx_id);
+	void remove_transaction(unsigned long long transaction_group_id, unsigned long long tx_id, bool closing_in_background = false);
 
 	void get_transaction_key_parts(const std::string& tx_key, unsigned long long* transaction_group_id, unsigned long long* tx_id);
 public:

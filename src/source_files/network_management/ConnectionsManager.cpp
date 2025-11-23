@@ -498,19 +498,11 @@ void ConnectionsManager::remove_data_node_connections(int node_id) {
 
 	if (this->data_node_connections.find(node_id) == this->data_node_connections.end()) return;
 
-	this->close_connection_pool(this->data_node_connections[node_id].get());
+	auto pool = this->data_node_connections[node_id];
 
 	this->data_node_connections.erase(node_id);
-}
 
-void ConnectionsManager::remove_controller_node_connections(int node_id) {
-	std::lock_guard<std::shared_mutex> lock(this->controllers_mut);
-
-	if (this->controller_node_connections.find(node_id) == this->controller_node_connections.end()) return;
-
-	this->close_connection_pool(this->controller_node_connections[node_id].get());
-
-	this->controller_node_connections.erase(node_id);
+	this->close_connection_pool(pool.get());
 }
 
 void ConnectionsManager::close_connection_pool(ConnectionPool* pool) {
