@@ -633,8 +633,8 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 	std::shared_lock<std::shared_mutex> slock(this->transaction_changes_mut);
 
 	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
-	std::string queue_partition_key = "";
 	std::unordered_set<std::string> captured_changes_ends;
+	std::unordered_map<std::string, std::shared_ptr<Partition>> all_change_capture_partitions;
 
 	if (this->transaction_changes.find(tx_key) == this->transaction_changes.end()) return;
 
@@ -655,12 +655,17 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 
 		if (partition == nullptr) continue;
 
-		queue_partition_key = partition->get_queue_name() + "_" + std::to_string(partition->get_partition_id());
-
-		if (status_change == TransactionStatus::END && captured_changes_ends.find(queue_partition_key) == captured_changes_ends.end())
+		if (status_change == TransactionStatus::END)
 		{
-			this->capture_transaction_changes_end(partition.get(), change.get());
-			captured_changes_ends.insert(queue_partition_key);
+			std::string queue_partition_key = this->get_transaction_partition_change_capture_key(partition.get());
+
+			all_change_capture_partitions[queue_partition_key] = partition;
+
+			if (captured_changes_ends.find(queue_partition_key) == captured_changes_ends.end()) {
+				this->capture_transaction_changes_end(partition.get(), change.get());
+				captured_changes_ends.insert(queue_partition_key);
+			}
+			
 			continue;
 		}
 
@@ -715,7 +720,8 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 
 	this->remove_transaction(transaction_group_id, tx_id);
 
-	// TODO: Increase consume pointer in all partitions
+	for (auto& iter : all_change_capture_partitions)
+		iter.second.get()->remove_transaction_starting_message_id(iter.first);
 }
 
 void TransactionHandler::notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change, bool closing_in_background) {
@@ -726,8 +732,8 @@ void TransactionHandler::notify_group_nodes_node_about_transaction_status_change
 
 	if (!closing_in_background)
 	{
-		std::lock_guard<std::shared_mutex> xlock(this->transactions_heartbeats_mut);
-		if (this->transactions_heartbeats.find(tx_key) == this->transactions_heartbeats.end())
+		std::lock_guard<std::mutex> xlock(this->transactions_to_close_mut);
+		if (this->transactions_to_close.find(tx_key) != this->transactions_to_close.end())
 			throw std::runtime_error("The transaction is about to close or is closed already due to failure");
 	}
 	
@@ -766,8 +772,8 @@ void TransactionHandler::notify_group_nodes_node_about_transaction_status_change
 			return;
 
 		{
-			std::lock_guard<std::shared_mutex> xlock(this->transactions_heartbeats_mut);
-			if (this->transactions_heartbeats.find(tx_key) == this->transactions_heartbeats.end())
+			std::lock_guard<std::mutex> xlock(this->transactions_to_close_mut);
+			if (this->transactions_to_close.find(tx_key) != this->transactions_to_close.end())
 				throw std::runtime_error("The transaction is about to close or is closed already due to failure");
 		}
 
@@ -949,33 +955,45 @@ void TransactionHandler::close_failed_transactions_in_background(std::atomic_boo
 			}
 
 			for (const std::string& tx_key : txs_to_close) {
-				TransactionStatus status = TransactionStatus::NONE;
+				try {
+					TransactionStatus status = TransactionStatus::NONE;
 
-				{
-					std::lock_guard<std::shared_mutex> slock(this->transactions_mut);
-					if (this->open_transactions_statuses.find(tx_key) != this->open_transactions_statuses.end())
-						status = this->open_transactions_statuses[tx_key];
-				}
+					{
+						std::lock_guard<std::shared_mutex> slock(this->transactions_mut);
+						if (this->open_transactions_statuses.find(tx_key) != this->open_transactions_statuses.end())
+							status = this->open_transactions_statuses[tx_key];
+					}
 
-				if (status == TransactionStatus::NONE) continue;
+					if (status == TransactionStatus::NONE) continue;
 
-				this->get_transaction_key_parts(tx_key, &transaction_group_id, &tx_id);
+					this->get_transaction_key_parts(tx_key, &transaction_group_id, &tx_id);
 
-				if (status == TransactionStatus::END) {
-					this->remove_transaction(transaction_group_id, tx_id, true);
-					continue;
-				}
+					if (status == TransactionStatus::END) {
+						this->remove_transaction(transaction_group_id, tx_id, true);
+						continue;
+					}
 
-				std::shared_ptr<std::unordered_set<int>> tx_nodes = this->find_all_transaction_nodes(transaction_group_id);
+					std::shared_ptr<std::unordered_set<int>> tx_nodes = this->find_all_transaction_nodes(transaction_group_id);
 
-				if (status == TransactionStatus::BEGIN)
+					if (status == TransactionStatus::BEGIN)
+						this->notify_group_nodes_node_about_transaction_status_change(
+							tx_nodes, transaction_group_id, tx_id, TransactionStatus::ABORT, true
+						);
+
 					this->notify_group_nodes_node_about_transaction_status_change(
-						tx_nodes, transaction_group_id, tx_id, TransactionStatus::ABORT
+						tx_nodes, transaction_group_id, tx_id, TransactionStatus::END, true
 					);
+				}
+				catch (const std::exception& tx_ex) {
+					std::string err_msg = "Failed to close transaction's group "
+						+ std::to_string(transaction_group_id)
+						+ " transaction "
+						+ std::to_string(tx_id)
+						+ ". " 
+						+ std::string(tx_ex.what());
 
-				this->notify_group_nodes_node_about_transaction_status_change(
-					tx_nodes, transaction_group_id, tx_id, TransactionStatus::END
-				);
+					throw std::runtime_error(err_msg);
+				}
 			}
 
 			{
@@ -1037,4 +1055,8 @@ bool TransactionHandler::unregister_transaction_group(UnregisterTransactionGroup
 		this->response_mapper->to_unregister_transaction_group_response(std::get<0>(res_buf).get(), std::get<1>(res_buf));
 
 	return res.get()->ok;
+}
+
+std::string TransactionHandler::get_transaction_partition_change_capture_key(Partition* partition) {
+	return partition->get_queue_name() + "_" + std::to_string(partition->get_partition_id());
 }

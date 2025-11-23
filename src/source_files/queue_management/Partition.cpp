@@ -15,6 +15,12 @@ Partition::Partition(unsigned int partition_id, const std::string& queue_name) {
 	this->offsets_path = "";
 	this->consumer_offsets_flushed_bytes = 0;
 	this->consumer_offset_updates_count = 0;
+
+	this->open_transactions_min_message_ids = new IndexedHeap<unsigned long long, std::string>(
+		[](unsigned long long a, unsigned long long b) { return a < b; }, 
+		0, 
+		""
+	);
 }
 
 const std::string& Partition::get_queue_name() {
@@ -213,4 +219,12 @@ unsigned int Partition::get_consumer_offsets_flushed_bytes() {
 
 std::shared_mutex* Partition::get_consumers_mut() {
 	return &this->consumers_mut;
+}
+
+void Partition::add_transaction_starting_message_id(const std::string& tx_key, unsigned long long first_message_id) {
+	this->open_transactions_min_message_ids->insert(tx_key, first_message_id);
+}
+
+void Partition::remove_transaction_starting_message_id(const std::string& tx_key) {
+	this->open_transactions_min_message_ids->remove(tx_key);
 }

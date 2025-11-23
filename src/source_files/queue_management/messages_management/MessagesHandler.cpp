@@ -143,6 +143,11 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 			std::lock_guard<std::mutex> tx_lock(partition->transaction_chages_mut);
 
 			this->th->capture_transaction_changes(partition, change_capture);
+
+			partition->add_transaction_starting_message_id(
+				this->th->get_transaction_key(transaction_group_id, transaction_id),
+				first_message_id
+			);
 		}
 
 		if (segment_to_write == nullptr && this->settings->get_segment_size() < total_segment_bytes) {

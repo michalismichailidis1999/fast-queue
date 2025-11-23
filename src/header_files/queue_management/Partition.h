@@ -8,6 +8,7 @@
 #include <string>
 #include "./PartitionSegment.h"
 #include "./messages_management/Consumer.h"
+#include "../util/IndexedHeap.h"
 #include "../Constants.h"
 
 #include "../__linux/memcpy_s.h"
@@ -37,6 +38,8 @@ private:
 	unsigned long long last_message_leader_epoch;
 
 	unsigned long long last_replicated_offset;
+
+	IndexedHeap<unsigned long long, std::string>* open_transactions_min_message_ids;
 
 	unsigned int consumer_offsets_flushed_bytes;
 
@@ -102,6 +105,9 @@ public:
 
 	void set_consumer_offsets_flushed_bytes(unsigned int consumer_offsets_flushed_bytes);
 	unsigned int get_consumer_offsets_flushed_bytes();
+
+	void add_transaction_starting_message_id(const std::string& tx_key, unsigned long long first_message_id);
+	void remove_transaction_starting_message_id(const std::string& tx_key);
 
 	std::shared_mutex* get_consumers_mut();
 
