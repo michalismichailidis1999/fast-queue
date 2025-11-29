@@ -144,7 +144,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), data_node.get(), qm.get(), mh.get(), transformer.get()));
     std::unique_ptr<RequestManager> rm = std::unique_ptr<RequestManager>(new RequestManager(cm.get(), settings.get(), client_request_executor.get(), internal_request_executor.get(), request_mapper.get(), server_logger.get()));
 
-    std::unique_ptr<ThreadPool> thread_pool = std::unique_ptr<ThreadPool>(new ThreadPool(settings.get()->get_request_parallelism()));
+    std::unique_ptr<ThreadPool> external_thread_pool = std::unique_ptr<ThreadPool>(new ThreadPool(settings.get()->get_external_request_parallelism()));
+    std::unique_ptr<ThreadPool> internal_thread_pool = std::unique_ptr<ThreadPool>(new ThreadPool(settings.get()->get_internal_request_parallelism()));
 
     std::unique_ptr<SocketListenerHandler> slh = std::unique_ptr<SocketListenerHandler>(
         new SocketListenerHandler(
@@ -152,7 +153,6 @@ int main(int argc, char* argv[])
             socket_handler.get(),
             ssl_context_handler.get(),
             rm.get(),
-            thread_pool.get(),
             server_logger.get(),
             settings.get(),
             &should_terminate
@@ -166,7 +166,10 @@ int main(int argc, char* argv[])
         ssl_context_handler.get()->initialize_ssl();
 
         auto create_and_run_socket_listener = [&](bool internal_communication) {
-            slh.get()->create_and_run_socket_listener(internal_communication);
+            slh.get()->create_and_run_socket_listener(
+                internal_communication ? internal_thread_pool.get() : external_thread_pool.get(), 
+                internal_communication
+            );
         };
 
         auto keep_connections_to_maximum = [&]() {

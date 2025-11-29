@@ -1,11 +1,10 @@
 #include "../../header_files/network_management/SocketListenerHandler.h"
 
-SocketListenerHandler::SocketListenerHandler(ConnectionsManager* cm, SocketHandler* socket_handler, SslContextHandler* ssl_context_handler, RequestManager* rm, ThreadPool* thread_pool, Logger* logger, Settings* settings, std::atomic_bool* should_terminate) {
+SocketListenerHandler::SocketListenerHandler(ConnectionsManager* cm, SocketHandler* socket_handler, SslContextHandler* ssl_context_handler, RequestManager* rm, Logger* logger, Settings* settings, std::atomic_bool* should_terminate) {
 	this->cm = cm;
 	this->socket_handler = socket_handler;
 	this->ssl_context_handler = ssl_context_handler;
 	this->rm = rm;
-	this->thread_pool = thread_pool;
     this->logger = logger;
 	this->settings = settings;
 
@@ -13,7 +12,7 @@ SocketListenerHandler::SocketListenerHandler(ConnectionsManager* cm, SocketHandl
     this->should_terminate = should_terminate;
 }
 
-void SocketListenerHandler::create_and_run_socket_listener(bool internal_communication) {
+void SocketListenerHandler::create_and_run_socket_listener(ThreadPool* thread_pool, bool internal_communication) {
     std::shared_ptr<SSL_CTX> ctx = nullptr;
 
     bool ssl_enabled = internal_communication
@@ -111,7 +110,7 @@ void SocketListenerHandler::create_and_run_socket_listener(bool internal_communi
 
                             SSL* ssl = ssl_enabled ? fds_ssls[i] : NULL;
 
-                            this->thread_pool->enqueue([&, socket, ssl, internal_communication]() {
+                            thread_pool->enqueue([&, socket, ssl, internal_communication]() {
                                 try
                                 {
                                     rm->execute_request(socket, ssl, internal_communication);
@@ -181,5 +180,5 @@ void SocketListenerHandler::create_and_run_socket_listener(bool internal_communi
 
     this->socket_handler->socket_cleanup();
 
-    this->thread_pool->stop_workers();
+    thread_pool->stop_workers();
 }

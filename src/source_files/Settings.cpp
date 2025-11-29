@@ -61,7 +61,8 @@ void Settings::set_default_values() {
 	this->index_message_gap_size = 2000;
 	this->flush_to_disk_after_ms = 5000;
 	this->max_cached_memory = 33554432;
-	this->request_parallelism = 2;
+	this->external_request_parallelism = 2;
+	this->internal_request_parallelism = 2;
 	this->request_polling_interval_ms = 1000;
 	this->maximum_connections = 1000;
 	this->idle_connection_check_ms = 5000;
@@ -102,7 +103,8 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			lhs == "node_id"
 			|| lhs == "internal_port"
 			|| lhs == "external_port"
-			|| lhs == "request_parallelism"
+			|| lhs == "external_request_parallelism"
+			|| lhs == "internal_request_parallelism"
 			|| lhs == "request_polling_interval_ms"
 			|| lhs == "maximum_connections"
 			|| lhs == "max_message_size"
@@ -132,7 +134,8 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
 				: lhs == "external_port" ? &this->external_port
-				: lhs == "request_parallelism" ? &this->request_parallelism
+				: lhs == "external_request_parallelism" ? &this->external_request_parallelism
+				: lhs == "internal_request_parallelism" ? &this->internal_request_parallelism
 				: lhs == "request_polling_interval_ms" ? &this->request_polling_interval_ms
 				: lhs == "maximum_connections" ? &this->maximum_connections
 				: lhs == "max_message_size" ? &this->max_message_size
@@ -287,162 +290,134 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 // general properties getters
 
 unsigned int Settings::get_node_id() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->node_id;
 }
 
 unsigned int Settings::get_max_message_size() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->max_message_size;
 }
 
 unsigned int Settings::get_segment_size() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->segment_size;
 }
 
 unsigned int Settings::get_index_message_gap_size() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->index_message_gap_size;
 }
 
 unsigned int Settings::get_max_cached_memory() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->max_cached_memory;
 }
 
 unsigned int Settings::get_flush_to_disk_after_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->flush_to_disk_after_ms;
 }
 
-unsigned int Settings::get_request_parallelism() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
-	return this->request_parallelism;
+unsigned int Settings::get_external_request_parallelism() {
+	return this->external_request_parallelism;
+}
+
+unsigned int Settings::get_internal_request_parallelism() {
+	return this->internal_request_parallelism;
 }
 
 unsigned int Settings::get_request_polling_interval_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->request_polling_interval_ms;
 }
 
 unsigned int Settings::get_maximum_connections() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->maximum_connections;
 }
 
 unsigned int Settings::get_idle_connection_check_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->idle_connection_check_ms;
 }
 
 unsigned int Settings::get_idle_connection_timeout_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->idle_connection_timeout_ms;
 }
 
 unsigned int Settings::get_request_timeout_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->request_timeout_ms;
 }
 
 unsigned int Settings::get_retention_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->retention_ms;
 }
 
 unsigned int Settings::get_retention_worker_wait_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->retention_worker_wait_ms;
 }
 
 unsigned int Settings::get_dead_data_node_check_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->dead_data_node_check_ms;
 }
 
 unsigned int Settings::get_data_node_expire_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->data_node_expire_ms;
 }
 
 unsigned int Settings::get_heartbeat_to_leader_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->heartbeat_to_leader_ms;
 }
 
 unsigned int Settings::get_cluster_update_receive_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->cluster_update_receive_ms;
 }
 
 unsigned int Settings::get_dead_consumer_check_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->dead_consumer_check_ms;
 }
 
 unsigned int Settings::get_dead_consumer_expire_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->dead_consumer_expire_ms;
 }
 
 unsigned int Settings::get_fetch_from_leader_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->fetch_from_leader_ms;
 }
 
 unsigned int Settings::get_lag_time_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->lag_time_ms;
 }
 
 unsigned int Settings::get_lag_followers_check_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->lag_followers_check_ms;
 }
 
 unsigned int Settings::get_check_for_missing_pool_connections_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->check_for_missing_pool_connections_ms;
 }
 
 unsigned int Settings::get_ping_connections_check_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->ping_connections_check_ms;
 }
 
 unsigned int Settings::get_transactions_partition_count() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->transactions_partition_count;
 }
 
 unsigned int Settings::get_transaction_group_expire_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->transaction_group_expire_ms;
 }
 
 unsigned int Settings::get_transaction_expire_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->transaction_expire_ms;
 }
 
 unsigned int Settings::get_check_for_expired_transaction_groups_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->check_for_expired_transaction_groups_ms;
 }
 
 unsigned int Settings::get_check_for_expired_transactions_ms() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->check_for_expired_transactions_ms;
 }
 
 const std::string& Settings::get_log_path() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->log_path;
 }
 
 const std::string& Settings::get_trace_log_path() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->trace_log_path;
 }
 
@@ -451,12 +426,10 @@ const std::string& Settings::get_trace_log_path() {
 // node type properties getters
 
 bool Settings::get_is_controller_node() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->is_controller_node;
 }
 
 std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>> Settings::get_controller_nodes() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->controller_nodes;
 }
 
@@ -465,47 +438,38 @@ std::vector<std::tuple<int, std::shared_ptr<ConnectionInfo>>> Settings::get_cont
 // internal communication properties getters
 
 const std::string& Settings::get_internal_ip() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ip;
 }
 
 unsigned int Settings::get_internal_port() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_port;
 }
 
 bool Settings::get_internal_ssl_enabled() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ssl_enabled;
 }
 
 const std::string& Settings::get_internal_ssl_cert_path() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ssl_cert_path;
 }
 
 const std::string& Settings::get_internal_ssl_cert_key_path() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ssl_cert_key_path;
 }
 
 const std::string& Settings::get_internal_ssl_cert_ca_path() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ssl_cert_ca_path;
 }
 
 const std::string& Settings::get_internal_ssl_cert_pass() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_ssl_cert_pass;
 }
 
 bool Settings::get_internal_mutual_tls_enabled() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_mutual_tls_enabled;
 }
 
 bool Settings::get_internal_bind_all_interfaces() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->internal_bind_all_interfaces;
 }
 
@@ -514,52 +478,42 @@ bool Settings::get_internal_bind_all_interfaces() {
 // external communication properties getters
 
 const std::string& Settings::get_external_ip() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ip;
 }
 
 unsigned int Settings::get_external_port() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_port;
 }
 
 bool Settings::get_external_ssl_enabled() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ssl_enabled;
 }
 
 const std::string& Settings::get_external_ssl_cert_path() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ssl_cert_path;
 }
 
 const std::string& Settings::get_external_ssl_cert_key_path() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ssl_cert_key_path;
 }
 
 const std::string& Settings::get_external_ssl_cert_ca_path() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ssl_cert_ca_path;
 }
 
 const std::string& Settings::get_external_ssl_cert_pass() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_ssl_cert_pass;
 }
 
 bool Settings::get_external_mutual_tls_enabled() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_mutual_tls_enabled;
 }
 
 bool Settings::get_external_user_authentication_enabled() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_user_authentication_enabled;
 }
 
 bool Settings::get_external_bind_all_interfaces() {
-	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->external_bind_all_interfaces;
 }
 

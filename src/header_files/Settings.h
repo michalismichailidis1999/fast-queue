@@ -27,7 +27,8 @@ private:
 	unsigned int max_cached_memory;
 	unsigned int flush_to_disk_after_ms;
 
-	unsigned int request_parallelism;
+	unsigned int external_request_parallelism;
+	unsigned int internal_request_parallelism;
 	unsigned int request_polling_interval_ms;
 	unsigned int maximum_connections;
 	unsigned int idle_connection_check_ms;
@@ -95,8 +96,6 @@ private:
 	bool external_bind_all_interfaces;
 	// -------------------------------------------
 
-	std::shared_mutex mut;
-
 	void set_default_values();
 	void set_settings_variable(char* conf, int var_start_pos, int var_end_pos, int equal_pos);
 public:
@@ -111,7 +110,8 @@ public:
 	unsigned int get_max_cached_memory();
 	unsigned int get_flush_to_disk_after_ms();
 
-	unsigned int get_request_parallelism();
+	unsigned int get_external_request_parallelism();
+	unsigned int get_internal_request_parallelism();
 	unsigned int get_request_polling_interval_ms();
 	unsigned int get_maximum_connections();
 	unsigned int get_idle_connection_check_ms();
