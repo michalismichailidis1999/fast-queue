@@ -92,9 +92,11 @@ private:
 
 	void write_transaction_change_to_segment(unsigned long long transaction_group_id, unsigned long long tx_id, int segment_id, TransactionStatus status_change);
 
-	void compact_transaction_segment(TransactionFileSegment* ts_segment);
+	void compact_transaction_segment(int segment_id, bool is_server_init_compaction = false);
 
-	void compact_transaction_change_captures(Partition* partition);
+	void compact_transaction_segment(TransactionFileSegment* ts_segment, bool is_server_init_compaction = false);
+
+	void compact_transaction_change_captures(Partition* partition, bool is_server_init_compaction = false);
 
 	void capture_transaction_change_to_memory(TransactionChangeCapture& change_capture);
 
@@ -145,4 +147,6 @@ public:
 	void set_controller_unregister_transaction_group_cb(std::function<bool(UnregisterTransactionGroupRequest*)> cb);
 
 	std::string get_transaction_key(unsigned long long transaction_group_id, unsigned long long transaction_id);
+	
+	friend class BeforeServerStartupHandler;
 };

@@ -55,6 +55,8 @@ private:
 
 	void set_partition_transaction_changes(Partition* partition);
 
+	void compact_partition_transaction_changes(Partition* partition);
+
 	void set_segment_index(const std::string& queue_name, PartitionSegment* segment, int partition = -1);
 
 	void set_segment_last_message_offset_and_timestamp(Partition* partition, PartitionSegment* segment);
@@ -62,6 +64,8 @@ private:
 	void handle_compacted_segment(const std::string& queue_name, int partition_id, unsigned long long segment_id, bool is_internal_queue);
 
 	void handle_transaction_segments();
+
+	void compact_transaction_segments();
 public:
 	BeforeServerStartupHandler(Controller* controller, DataNode* data_node, ClusterMetadataApplyHandler* cmah, TransactionHandler* th, QueueManager* qm, MessageOffsetAckHandler* oah, SegmentAllocator* sa, SegmentMessageMap* smm, FileHandler* fh, QueueSegmentFilePathMapper* pm, Util* util, Logger* logger, Settings* settings);
 

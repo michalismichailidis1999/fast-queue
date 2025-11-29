@@ -341,6 +341,7 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
                         if (!is_cluster_metadata_queue) {
                             this->set_partition_replicated_offset(iter.second.get());
                             this->set_partition_transaction_changes(iter.second.get());
+                            this->compact_partition_transaction_changes(iter.second.get());
                         }
 
                         queue->add_partition(iter.second);
@@ -364,6 +365,10 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
             std::get<2>(compacted_segment),
             std::get<3>(compacted_segment)
         );
+
+    if (!this->settings->get_is_controller_node()) return;
+
+    this->compact_transaction_segments();
 }
 
 std::shared_ptr<QueueMetadata> BeforeServerStartupHandler::get_queue_metadata(const std::string& queue_metadata_file_path, const std::string& queue_name, bool must_exist) {
@@ -491,6 +496,10 @@ void BeforeServerStartupHandler::set_partition_transaction_changes(Partition* pa
         this->fh->rename_file(temp_tx_changes_key, temp_tx_changes_path, tx_changes_path);
     else if (this->fh->check_if_exists(tx_changes_path) && this->fh->check_if_exists(temp_tx_changes_path))
         this->fh->delete_dir_or_file(temp_tx_changes_path, temp_tx_changes_key);
+}
+
+void BeforeServerStartupHandler::compact_partition_transaction_changes(Partition* partition) {
+    this->th->compact_transaction_change_captures(partition, true);
 }
 
 void BeforeServerStartupHandler::set_partition_active_segment(Partition* partition, bool is_cluster_metadata_queue) {
@@ -683,6 +692,11 @@ void BeforeServerStartupHandler::set_segment_last_message_offset_and_timestamp(P
 void BeforeServerStartupHandler::handle_transaction_segments() {
     for (int i = 0; i < this->settings->get_transactions_partition_count(); i++)
         this->th->init_transaction_segment(i);
+}
+
+void BeforeServerStartupHandler::compact_transaction_segments() {
+    for (int i = 0; i < this->settings->get_transactions_partition_count(); i++)
+        this->th->compact_transaction_segment(i, true);
 }
 
 // ========================================================
