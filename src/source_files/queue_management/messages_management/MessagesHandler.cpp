@@ -23,65 +23,77 @@ void MessagesHandler::set_transaction_handler(TransactionHandler* th) {
 
 bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest* request, bool cache_messages, bool has_replication, unsigned long long leader_id) {
 	std::lock_guard<std::mutex> lock(partition->write_mut);
-	
-	unsigned int total_messages_bytes = 0;
 
-	for(auto& s : *(request->messages_sizes.get()))
-		total_messages_bytes += s + MESSAGE_TOTAL_BYTES;
+	for (auto& messages_group_iter : request->transaction_messages_group) {
+		unsigned int total_messages_bytes = 0;
 
-	for (auto& s : *(request->messages_keys_sizes.get()))
-		total_messages_bytes += s;
+		for (auto& s : messages_group_iter.second.get()->messages_sizes)
+			total_messages_bytes += s + MESSAGE_TOTAL_BYTES;
 
-	std::unique_ptr<char> messages_data = std::unique_ptr<char>(new char[total_messages_bytes]);
+		for (auto& s : messages_group_iter.second.get()->messages_keys_sizes)
+			total_messages_bytes += s;
 
-	unsigned int offset = 0;
-	unsigned long long current_timestamp = this->util->get_current_time_milli().count();
+		std::unique_ptr<char> messages_data = std::unique_ptr<char>(new char[total_messages_bytes]);
 
-	unsigned long long message_offset = 0;
+		unsigned int offset = 0;
+		unsigned long long current_timestamp = this->util->get_current_time_milli().count();
 
-	MessageCommitStatus commit_status = request->transaction_id == 0 
-		? MessageCommitStatus::COMMITED 
-		: MessageCommitStatus::UNCOMMITED;
+		unsigned long long message_offset = 0;
 
-	for (int i = 0; i < request->messages.get()->size(); i++) {
-		auto& message_size = (*(request->messages_sizes.get()))[i];
-		auto& message_body = (*(request->messages.get()))[i];
-		auto& message_key = (*(request->messages_keys.get()))[i];
-		auto& message_key_size = (*(request->messages_keys_sizes.get()))[i];
+		MessageCommitStatus commit_status = messages_group_iter.first == 0
+			? MessageCommitStatus::COMMITED
+			: MessageCommitStatus::UNCOMMITED;
 
-		message_offset = partition->get_next_message_offset();
+		for (int i = 0; i < messages_group_iter.second.get()->messages.size(); i++) {
+			auto& message_size = messages_group_iter.second.get()->messages_sizes[i];
+			auto& message_body = messages_group_iter.second.get()->messages[i];
+			auto& message_key_size = messages_group_iter.second.get()->messages_keys_sizes[i];
+			auto& message_key = messages_group_iter.second.get()->messages_keys[i];
 
-		memcpy_s(messages_data.get() + offset + MESSAGE_PAYLOAD_OFFSET, MESSAGE_PAYLOAD_SIZE, &message_size, MESSAGE_PAYLOAD_SIZE);
-		memcpy_s(messages_data.get() + offset + MESSAGE_TOTAL_BYTES + message_key_size, message_size, message_body, message_size);
-		memcpy_s(messages_data.get() + offset + MESSAGE_COMMIT_STATUS_OFFSET, MESSAGE_COMMIT_STATUS_SIZE, &commit_status, MESSAGE_COMMIT_STATUS_SIZE);
+			message_offset = partition->get_next_message_offset();
 
-		Helper::add_message_metadata_values(messages_data.get() + offset, message_offset, current_timestamp, message_key_size, message_key, MESSAGE_TOTAL_BYTES, leader_id);
+			memcpy_s(messages_data.get() + offset + MESSAGE_PAYLOAD_OFFSET, MESSAGE_PAYLOAD_SIZE, &message_size, MESSAGE_PAYLOAD_SIZE);
+			memcpy_s(messages_data.get() + offset + MESSAGE_TOTAL_BYTES + message_key_size, message_size, message_body, message_size);
+			memcpy_s(messages_data.get() + offset + MESSAGE_COMMIT_STATUS_OFFSET, MESSAGE_COMMIT_STATUS_SIZE, &commit_status, MESSAGE_COMMIT_STATUS_SIZE);
 
-		Helper::add_common_metadata_values(messages_data.get() + offset, message_key_size + message_size + MESSAGE_TOTAL_BYTES);
+			Helper::add_message_metadata_values(messages_data.get() + offset, message_offset, current_timestamp, message_key_size, message_key, MESSAGE_TOTAL_BYTES, leader_id);
 
-		offset += MESSAGE_TOTAL_BYTES + message_key_size + message_size;
+			Helper::add_common_metadata_values(messages_data.get() + offset, message_key_size + message_size + MESSAGE_TOTAL_BYTES);
+
+			offset += MESSAGE_TOTAL_BYTES + message_key_size + message_size;
+		}
+
+		partition->set_last_message_leader_epoch(leader_id);
+
+		bool success = this->save_messages(
+			partition,
+			messages_data.get(),
+			total_messages_bytes,
+			nullptr,
+			cache_messages,
+			request->transaction_group_id,
+			messages_group_iter.first
+		);
+
+		if (!success) return false;
+
+		if (success && !has_replication)
+		{
+			std::lock_guard<std::shared_mutex> lock2(partition->consumers_mut);
+
+			if (this->disk_flusher->path_exists(partition->get_offsets_path()))
+				this->disk_flusher->write_data_to_specific_file_location(
+					partition->get_offsets_key(),
+					partition->get_offsets_path(),
+					&message_offset,
+					sizeof(unsigned long long),
+					0,
+					true
+				);
+		}
 	}
 
-	partition->set_last_message_leader_epoch(leader_id);
-
-	bool success = this->save_messages(partition, messages_data.get(), total_messages_bytes, nullptr, cache_messages);
-
-	if (success && !has_replication)
-	{
-		std::lock_guard<std::shared_mutex> lock2(partition->consumers_mut);
-
-		if(this->disk_flusher->path_exists(partition->get_offsets_path()))
-			this->disk_flusher->write_data_to_specific_file_location(
-				partition->get_offsets_key(),
-				partition->get_offsets_path(),
-				&message_offset,
-				sizeof(unsigned long long),
-				0,
-				true
-			);
-	}
-
-	return success;
+	return true;
 }
 
 bool MessagesHandler::save_messages(Partition* partition, void* messages, unsigned int total_bytes, std::shared_ptr<PartitionSegment> segment_to_write, bool cache_messages, unsigned long long transaction_group_id, unsigned long long transaction_id) {

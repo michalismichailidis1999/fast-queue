@@ -78,15 +78,9 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 
 	std::unique_ptr<ProduceMessagesRequest> req = std::make_unique<ProduceMessagesRequest>();
 
-	req.get()->messages = std::make_shared<std::vector<char*>>();
-	req.get()->messages_sizes = std::make_shared<std::vector<int>>();
-	req.get()->messages_keys = std::make_shared<std::vector<char*>>();
-	req.get()->messages_keys_sizes = std::make_shared<std::vector<int>>();
-
 	req.get()->queue_name_length = 0;
 	req.get()->partition = -1;
 	req.get()->transaction_group_id = 0;
-	req.get()->transaction_id = 0;
 
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
@@ -101,9 +95,6 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 		} else if (*key == RequestValueKey::TRANSACTION_GROUP_ID) {
 			req.get()->transaction_group_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
-		} else if (*key == RequestValueKey::TRANSACTION_ID) {
-			req.get()->transaction_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
-			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
 		} else if (*key == RequestValueKey::MESSAGES) {
 			int messages_total_bytes = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
@@ -111,17 +102,25 @@ std::unique_ptr<ProduceMessagesRequest> RequestMapper::to_produce_messages_reque
 			unsigned int end_offset = offset + messages_total_bytes;
 
 			while (offset < end_offset) {
-				int* message_key_size = (int*)(recvbuf + offset);
-				int* message_size = (int*)(recvbuf + offset + sizeof(int));
-				char* message_key = (char*)(recvbuf + offset + 2 * sizeof(int));
-				char* message = (char*)(recvbuf + offset + 2 * sizeof(int) + *message_key_size);
+				unsigned long long transaction_id = *(unsigned long long*)(recvbuf + offset);
+				int message_key_size = *(int*)(recvbuf + offset + sizeof(unsigned long long));
+				int message_size = *(int*)(recvbuf + offset + sizeof(unsigned long long) + sizeof(int));
+				char* message_key = (char*)(recvbuf + offset + sizeof(unsigned long long) + 2 * sizeof(int));
+				char* message = (char*)(recvbuf + offset + sizeof(unsigned long long) + 2 * sizeof(int) + message_key_size);
 
-				req.get()->messages_keys_sizes.get()->push_back(*message_key_size);
-				req.get()->messages_sizes.get()->push_back(*message_size);
-				req.get()->messages_keys.get()->push_back(message_key);
-				req.get()->messages.get()->push_back(message);
+				auto messages_group = req.get()->transaction_messages_group[transaction_id];
 
-				offset += 2 * sizeof(int) + (*message_size) + (*message_key_size);
+				if (messages_group == nullptr) {
+					messages_group = std::make_shared<MessageGroup>();
+					req.get()->transaction_messages_group[transaction_id] = messages_group;
+				}
+
+				messages_group.get()->messages_keys_sizes.push_back(message_key_size);
+				messages_group.get()->messages_sizes.push_back(message_size);
+				messages_group.get()->messages_keys.push_back(message_key);
+				messages_group.get()->messages.push_back(message);
+
+				offset += sizeof(unsigned long long) + 2 * sizeof(int) + message_size + message_key_size;
 			}
 		} else if (*key == RequestValueKey::USERNAME) {
 			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));

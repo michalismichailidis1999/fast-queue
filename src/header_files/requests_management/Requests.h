@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 
 #include "../__linux/memcpy_s.h"
 
@@ -112,16 +113,19 @@ struct DeleteQueueRequest : AuthRequest {
 	char* queue_name;
 };
 
+struct MessageGroup {
+	std::vector<char*> messages;
+	std::vector<char*> messages_keys;
+	std::vector<int> messages_sizes;
+	std::vector<int> messages_keys_sizes;
+};
+
 struct ProduceMessagesRequest : AuthRequest {
 	int queue_name_length;
 	char* queue_name;
 	int partition;
 	unsigned long long transaction_group_id;
-	unsigned long long transaction_id;
-	std::shared_ptr<std::vector<char*>> messages;
-	std::shared_ptr<std::vector<char*>> messages_keys;
-	std::shared_ptr<std::vector<int>> messages_sizes;
-	std::shared_ptr<std::vector<int>> messages_keys_sizes;
+	std::unordered_map<unsigned long long, std::shared_ptr<MessageGroup>> transaction_messages_group;
 };
 
 struct RegisterConsumerRequest : AuthRequest {

@@ -205,7 +205,7 @@ void ClientRequestExecutor::handle_produce_request(SOCKET_ID socket, SSL* ssl, P
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	if (request->messages.get()->size() == 0) {
+	if (request->transaction_messages_group.size() == 0) {
 		this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 		return;
 	}
