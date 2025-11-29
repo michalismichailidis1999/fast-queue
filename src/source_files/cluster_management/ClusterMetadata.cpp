@@ -468,9 +468,15 @@ void ClusterMetadata::apply_unregister_transaction_group_command(UnregisterTrans
 void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 	std::lock_guard<std::shared_mutex> _lock1(obj->nodes_partitions_mut);
 	std::lock_guard<std::shared_mutex> _lock2(obj->consumers_mut);
+	std::lock_guard<std::mutex> _lock3(obj->queues_mut);
+	std::lock_guard<std::shared_mutex> _lock4(obj->transaction_groups_mut);
+	std::lock_guard<std::mutex> _lock5(obj->transaction_ids_mut);
 
 	std::lock_guard<std::shared_mutex> lock1(this->nodes_partitions_mut);
 	std::lock_guard<std::shared_mutex> lock2(this->consumers_mut);
+	std::lock_guard<std::mutex> lock3(this->queues_mut);
+	std::lock_guard<std::shared_mutex> lock4(this->transaction_groups_mut);
+	std::lock_guard<std::mutex> lock5(this->transaction_ids_mut);
 
 	this->leader_id.store(obj->leader_id.load());
 	this->metadata_version.store(obj->metadata_version);
@@ -491,10 +497,14 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 	if (this->consumers_partition_counts_inverse != NULL)
 		free(this->consumers_partition_counts_inverse);
 
+	if (this->nodes_transaction_groups_counts != NULL)
+		free(this->nodes_transaction_groups_counts);
+
 	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->nodes_leader_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 	this->consumers_partition_counts = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a < b; }, 0, 0);
 	this->consumers_partition_counts_inverse = new IndexedHeap<int, unsigned long long>([](int a, int b) { return a > b; }, 0, 0);
+	this->nodes_transaction_groups_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);
 
 	this->nodes_partitions.clear();
 	this->owned_partitions.clear();
@@ -502,6 +512,9 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 	this->partition_consumers.clear();
 	this->consumers_consume_init_point.clear();
 	this->queues.clear();
+	this->replicated_offets.clear();
+	this->nodes_transaction_groups.clear();
+	this->transaction_group_nodes.clear();
 
 	for (auto& iter : obj->queues) {
 		std::shared_ptr<QueueMetadata> queue = std::shared_ptr<QueueMetadata>(new QueueMetadata(
@@ -612,6 +625,31 @@ void ClusterMetadata::copy_from(ClusterMetadata* obj) {
 
 	for (auto& iter : obj->consumers_consume_init_point)
 		this->consumers_consume_init_point[iter.first] = iter.second;
+
+	for (auto& iter : obj->replicated_offets) {
+		auto partitions_offsets = std::make_shared<std::unordered_map<int, unsigned long long>>();
+
+		for (auto& iter_two : *(iter.second.get()))
+			(*(partitions_offsets.get()))[iter_two.first] = iter_two.second;
+
+		this->replicated_offets[iter.first] = partitions_offsets;
+	}
+
+	for (auto& iter : obj->nodes_transaction_groups) {
+		auto node_transaction_groups = std::make_shared<std::unordered_map<unsigned long long, std::shared_ptr<std::unordered_set<std::string>>>>();
+
+		this->nodes_transaction_groups[iter.first] = node_transaction_groups;
+
+		this->nodes_transaction_groups_counts->insert(iter.first, iter.second.get()->size());
+
+		for (auto& iter_two : *(iter.second.get())) {
+			auto transaction_group_queues = std::make_shared<std::unordered_set<std::string>>();
+			(*(node_transaction_groups.get()))[iter_two.first] = transaction_group_queues;
+
+			for (auto& iter_three : *(iter_two.second.get()))
+				transaction_group_queues.get()->insert(iter_three);
+		}
+	}
 }
 
 int ClusterMetadata::get_partition_leader(const std::string& queue, int partition) {
