@@ -690,6 +690,16 @@ std::unique_ptr<RegisterTransactionGroupRequest> RequestMapper::to_register_tran
 				offset += sizeof(int) + queue_name_size;
 			}
 		}
+		else if (*key == RequestValueKey::USERNAME) {
+			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->username = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->username_length;
+		}
+		else if (*key == RequestValueKey::PASSWORD) {
+			req.get()->password_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->password = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->password_length;
+		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type RegisterTransactionGroupRequest");
 			throw std::runtime_error("Invalid request value");
@@ -720,6 +730,82 @@ std::unique_ptr<UnregisterTransactionGroupRequest> RequestMapper::to_unregister_
 		}
 		else {
 			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type UnregisterTransactionGroupRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}
+
+std::unique_ptr<BeginTransactionRequest> RequestMapper::to_begin_transaction_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<BeginTransactionRequest> req = std::make_unique<BeginTransactionRequest>();
+
+	req.get()->transaction_group_id = 0;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::TRANSACTION_GROUP_ID) {
+			req.get()->transaction_group_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::USERNAME) {
+			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->username = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->username_length;
+		}
+		else if (*key == RequestValueKey::PASSWORD) {
+			req.get()->password_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->password = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->password_length;
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type BeginTransactionRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}
+
+std::unique_ptr<FinalizeTransactionRequest> RequestMapper::to_finalize_transaction_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<FinalizeTransactionRequest> req = std::make_unique<FinalizeTransactionRequest>();
+
+	req.get()->transaction_group_id = 0;
+	req.get()->tx_id = 0;
+	req.get()->commit = false;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::TRANSACTION_GROUP_ID) {
+			req.get()->transaction_group_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::TRANSACTION_ID) {
+			req.get()->tx_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::COMMIT_TRANSACTION) {
+			req.get()->commit = *(bool*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(bool);
+		}
+		else if (*key == RequestValueKey::USERNAME) {
+			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->username = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->username_length;
+		}
+		else if (*key == RequestValueKey::PASSWORD) {
+			req.get()->password_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->password = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->password_length;
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type FinalizeTransactionRequest");
 			throw std::runtime_error("Invalid request value");
 		}
 	}

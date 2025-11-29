@@ -54,5 +54,9 @@ public:
 
 	std::unique_ptr<RegisterTransactionGroupRequest> to_register_transaction_group_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<BeginTransactionRequest> to_begin_transaction_request(char* recvbuf, int recvbuflen);
+
+	std::unique_ptr<FinalizeTransactionRequest> to_finalize_transaction_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 };

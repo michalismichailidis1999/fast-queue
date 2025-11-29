@@ -119,6 +119,8 @@ public:
 
 	bool transaction_group_contains_queue(unsigned long long transaction_group_id, const std::string& queue);
 
+	bool node_contains_transaction_group(int node_id, unsigned long long transaction_group_id);
+
 	friend class Controller;
 	friend class DataNode;
 	friend class TransactionHandler;

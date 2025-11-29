@@ -120,4 +120,12 @@ struct RegisterTransactionGroupResponse {
 	unsigned long long transaction_group_id;
 };
 
+struct BeginTransactionResponse {
+	unsigned long long new_tx_id;
+};
+
+struct FinalizeTransactionResponse {
+	bool ok;
+};
+
 // =======================================================

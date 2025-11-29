@@ -169,7 +169,17 @@ struct AckMessageOffsetRequest : AuthRequest {
 struct RegisterTransactionGroupRequest : AuthRequest {
 	std::shared_ptr<std::vector<char*>> registered_queues;
 	std::shared_ptr<std::vector<int>> registered_queues_lengths;
-	std::shared_ptr < std::vector < std::string >> registered_queue_names;
+	std::shared_ptr<std::vector<std::string>> registered_queue_names;
+};
+
+struct BeginTransactionRequest : AuthRequest {
+	unsigned long long transaction_group_id;
+};
+
+struct FinalizeTransactionRequest : AuthRequest {
+	unsigned long long transaction_group_id;
+	unsigned long long tx_id;
+	bool commit;
 };
 
 // ======================================================================

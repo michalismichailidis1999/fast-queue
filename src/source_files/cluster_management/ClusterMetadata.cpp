@@ -715,3 +715,13 @@ bool ClusterMetadata::transaction_group_contains_queue(unsigned long long transa
 
 	return ts_group_queues.get()->find(queue) != ts_group_queues.get()->end();
 }
+
+bool ClusterMetadata::node_contains_transaction_group(int node_id, unsigned long long transaction_group_id) {
+	std::lock_guard<std::shared_mutex> lock(this->transaction_groups_mut);
+
+	if (this->nodes_transaction_groups.find(node_id) == this->nodes_transaction_groups.end()) return false;
+
+	if (this->nodes_transaction_groups[node_id] == nullptr) return false;
+
+	return this->nodes_transaction_groups[node_id].get()->find(transaction_group_id) != this->nodes_transaction_groups[node_id].get()->end();
+}

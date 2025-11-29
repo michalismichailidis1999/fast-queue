@@ -6,6 +6,7 @@
 #include "../queue_management/QueueManager.h"
 #include "../queue_management/messages_management/MessagesHandler.h"
 #include "../queue_management/messages_management/MessageOffsetAckHandler.h"
+#include "../queue_management/TransactionHandler.h"
 #include "../cluster_management/Controller.h"
 #include "../cluster_management/DataNode.h"
 #include "../cluster_management/ClusterMetadata.h"
@@ -18,6 +19,7 @@ class ClientRequestExecutor {
 private:
 	MessagesHandler* mh;
 	MessageOffsetAckHandler* oah;
+	TransactionHandler* th;
 	ConnectionsManager* cm;
 	QueueManager* qm;
 	Controller* controller;
@@ -25,8 +27,9 @@ private:
 	ClassToByteTransformer* transformer;
 	Settings* settings;
 	Logger* logger;
+
 public:
-	ClientRequestExecutor(MessagesHandler* mh, MessageOffsetAckHandler* oah, ConnectionsManager* cm, QueueManager* qm, Controller* controller, DataNode* data_node, ClassToByteTransformer* transformer, Settings* settings, Logger* logger);
+	ClientRequestExecutor(MessagesHandler* mh, MessageOffsetAckHandler* oah, TransactionHandler* th, ConnectionsManager* cm, QueueManager* qm, Controller* controller, DataNode* data_node, ClassToByteTransformer* transformer, Settings* settings, Logger* logger);
 
 	void handle_get_controllers_connection_info_request(SOCKET_ID socket, SSL* ssl);
 
@@ -49,4 +52,8 @@ public:
 	void handle_ack_message_offset_request(SOCKET_ID socket, SSL* ssl, AckMessageOffsetRequest* request);
 
 	void handle_register_transaction_group_request(SOCKET_ID socket, SSL* ssl, RegisterTransactionGroupRequest* request);
+
+	void handle_begin_transaction_request(SOCKET_ID socket, SSL* ssl, BeginTransactionRequest* request);
+
+	void handle_finalize_transaction_request(SOCKET_ID socket, SSL* ssl, FinalizeTransactionRequest* request);
 };

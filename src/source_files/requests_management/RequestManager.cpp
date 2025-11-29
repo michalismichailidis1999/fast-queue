@@ -396,6 +396,30 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
+		case RequestType::BEGIN_TRANSACTION:
+		{
+			this->logger->log_info("Received and executing request type of BEGIN_TRANSACTION");
+
+			std::unique_ptr<BeginTransactionRequest> request = this->mapper->to_begin_transaction_request(recvbuf.get(), res_buffer_length);
+
+			this->client_request_executor->handle_begin_transaction_request(socket, ssl, request.get());
+
+			request_type_str = "BEGIN_TRANSACTION";
+
+			break;
+		}
+		case RequestType::FINALIZE_TRANSACTION:
+		{
+			this->logger->log_info("Received and executing request type of FINALIZE_TRANSACTION");
+
+			std::unique_ptr<FinalizeTransactionRequest> request = this->mapper->to_finalize_transaction_request(recvbuf.get(), res_buffer_length);
+
+			this->client_request_executor->handle_finalize_transaction_request(socket, ssl, request.get());
+
+			request_type_str = "FINALIZE_TRANSACTION";
+
+			break;
+		}
 		default:
 			this->logger->log_error("Received invalid request type " + std::to_string((int)recvbuf.get()[0]));
 

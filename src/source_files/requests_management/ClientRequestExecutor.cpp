@@ -1,8 +1,9 @@
 #include "../../header_files/requests_management/ClientRequestExecutor.h"
 
-ClientRequestExecutor::ClientRequestExecutor(MessagesHandler* mh, MessageOffsetAckHandler* oah, ConnectionsManager* cm, QueueManager* qm, Controller* controller, DataNode* data_node, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
+ClientRequestExecutor::ClientRequestExecutor(MessagesHandler* mh, MessageOffsetAckHandler* oah, TransactionHandler* th, ConnectionsManager* cm, QueueManager* qm, Controller* controller, DataNode* data_node, ClassToByteTransformer* transformer, Settings* settings, Logger* logger) {
 	this->mh = mh;
 	this->oah = oah;
+	this->th = th;
 	this->cm = cm;
 	this->qm = qm;
 	this->controller = controller;
@@ -621,6 +622,53 @@ void ClientRequestExecutor::handle_register_transaction_group_request(SOCKET_ID 
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INTERNAL_SERVER_ERROR, "Something went wrong while trying to register transaction group");
 		return;
 	}
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
+
+void ClientRequestExecutor::handle_begin_transaction_request(SOCKET_ID socket, SSL* ssl, BeginTransactionRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes");
+		return;
+	}
+
+	if (!this->controller->get_cluster_metadata()->node_contains_transaction_group(this->settings->get_node_id(), request->transaction_group_id)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Node does not handle transaction group " + std::to_string(request->transaction_group_id));
+		return;
+	}
+
+	unsigned long long new_tx_id = this->th->init_transaction(request->transaction_group_id);
+
+	if (new_tx_id == 0) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INTERNAL_SERVER_ERROR, "Something went wrong. Could not initiate a new transaction");
+		return;
+	}
+
+	std::unique_ptr<BeginTransactionResponse> res = std::make_unique<BeginTransactionResponse>();
+	res.get()->new_tx_id = new_tx_id;
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
+
+void ClientRequestExecutor::handle_finalize_transaction_request(SOCKET_ID socket, SSL* ssl, FinalizeTransactionRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes");
+		return;
+	}
+
+	if (!this->controller->get_cluster_metadata()->node_contains_transaction_group(this->settings->get_node_id(), request->transaction_group_id)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Node does not handle transaction group " + std::to_string(request->transaction_group_id));
+		return;
+	}
+
+	this->th->finalize_transaction(request->transaction_group_id, request->tx_id, request->commit);
+
+	std::unique_ptr<FinalizeTransactionResponse> res = std::make_unique<FinalizeTransactionResponse>();
+	res.get()->ok = true;
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
