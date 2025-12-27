@@ -24,6 +24,14 @@
 
 #include "../__linux/memcpy_s.h"
 
+#if defined(_WIN32) || defined(_WIN64)
+#else
+
+#include <climits>  // C++ way
+#include <limits.h> // C way
+
+#endif
+
 struct AppendEntriesRequest;
 struct AppendEntriesResponse;
 struct RequestVoteRequest;

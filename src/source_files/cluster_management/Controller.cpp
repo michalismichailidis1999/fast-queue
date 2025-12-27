@@ -1667,7 +1667,7 @@ std::shared_ptr<RegisterTransactionGroupResponse> Controller::register_transacti
 	unsigned long long new_transaction_group_id = ++this->future_cluster_metadata->last_transaction_group_id;
 
 	int assigned_node_id = 0;
-	int min_count = -1;
+	int min_count = INT_MAX;
 
 	for (int controller_node_id : this->controller_nodes_ids) {
 		int count = this->future_cluster_metadata->nodes_transaction_groups_counts->get(controller_node_id);

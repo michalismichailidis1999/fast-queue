@@ -5,6 +5,7 @@ ClusterMetadata::ClusterMetadata() {
 	this->current_term = 0;
 	this->leader_id = 0;
 	this->last_consumer_id = 0;
+	this->last_transaction_group_id = 0;
 	this->last_queue_partition_leader_id = 0;
 
 	this->nodes_partition_counts = new IndexedHeap<int, int>([](int a, int b) { return a < b; }, 0, 0);

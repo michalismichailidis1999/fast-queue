@@ -156,7 +156,7 @@ std::tuple<long, std::shared_ptr<char>> Command::get_metadata_bytes() {
 		break;
 	case CommandType::REGISTER_TRANSACTION_GROUP:
 		key = ((RegisterTransactionGroupCommand*)(this->command_info.get()))->get_command_key();
-		total_bytes = UTG_COMMAND_TOTAL_BYTES + key.size();
+		total_bytes = RTG_COMMAND_TOTAL_BYTES + key.size();
 
 		for (const std::string& queue_name : *(((RegisterTransactionGroupCommand*)(this->command_info.get()))->get_registered_queues()))
 			total_bytes += sizeof(int) + queue_name.size();
