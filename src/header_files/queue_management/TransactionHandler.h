@@ -86,6 +86,8 @@ private:
 
 	std::function<bool(UnregisterTransactionGroupRequest*)> controller_unregister_transaction_group_cb;
 
+	void set_transaction_group_heartbeat_to_expired(unsigned long long transaction_group_id);
+
 	int get_transaction_segment(unsigned long long transaction_id);
 
 	unsigned long long get_new_transaction_id(unsigned long long transaction_group_id);

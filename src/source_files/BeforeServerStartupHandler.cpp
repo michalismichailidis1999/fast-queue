@@ -77,6 +77,9 @@ void BeforeServerStartupHandler::rebuild_cluster_metadata() {
         this->data_node->update_consumer_heartbeat(command->get_queue_name(), command->get_group_id(), command->get_consumer_id());
     }
 
+    for (auto& iter : this->controller->get_cluster_metadata()->transaction_group_nodes)
+        this->th->set_transaction_group_heartbeat_to_expired(iter.first);
+
     ClusterMetadata* cluster_metadata = this->controller->get_cluster_metadata();
 
     if (cluster_metadata->owned_partitions.size() > 0) {
@@ -179,6 +182,7 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
     std::regex partition_match_rgx("partition-([0-9]|[1-9][0-9]+)$", std::regex_constants::icase);
     std::regex is_metadata_file_rgx("metadata\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
     std::regex is_offsets_file_rgx("__offsets\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
+    std::regex is_transaction_changes_file_rgx("__transaction_changes\\" + FILE_EXTENSION + "$", std::regex_constants::icase);
 
     int partition_id = 0;
     bool is_cluster_metadata_queue = false;
@@ -206,6 +210,8 @@ void BeforeServerStartupHandler::clear_unnecessary_files_and_initialize_queues()
         if (std::regex_search(path, match, is_offsets_file_rgx)) return;
 
         if (std::regex_search(path, match, is_segment_index))  return;
+
+        if (std::regex_search(path, match, is_transaction_changes_file_rgx))  return;
 
         if (std::regex_search(path, match, is_compacted_segment_index)) {
             segment_id = std::stoull(match[1]);
@@ -496,6 +502,16 @@ void BeforeServerStartupHandler::set_partition_transaction_changes(Partition* pa
         this->fh->rename_file(temp_tx_changes_key, temp_tx_changes_path, tx_changes_path);
     else if (this->fh->check_if_exists(tx_changes_path) && this->fh->check_if_exists(temp_tx_changes_path))
         this->fh->delete_dir_or_file(temp_tx_changes_path, temp_tx_changes_key);
+    else if (!this->fh->check_if_exists(tx_changes_path) && !this->fh->check_if_exists(temp_tx_changes_path))
+        this->fh->create_new_file(
+            tx_changes_path,
+            0,
+            NULL,
+            tx_changes_key,
+            false
+        );
+
+    partition->set_transaction_changes(tx_changes_key, tx_changes_path);
 }
 
 void BeforeServerStartupHandler::compact_partition_transaction_changes(Partition* partition) {
@@ -696,7 +712,20 @@ void BeforeServerStartupHandler::handle_transaction_segments() {
 
 void BeforeServerStartupHandler::compact_transaction_segments() {
     for (int i = 0; i < this->settings->get_transactions_partition_count(); i++)
+    {
+        std::string temp_tx_segment_key = this->pm->get_transactions_segment_key(i, true);
+        std::string temp_tx_segment_path = this->pm->get_transactions_segment_path(i, true);
+
+        std::string tx_segment_key = this->pm->get_transactions_segment_key(i);
+        std::string tx_segment_path = this->pm->get_transactions_segment_path(i);
+
+        if (this->fh->check_if_exists(tx_segment_path) && this->fh->check_if_exists(temp_tx_segment_path))
+            this->fh->delete_dir_or_file(temp_tx_segment_path);
+        else if (!this->fh->check_if_exists(tx_segment_path) && this->fh->check_if_exists(temp_tx_segment_path))
+            this->fh->rename_file(temp_tx_segment_key, temp_tx_segment_path, tx_segment_path);
+
         this->th->compact_transaction_segment(i, true);
+    }
 }
 
 // ========================================================

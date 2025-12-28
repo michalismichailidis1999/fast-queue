@@ -181,6 +181,15 @@ void QueueManager::add_assigned_partition_to_queue(const std::string& queue_name
 		);
 	}
 
+	if (!this->fh->check_if_exists(tx_changes_path))
+		this->fh->create_new_file(
+			tx_changes_path,
+			0,
+			NULL,
+			tx_changes_key,
+			false
+		);
+
 	queue->add_partition(partition);
 }
 

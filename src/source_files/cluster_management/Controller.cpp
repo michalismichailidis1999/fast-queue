@@ -1728,12 +1728,14 @@ bool Controller::unregister_transaction_group(UnregisterTransactionGroupRequest*
 	std::unique_lock<std::shared_mutex> lock(this->future_cluster_metadata->transaction_groups_mut);
 
 	if (this->future_cluster_metadata->nodes_transaction_groups.find(request->node_id) == this->future_cluster_metadata->nodes_transaction_groups.end())
-		return false;
+		return true;
 
 	auto nodes_assigned_transaction_groups = this->future_cluster_metadata->nodes_transaction_groups[request->node_id];
 
+	if (nodes_assigned_transaction_groups == nullptr) return true;
+
 	if (nodes_assigned_transaction_groups.get()->find(request->transaction_group_id) == nodes_assigned_transaction_groups.get()->end())
-		return false;
+		return true;
 
 	nodes_assigned_transaction_groups.get()->erase(request->transaction_group_id);
 	int count = this->future_cluster_metadata->nodes_transaction_groups_counts->remove(request->node_id);
@@ -1742,9 +1744,6 @@ bool Controller::unregister_transaction_group(UnregisterTransactionGroupRequest*
 		this->future_cluster_metadata->nodes_transaction_groups_counts->insert(request->node_id, count);
 
 	this->future_cluster_metadata->transaction_group_nodes.erase(request->transaction_group_id);
-
-	if (this->future_cluster_metadata->nodes_transaction_groups.find(request->node_id) != this->future_cluster_metadata->nodes_transaction_groups.end())
-		this->future_cluster_metadata->nodes_transaction_groups[request->node_id]->erase(request->transaction_group_id);
 
 	lock.unlock();
 

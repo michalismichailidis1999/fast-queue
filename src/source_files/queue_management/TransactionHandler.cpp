@@ -36,7 +36,8 @@ void TransactionHandler::init_transaction_segment(int segment_id) {
 
 	this->transaction_segment_files[segment_id] = segment_file_info;
 
-	if (this->fh->check_if_exists(transaction_segment_path)) return;
+	if (this->fh->check_if_exists(transaction_segment_path) || this->fh->check_if_exists(transaction_temp_segment_path))
+		return;
 
 	this->fh->create_new_file(transaction_segment_path, 0, NULL, transaction_segment_key);
 }
@@ -45,6 +46,10 @@ void TransactionHandler::init_transaction_segment(int segment_id) {
 void TransactionHandler::update_transaction_group_heartbeat(unsigned long long transaction_group_id) {
 	std::lock_guard<std::shared_mutex> lock(this->ts_groups_heartbeats_mut);
 	this->ts_groups_heartbeats[transaction_group_id] = this->util->get_current_time_milli();
+}
+
+void TransactionHandler::set_transaction_group_heartbeat_to_expired(unsigned long long transaction_group_id) {
+	this->ts_groups_heartbeats[transaction_group_id] = std::chrono::milliseconds(1);
 }
 
 void TransactionHandler::update_transaction_heartbeat(unsigned long long transaction_group_id, unsigned long long tx_id) {
@@ -69,15 +74,17 @@ void TransactionHandler::remove_transaction_group(unsigned long long transaction
 	std::lock_guard<std::shared_mutex> heartbeats_mut(this->transactions_heartbeats_mut);
 	std::lock_guard<std::shared_mutex> ts_heartbeats_mut(this->ts_groups_heartbeats_mut);
 
-	auto open_txs = this->open_transactions[transaction_group_id];
+	if (this->open_transactions.find(transaction_group_id) != this->open_transactions.end()) {
+		auto open_txs = this->open_transactions[transaction_group_id];
 
-	if (open_txs != nullptr && open_txs.get()->size() > 0)
-		for (unsigned long long open_tx_id : *(open_txs.get()))
-		{
-			std::string tx_key = this->get_transaction_key(transaction_group_id, open_tx_id);
-			this->transactions_to_close.insert(this->get_transaction_key(transaction_group_id, open_tx_id));
-			this->transactions_heartbeats.erase(tx_key);
-		}
+		if (open_txs != nullptr && open_txs.get()->size() > 0)
+			for (unsigned long long open_tx_id : *(open_txs.get()))
+			{
+				std::string tx_key = this->get_transaction_key(transaction_group_id, open_tx_id);
+				this->transactions_to_close.insert(tx_key);
+				this->transactions_heartbeats.erase(tx_key);
+			}
+	}
 
 	this->ts_groups_heartbeats.erase(transaction_group_id);
 	this->open_transactions.erase(transaction_group_id);
@@ -354,7 +361,7 @@ void TransactionHandler::compact_transaction_segment(TransactionFileSegment* ts_
 	}
 
 	this->fh->delete_dir_or_file(ts_segment->file_path, ts_segment->file_key);
-	this->fh->rename_file(ts_segment->temp_file_key, ts_segment->temp_file_key, ts_segment->file_path);
+	this->fh->rename_file(ts_segment->temp_file_key, ts_segment->temp_file_path, ts_segment->file_path);
 }
 
 void TransactionHandler::capture_transaction_changes(Partition* partition, TransactionChangeCapture& change_capture, TransactionStatus status) {
@@ -612,7 +619,7 @@ std::shared_ptr<std::unordered_set<int>> TransactionHandler::find_all_transactio
 	{
 		std::shared_lock<std::shared_mutex> slock2(this->cluster_metadata->transaction_groups_mut);
 
-		auto node_tx_groups = this->cluster_metadata->nodes_transaction_groups[transaction_group_id];
+		auto node_tx_groups = this->cluster_metadata->nodes_transaction_groups[node_id];
 
 		if (node_tx_groups == nullptr || node_tx_groups.get()->find(transaction_group_id) == node_tx_groups.get()->end())
 			throw std::runtime_error("Transaction group " + std::to_string(transaction_group_id) + " not found");
@@ -961,12 +968,12 @@ void TransactionHandler::check_for_expired_transactions(std::atomic_bool* should
 				for (const std::string& tx_key : expired_transactions) {
 					this->get_transaction_key_parts(tx_key, &transaction_group_id, &tx_id);
 
-					auto group_open_transactions = this->open_transactions.find(transaction_group_id) == this->open_transactions.end()
+					auto group_open_transactions = this->open_transactions.find(transaction_group_id) != this->open_transactions.end()
 						? this->open_transactions[transaction_group_id]
 						: nullptr;
 
-						if (group_open_transactions != nullptr)
-							group_open_transactions.get()->erase(tx_id);
+					if (group_open_transactions != nullptr)
+						group_open_transactions.get()->erase(tx_id);
 
 					this->transactions_to_close.insert(tx_key);
 					this->transactions_heartbeats.erase(tx_key);
@@ -1073,11 +1080,11 @@ void TransactionHandler::get_transaction_key_parts(const std::string& tx_key, un
 	int i = 0;
 
 	for (const char c : tx_key)
-		if (i == '_') break;
+		if (c == '_') break;
 		else i++;
 
 	*transaction_group_id = std::strtoull(tx_key.data(), nullptr, 10);
-	*tx_id = std::strtoull(tx_key.data() + i, nullptr, 10);
+	*tx_id = std::strtoull(tx_key.data() + i + 1, nullptr, 10);
 }
 
 bool TransactionHandler::unregister_transaction_group(UnregisterTransactionGroupRequest* request, unsigned long long transaction_group_id) {

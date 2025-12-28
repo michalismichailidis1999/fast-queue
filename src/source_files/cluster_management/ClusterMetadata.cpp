@@ -415,6 +415,8 @@ void ClusterMetadata::apply_remove_lagging_follower_command(RemoveLaggingFollowe
 void ClusterMetadata::apply_register_transaction_group_command(RegisterTransactionGroupCommand* command) {
 	std::lock_guard<std::shared_mutex> lock(this->transaction_groups_mut);
 
+	this->last_transaction_group_id = command->get_transaction_group_id();
+
 	auto nodes_assigned_transaction_groups = this->nodes_transaction_groups[command->get_node_id()];
 
 	if (nodes_assigned_transaction_groups == nullptr) {
