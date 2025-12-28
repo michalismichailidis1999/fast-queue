@@ -1681,6 +1681,19 @@ std::shared_ptr<RegisterTransactionGroupResponse> Controller::register_transacti
 	if (min_count == -1) return nullptr;
 
 	this->future_cluster_metadata->nodes_transaction_groups_counts->insert(assigned_node_id, min_count + 1);
+	this->future_cluster_metadata->transaction_group_nodes[new_transaction_group_id] = assigned_node_id;
+
+	auto node_ts_groups = this->future_cluster_metadata->nodes_transaction_groups[assigned_node_id];
+
+	if (node_ts_groups == nullptr) {
+		node_ts_groups = std::make_shared<std::unordered_map<unsigned long long, std::shared_ptr<std::unordered_set<std::string>>>>();
+		this->future_cluster_metadata->nodes_transaction_groups[assigned_node_id] = node_ts_groups;
+	}
+
+	(*(node_ts_groups.get()))[new_transaction_group_id] = std::make_shared<std::unordered_set<std::string>>();
+
+	for (const std::string& queue_name : *request->registered_queue_names.get())
+		(*(node_ts_groups.get()))[new_transaction_group_id]->insert(queue_name);
 
 	lock.unlock();
 
@@ -1727,6 +1740,11 @@ bool Controller::unregister_transaction_group(UnregisterTransactionGroupRequest*
 
 	if (--count > 0)
 		this->future_cluster_metadata->nodes_transaction_groups_counts->insert(request->node_id, count);
+
+	this->future_cluster_metadata->transaction_group_nodes.erase(request->transaction_group_id);
+
+	if (this->future_cluster_metadata->nodes_transaction_groups.find(request->node_id) != this->future_cluster_metadata->nodes_transaction_groups.end())
+		this->future_cluster_metadata->nodes_transaction_groups[request->node_id]->erase(request->transaction_group_id);
 
 	lock.unlock();
 
