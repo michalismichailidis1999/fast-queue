@@ -58,5 +58,7 @@ public:
 
 	std::unique_ptr<FinalizeTransactionRequest> to_finalize_transaction_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<VerifyTransactionGroupCreationRequest> to_verify_transaction_group_creation_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 };

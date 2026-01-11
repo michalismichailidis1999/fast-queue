@@ -128,4 +128,8 @@ struct FinalizeTransactionResponse {
 	bool ok;
 };
 
+struct VerifyTransactionGroupCreationResponse {
+	bool ok;
+};
+
 // =======================================================

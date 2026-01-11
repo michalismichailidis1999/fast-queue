@@ -384,6 +384,18 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
+		case RequestType::VERIFY_TRANSACTION_GROUP_CREATION:
+		{
+			this->logger->log_info("Received and executing request type of VERIFY_TRANSACTION_GROUP_CREATION");
+
+			std::unique_ptr<VerifyTransactionGroupCreationRequest> request = this->mapper->to_verify_transaction_group_creation_request(recvbuf.get(), res_buffer_length);
+
+			this->client_request_executor->handle_verify_transaction_group_creation_request(socket, ssl, request.get());
+
+			request_type_str = "VERIFY_TRANSACTION_GROUP_CREATION";
+
+			break;
+		}
 		case RequestType::UNREGISTER_TRANSACTION_GROUP:
 		{
 			this->logger->log_info("Received and executing request type of UNREGISTER_TRANSACTION_GROUP");

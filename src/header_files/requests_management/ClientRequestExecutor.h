@@ -56,4 +56,6 @@ public:
 	void handle_begin_transaction_request(SOCKET_ID socket, SSL* ssl, BeginTransactionRequest* request);
 
 	void handle_finalize_transaction_request(SOCKET_ID socket, SSL* ssl, FinalizeTransactionRequest* request);
+
+	void handle_verify_transaction_group_creation_request(SOCKET_ID socket, SSL* ssl, VerifyTransactionGroupCreationRequest* request);
 };

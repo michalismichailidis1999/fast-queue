@@ -186,4 +186,8 @@ struct FinalizeTransactionRequest : AuthRequest {
 	bool commit;
 };
 
+struct VerifyTransactionGroupCreationRequest {
+	unsigned long long transaction_group_id;
+};
+
 // ======================================================================

@@ -907,7 +907,7 @@ void TransactionHandler::check_for_expired_transaction_groups(std::atomic_bool* 
 				std::lock_guard<std::shared_mutex> slock(this->ts_groups_heartbeats_mut);
 
 				for (auto& iter : this->ts_groups_heartbeats)
-					if (this->util->has_timeframe_expired(iter.second, this->settings->get_transaction_expire_ms()))
+					if (this->util->has_timeframe_expired(iter.second, this->settings->get_transaction_group_expire_ms()))
 						expired_transaction_groups.emplace_back(iter.first);
 
 				for (unsigned long long transaction_group_id : expired_transaction_groups)

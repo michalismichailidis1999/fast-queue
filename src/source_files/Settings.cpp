@@ -81,7 +81,7 @@ void Settings::set_default_values() {
 	this->check_for_missing_pool_connections_ms = 5000;
 	this->ping_connections_check_ms = 15000;
 	this->transactions_partition_count = 10;
-	this->transaction_group_expire_ms = 30000;
+	this->transaction_group_expire_ms = 3600000;
 	this->transaction_expire_ms = 10000;
 	this->check_for_expired_transaction_groups_ms = 10000;
 	this->check_for_expired_transactions_ms = 3000;

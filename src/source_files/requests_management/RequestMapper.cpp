@@ -811,3 +811,26 @@ std::unique_ptr<FinalizeTransactionRequest> RequestMapper::to_finalize_transacti
 
 	return req;
 }
+
+std::unique_ptr<VerifyTransactionGroupCreationRequest> RequestMapper::to_verify_transaction_group_creation_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<VerifyTransactionGroupCreationRequest> req = std::make_unique<VerifyTransactionGroupCreationRequest>();
+
+	req.get()->transaction_group_id = 0;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::TRANSACTION_GROUP_ID) {
+			req.get()->transaction_group_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type VerifyTransactionGroupCreationRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}
