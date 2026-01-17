@@ -149,7 +149,7 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 				transaction_group_id,
 				partition->get_queue_name(),
 				partition->get_partition_id(),
-				segment_to_write.get()->get_id()
+				active_segment.get()->get_id()
 			};
 
 			std::lock_guard<std::mutex> tx_lock(partition->transaction_chages_mut);
@@ -163,8 +163,7 @@ bool MessagesHandler::save_messages(Partition* partition, void* messages, unsign
 		}
 
 		if (segment_to_write == nullptr && this->settings->get_segment_size() < total_segment_bytes) {
-			if (segment_to_write == nullptr)
-				this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
+			this->lock_manager->release_segment_lock(partition, active_segment.get(), true);
 			this->sa->allocate_new_segment(partition);
 			return true;
 		}
