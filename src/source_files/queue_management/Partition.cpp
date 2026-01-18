@@ -155,7 +155,6 @@ void Partition::set_last_message_leader_epoch(unsigned long long last_message_le
 unsigned long long Partition::get_last_replicated_offset() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
 	return this->last_replicated_offset;
-
 }
 
 void Partition::set_last_replicated_offset(unsigned long long last_replicated_offset) {

@@ -173,14 +173,19 @@ void ClusterMetadataApplyHandler::apply_partition_assignment_command(PartitionAs
 }
 
 void ClusterMetadataApplyHandler::apply_partition_leader_assignment_command(PartitionLeaderAssignmentCommand* command) {
+	if (
+		command->get_leader_id() == this->settings->get_node_id()
+		|| command->get_prev_leader() == this->settings->get_node_id()
+	)
+		this->th->abort_all_transaction_changes_for_partition(command->get_queue_name(), command->get_partition());
+
+	if (this->settings->get_is_controller_node())
+		this->th->close_all_queue_involved_transactions(command->get_queue_name());
+
 	if (command->get_leader_id() == this->settings->get_node_id())
 		this->qm->add_transaction_changes_to_partition_leader(command->get_queue_name(), command->get_partition());
-	else if (command->get_prev_leader() == this->settings->get_node_id()) {
-		if (this->settings->get_is_controller_node())
-			this->th->close_uncommited_open_transactions_when_leader_change(command->get_queue_name());
-
+	else if (command->get_prev_leader() == this->settings->get_node_id())
 		this->qm->remove_transaction_changes_to_partition_leader(command->get_queue_name(), command->get_partition());
-	}
 }
 
 void ClusterMetadataApplyHandler::apply_delete_queue_command(ClusterMetadata* cluster_metadata, DeleteQueueCommand* command) {

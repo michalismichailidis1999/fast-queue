@@ -521,7 +521,7 @@ void TransactionHandler::compact_transaction_change_captures(Partition* partitio
 				continue;
 			}
 
-			if (status == TransactionStatus::BEGIN)
+			if (transaction_change_captures.find(tx_key) == transaction_change_captures.end())
 				transaction_change_captures[tx_key] = std::make_shared<std::vector<std::shared_ptr<char>>>();
 
 			std::shared_ptr<char> tx_change_info = std::shared_ptr<char>(new char[TX_MSG_CAPTURE_TOTAL_BYTES]);
@@ -575,15 +575,13 @@ void TransactionHandler::compact_transaction_change_captures(Partition* partitio
 
 			memcpy_s(&status, TX_MSG_CAPTURE_STATUS_SIZE, tx_info.get() + TX_MSG_CAPTURE_STATUS_OFFSET, TX_MSG_CAPTURE_STATUS_SIZE);
 
-			if (status != TransactionStatus::NONE) continue;
-
 			auto transaction_change = std::make_shared<TransactionChangeCapture>();
 
 			memcpy_s(&transaction_change.get()->file_start_offset, TX_MSG_CAPTURE_FILE_START_POS_SIZE, tx_info.get() + TX_MSG_CAPTURE_FILE_START_POS_OFFSET, TX_MSG_CAPTURE_FILE_START_POS_SIZE);
 			memcpy_s(&transaction_change.get()->file_end_offset, TX_MSG_CAPTURE_FILE_END_POS_SIZE, tx_info.get() + TX_MSG_CAPTURE_FILE_END_POS_OFFSET, TX_MSG_CAPTURE_FILE_END_POS_SIZE);
 			memcpy_s(&transaction_change.get()->first_message_id, TX_MSG_CAPTURE_MSG_ID_SIZE, tx_info.get() + TX_MSG_CAPTURE_MSG_ID_OFFSET, TX_MSG_CAPTURE_MSG_ID_SIZE);
-			memcpy_s(&transaction_change.get()->file_end_offset, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE, tx_info.get() + TX_MSG_CAPTURE_TX_GROUP_ID_OFFSET, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE);
-			memcpy_s(&transaction_change.get()->file_end_offset, TX_MSG_CAPTURE_TX_ID_SIZE, tx_info.get() + TX_MSG_CAPTURE_TX_ID_OFFSET, TX_MSG_CAPTURE_TX_ID_SIZE);
+			memcpy_s(&transaction_change.get()->transaction_group_id, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE, tx_info.get() + TX_MSG_CAPTURE_TX_GROUP_ID_OFFSET, TX_MSG_CAPTURE_TX_GROUP_ID_SIZE);
+			memcpy_s(&transaction_change.get()->transaction_id, TX_MSG_CAPTURE_TX_ID_SIZE, tx_info.get() + TX_MSG_CAPTURE_TX_ID_OFFSET, TX_MSG_CAPTURE_TX_ID_SIZE);
 
 			memcpy_s(&queue_name_size, TX_MSG_CAPTURE_QUEUE_NAME_LENGTH_SIZE, tx_info.get() + TX_MSG_CAPTURE_QUEUE_NAME_LENGTH_OFFSET, TX_MSG_CAPTURE_QUEUE_NAME_LENGTH_SIZE);
 			transaction_change.get()->queue = std::string(tx_info.get() + TX_MSG_CAPTURE_QUEUE_NAME_OFFSET, queue_name_size);
@@ -872,25 +870,6 @@ void TransactionHandler::remove_transaction(unsigned long long transaction_group
 	}
 }
 
-void TransactionHandler::close_uncommited_open_transactions_when_leader_change(const std::string& queue_name) {
-	std::lock_guard<std::shared_mutex> lock1(this->transactions_mut);
-	std::lock_guard<std::mutex> lock2(this->transactions_to_close_mut);
-	std::lock_guard<std::shared_mutex> lock3(this->transactions_heartbeats_mut);
-
-	for (auto& iter : this->open_transactions)
-		if (this->cluster_metadata->transaction_group_contains_queue(iter.first, queue_name))
-		{
-			for (auto& tx_id : *(iter.second.get()))
-			{
-				std::string tx_key = this->get_transaction_key(iter.first, tx_id);
-				this->transactions_to_close.insert(tx_key);
-				this->transactions_heartbeats.erase(tx_key);
-			}
-
-			iter.second.get()->clear();
-		}
-}
-
 void TransactionHandler::check_for_expired_transaction_groups(std::atomic_bool* should_terminate) {
 	if (!this->settings->get_is_controller_node()) return;
 	
@@ -1122,4 +1101,116 @@ bool TransactionHandler::unregister_transaction_group(UnregisterTransactionGroup
 
 std::string TransactionHandler::get_transaction_partition_change_capture_key(Partition* partition) {
 	return partition->get_queue_name() + "_" + std::to_string(partition->get_partition_id());
+}
+
+void TransactionHandler::abort_all_transaction_changes_for_partition(const std::string& queue, int partition) {
+	std::shared_lock<std::shared_mutex> lock(this->transactions_mut);
+
+	TransactionStatus abort_status = TransactionStatus::ABORT;
+
+	for (auto& iter : this->transaction_changes)
+		if (iter.second != nullptr)
+			for (auto& iter_2 : *(iter.second.get())) {
+				if (iter_2.get()->queue != queue || iter_2.get()->partition_id != partition) continue;
+
+				unsigned int batch_size = iter_2.get()->file_end_offset - iter_2.get()->file_start_offset;
+				std::unique_ptr<char> batch = std::unique_ptr<char>(new char[batch_size]);
+
+				std::string segment_key = this->pm->get_file_key(queue, iter_2.get()->segment_id, partition);
+				std::string segment_path = this->pm->get_file_path(queue, iter_2.get()->segment_id, partition);
+
+				try {
+					this->fh->read_from_file(
+						segment_key,
+						segment_path,
+						batch_size,
+						iter_2.get()->file_start_offset,
+						batch.get()
+					);
+
+					unsigned int offset = 0;
+					unsigned int message_bytes = 0;
+					unsigned long long message_id = 0;
+
+					while (offset < batch_size) {
+						memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
+						memcpy_s(&message_id, MESSAGE_ID_SIZE, batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
+
+						memcpy_s(batch.get() + offset + MESSAGE_COMMIT_STATUS_OFFSET, MESSAGE_COMMIT_STATUS_SIZE, &abort_status, MESSAGE_COMMIT_STATUS_OFFSET);
+
+						Helper::update_checksum(batch.get() + offset, message_bytes);
+
+						this->ch->update_message_commit_status(
+							queue, partition, iter_2.get()->segment_id, message_id, abort_status
+						);
+					}
+
+					this->fh->write_to_file(
+						segment_key, 
+						segment_path, 
+						batch_size, 
+						iter_2.get()->file_start_offset, 
+						batch.get(),
+						true
+					);
+
+					this->fh->close_file(segment_key);
+				}
+				catch (const std::exception& ex) {
+					std::string err_msg = "Failed to abort transaction changes on queue " 
+						+ queue 
+						+ ", partition "
+						+ std::to_string(partition)
+						+ " and segment "
+						+ std::to_string(iter_2.get()->segment_id)
+						+ " . Reason: "
+						+ std::string(ex.what());
+
+					this->logger->log_error(err_msg);
+				}
+			}
+}
+
+void TransactionHandler::close_all_queue_involved_transactions(const std::string& queue) {
+	std::vector<unsigned long long> tx_group_ids;
+
+	{
+		std::shared_lock<std::shared_mutex> slock(this->cluster_metadata->transaction_groups_mut);
+
+		if (
+			this->cluster_metadata->nodes_transaction_groups.find(this->settings->get_node_id()) == 
+			this->cluster_metadata->nodes_transaction_groups.end()
+		)
+			return;
+
+		if (this->cluster_metadata->nodes_transaction_groups[this->settings->get_node_id()] == nullptr)
+			return;
+
+		for (auto& iter : *(this->cluster_metadata->nodes_transaction_groups[this->settings->get_node_id()].get())) {
+			if (iter.second == nullptr) continue;
+
+			if (iter.second.get()->find(queue) == iter.second.get()->end()) continue;
+
+			tx_group_ids.push_back(iter.first);
+		}
+	}
+
+	std::shared_lock<std::shared_mutex> slock(this->transactions_mut);
+	std::lock_guard<std::mutex> tx_to_close_mut(this->transactions_to_close_mut);
+	std::lock_guard<std::shared_mutex> heartbeats_mut(this->transactions_heartbeats_mut);
+
+	for (auto tx_group_id : tx_group_ids) {
+		if (this->open_transactions.find(tx_group_id) == this->open_transactions.end())
+			continue;
+
+		if (this->open_transactions[tx_group_id] == nullptr || this->open_transactions[tx_group_id].get()->size() == 0)
+			continue;
+
+		for (auto tx_id : *(this->open_transactions[tx_group_id].get())) {
+			std::string tx_key = this->get_transaction_key(tx_group_id, tx_id);
+
+			this->transactions_to_close.insert(tx_key);
+			this->transactions_heartbeats.erase(tx_key);
+		}
+	}
 }

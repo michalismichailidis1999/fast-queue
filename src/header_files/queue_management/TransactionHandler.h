@@ -136,8 +136,6 @@ public:
 
 	void handle_transaction_status_change_notification(unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change);
 
-	void close_uncommited_open_transactions_when_leader_change(const std::string& queue_name);
-
 	void check_for_expired_transaction_groups(std::atomic_bool* should_terminate);
 
 	void check_for_expired_transactions(std::atomic_bool* should_terminate);
@@ -149,6 +147,10 @@ public:
 	void set_controller_unregister_transaction_group_cb(std::function<bool(UnregisterTransactionGroupRequest*)> cb);
 
 	std::string get_transaction_key(unsigned long long transaction_group_id, unsigned long long transaction_id);
+
+	void abort_all_transaction_changes_for_partition(const std::string& queue, int partition);
+
+	void close_all_queue_involved_transactions(const std::string& queue);
 	
 	friend class BeforeServerStartupHandler;
 };
