@@ -134,7 +134,10 @@ unsigned long long Partition::get_next_message_offset() {
 
 unsigned long long Partition::get_message_offset() {
 	std::shared_lock<std::shared_mutex> lock(this->mut);
-	return this->last_message_offset;
+
+	unsigned long long min_tx_message_id = this->open_transactions_min_message_ids->get_top();
+
+	return min_tx_message_id > 0 ? min_tx_message_id - 1 : this->last_message_offset;
 }
 
 void Partition::set_last_message_offset(unsigned long long last_message_offset) {
@@ -221,6 +224,8 @@ std::shared_mutex* Partition::get_consumers_mut() {
 }
 
 void Partition::add_transaction_starting_message_id(const std::string& tx_key, unsigned long long first_message_id) {
+	if (this->open_transactions_min_message_ids->has_element(tx_key)) return;
+
 	this->open_transactions_min_message_ids->insert(tx_key, first_message_id);
 }
 

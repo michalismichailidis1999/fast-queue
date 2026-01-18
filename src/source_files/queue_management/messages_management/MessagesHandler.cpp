@@ -79,13 +79,17 @@ bool MessagesHandler::save_messages(Partition* partition, ProduceMessagesRequest
 
 		if (success && !has_replication)
 		{
+			unsigned long long last_replicated_offset = Helper::get_max(message_offset, partition->get_last_replicated_offset());
+
+			partition->set_last_replicated_offset(last_replicated_offset);
+
 			std::lock_guard<std::shared_mutex> lock2(partition->consumers_mut);
 
 			if (this->disk_flusher->path_exists(partition->get_offsets_path()))
 				this->disk_flusher->write_data_to_specific_file_location(
 					partition->get_offsets_key(),
 					partition->get_offsets_path(),
-					&message_offset,
+					&last_replicated_offset,
 					sizeof(unsigned long long),
 					0,
 					true

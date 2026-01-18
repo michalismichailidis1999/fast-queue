@@ -72,6 +72,10 @@ unsigned long long Helper::get_min(unsigned long long val1, unsigned long long v
 	return val1 <= val2 ? val1 : val2;
 }
 
+unsigned long long Helper::get_max(unsigned long long val1, unsigned long long val2) {
+	return val1 >= val2 ? val1 : val2;
+}
+
 bool Helper::starts_with(const std::string& value, const std::string& prefix) {
 	if (value.size() < prefix.size()) return false;
 

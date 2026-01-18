@@ -488,7 +488,7 @@ void ClientRequestExecutor::handle_consume_request(SOCKET_ID socket, SSL* ssl, C
 		request->read_single_offset_only ? 1 : 0,
 		false, 
 		true, 
-		partition->get_last_replicated_offset()
+		Helper::get_min(partition->get_last_replicated_offset(), partition->get_message_offset())
 	);
 	
 	res.get()->total_messages = std::get<4>(messages_res);

@@ -66,6 +66,11 @@ public:
         null_value(default_null_value),
         null_index(default_null_index) {}
 
+    bool has_element(K user_index) {
+        std::lock_guard<std::mutex> lock(this->mut);
+        return this->indexToHeap.find(user_index) != this->indexToHeap.end();
+    }
+
     void insert(K user_index, T value) {
         std::unique_lock<std::mutex> lock(this->mut);
 
@@ -105,6 +110,14 @@ public:
         if (res.size() == 0) return std::tuple<T, K>(this->null_value, this->null_index);
 
         return res[0];
+    }
+
+    T get_top() {
+        std::lock_guard<std::mutex> lock(this->mut);
+
+        if (this->heap.empty()) return this->null_value;
+
+        return this->heap[0];
     }
 
     std::vector<std::tuple<T, K>> extractTopKValues(int k) {

@@ -172,11 +172,13 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 			);
 	}
 
+	unsigned long long partition_last_message_offset = partition->get_message_offset();
+
 	std::unique_ptr<FetchMessagesResponse> res = std::make_unique<FetchMessagesResponse>();
 	res.get()->total_messages = 0;
 	res.get()->messages_total_bytes = 0;
 	res.get()->messages_data = NULL;
-	res.get()->last_message_offset = partition->get_message_offset();
+	res.get()->last_message_offset = partition_last_message_offset;
 	res.get()->commited_offset = partition->get_last_replicated_offset();
 	res.get()->prev_message_offset = 0;
 	res.get()->prev_message_leader_epoch = 0;
@@ -190,13 +192,14 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 	std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int> messages_res_2 = 
 		std::tuple<std::shared_ptr<char>, unsigned int, unsigned int, unsigned int, unsigned int>(nullptr, 0, 0, 0, 0);
 
-	if (request->message_offset <= partition->get_message_offset()) {
+	if (request->message_offset <= partition_last_message_offset) {
 		messages_res = this->mh->read_partition_messages(
 			partition.get(),
 			request->message_offset,
 			0,
 			false,
-			true
+			true,
+			partition_last_message_offset
 		);
 
 		res.get()->total_messages = std::get<4>(messages_res);

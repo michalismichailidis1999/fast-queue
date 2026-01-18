@@ -590,6 +590,7 @@ void TransactionHandler::compact_transaction_change_captures(Partition* partitio
 			memcpy_s(&transaction_change.get()->segment_id, TX_MSG_CAPTURE_SEG_ID_SIZE, tx_info.get() + TX_MSG_CAPTURE_SEG_ID_OFFSET, TX_MSG_CAPTURE_SEG_ID_SIZE);
 
 			this->transaction_changes[iter.first].get()->emplace_back(transaction_change);
+			partition->add_transaction_starting_message_id(iter.first, transaction_change.get()->first_message_id);
 		}
 	}
 
@@ -779,10 +780,10 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 
 	if (status_change != TransactionStatus::END) return;
 
-	this->remove_transaction(transaction_group_id, tx_id);
-
 	for (auto& iter : all_change_capture_partitions)
 		iter.second.get()->remove_transaction_starting_message_id(iter.first);
+
+	this->remove_transaction(transaction_group_id, tx_id);
 }
 
 void TransactionHandler::notify_group_nodes_node_about_transaction_status_change(std::shared_ptr<std::unordered_set<int>> tx_nodes, unsigned long long transaction_group_id, unsigned long long tx_id, TransactionStatus status_change, bool closing_in_background) {
