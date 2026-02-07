@@ -43,9 +43,15 @@ void TransactionHandler::init_transaction_segment(int segment_id) {
 }
 
 // This will run only in transaction group insertion, transaction initialization or finalization
-void TransactionHandler::update_transaction_group_heartbeat(unsigned long long transaction_group_id) {
+bool TransactionHandler::update_transaction_group_heartbeat(unsigned long long transaction_group_id, bool only_if_exists) {
 	std::lock_guard<std::shared_mutex> lock(this->ts_groups_heartbeats_mut);
+
+	if (only_if_exists && this->ts_groups_heartbeats.find(transaction_group_id) == this->ts_groups_heartbeats.end())
+		return false;
+
 	this->ts_groups_heartbeats[transaction_group_id] = this->util->get_current_time_milli();
+
+	return true;
 }
 
 void TransactionHandler::set_transaction_group_heartbeat_to_expired(unsigned long long transaction_group_id) {

@@ -873,3 +873,26 @@ std::unique_ptr<VerifyTransactionGroupCreationRequest> RequestMapper::to_verify_
 
 	return req;
 }
+
+std::unique_ptr<TransactionGroupHeartbeatRequest> RequestMapper::to_transaction_group_heartbeat_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<TransactionGroupHeartbeatRequest> req = std::make_unique<TransactionGroupHeartbeatRequest>();
+
+	req.get()->transaction_group_id = 0;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::TRANSACTION_GROUP_ID) {
+			req.get()->transaction_group_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type TransactionGroupHeartbeatRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}

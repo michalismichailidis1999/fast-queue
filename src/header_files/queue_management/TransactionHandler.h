@@ -120,7 +120,7 @@ public:
 
 	void init_transaction_segment(int segment_id);
 
-	void update_transaction_group_heartbeat(unsigned long long transaction_group_id);
+	bool update_transaction_group_heartbeat(unsigned long long transaction_group_id, bool only_if_exists = false);
 
 	void update_transaction_heartbeat(unsigned long long transaction_group_id, unsigned long long tx_id);
 
@@ -151,6 +151,6 @@ public:
 	void abort_all_transaction_changes_for_partition(const std::string& queue, int partition);
 
 	void close_all_queue_involved_transactions(const std::string& queue);
-	
+
 	friend class BeforeServerStartupHandler;
 };

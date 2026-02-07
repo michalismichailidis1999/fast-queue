@@ -1306,3 +1306,29 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(TransactionGroupHeartbeatResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(bool) + sizeof(ResponseValueKey);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
+
+	ResponseValueKey ok_type = ResponseValueKey::OK;
+
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
+	offset += sizeof(ErrorCode);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &ok_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(bool), &obj->ok, sizeof(bool));
+	offset += sizeof(bool);
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}

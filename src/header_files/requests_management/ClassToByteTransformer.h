@@ -84,6 +84,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(FinalizeTransactionResponse* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(VerifyTransactionGroupCreationResponse* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(TransactionGroupHeartbeatResponse* obj);
     // --
 
     // ------------------

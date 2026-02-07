@@ -62,5 +62,7 @@ public:
 
 	std::unique_ptr<VerifyTransactionGroupCreationRequest> to_verify_transaction_group_creation_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<TransactionGroupHeartbeatRequest> to_transaction_group_heartbeat_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 };

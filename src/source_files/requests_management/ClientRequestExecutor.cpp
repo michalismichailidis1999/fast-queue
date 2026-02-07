@@ -690,3 +690,17 @@ void ClientRequestExecutor::handle_verify_transaction_group_creation_request(SOC
 
 	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
 }
+
+void ClientRequestExecutor::handle_transaction_group_heartbeat_request(SOCKET_ID socket, SSL* ssl, TransactionGroupHeartbeatRequest* request) {
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Request to update transaction group heartbeat must only be sent to controller nodes");
+		return;
+	}
+
+	std::unique_ptr<TransactionGroupHeartbeatResponse> res = std::make_unique<TransactionGroupHeartbeatResponse>();
+	res.get()->ok = this->th->update_transaction_group_heartbeat(request->transaction_group_id, true);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}

@@ -191,4 +191,8 @@ struct VerifyTransactionGroupCreationRequest {
 	unsigned long long transaction_group_id;
 };
 
+struct TransactionGroupHeartbeatRequest {
+	unsigned long long transaction_group_id;
+};
+
 // ======================================================================

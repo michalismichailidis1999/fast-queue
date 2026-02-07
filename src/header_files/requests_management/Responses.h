@@ -132,4 +132,8 @@ struct VerifyTransactionGroupCreationResponse {
 	bool ok;
 };
 
+struct TransactionGroupHeartbeatResponse {
+	bool ok;
+};
+
 // =======================================================

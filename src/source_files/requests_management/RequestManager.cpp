@@ -398,6 +398,18 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 
 			break;
 		}
+		case RequestType::TRANSACTION_GROUP_HEARTBEAT:
+		{
+			this->logger->log_info("Received and executing request type of TRANSACTION_GROUP_HEARTBEAT");
+
+			std::unique_ptr<TransactionGroupHeartbeatRequest> request = this->mapper->to_transaction_group_heartbeat_request(recvbuf.get(), res_buffer_length);
+
+			this->client_request_executor->handle_transaction_group_heartbeat_request(socket, ssl, request.get());
+
+			request_type_str = "TRANSACTION_GROUP_HEARTBEAT";
+
+			break;
+		}
 		case RequestType::UNREGISTER_TRANSACTION_GROUP:
 		{
 			this->logger->log_info("Received and executing request type of UNREGISTER_TRANSACTION_GROUP");

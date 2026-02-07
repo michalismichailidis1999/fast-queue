@@ -58,4 +58,6 @@ public:
 	void handle_finalize_transaction_request(SOCKET_ID socket, SSL* ssl, FinalizeTransactionRequest* request);
 
 	void handle_verify_transaction_group_creation_request(SOCKET_ID socket, SSL* ssl, VerifyTransactionGroupCreationRequest* request);
+
+	void handle_transaction_group_heartbeat_request(SOCKET_ID socket, SSL* ssl, TransactionGroupHeartbeatRequest* request);
 };
