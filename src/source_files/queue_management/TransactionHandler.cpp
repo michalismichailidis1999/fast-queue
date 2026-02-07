@@ -434,19 +434,17 @@ void TransactionHandler::capture_transaction_changes(Partition* partition, Trans
 		}).detach();
 }
 
-void TransactionHandler::capture_transaction_changes_end(Partition* partition, TransactionChangeCapture* change_capture) {
+void TransactionHandler::capture_transaction_changes_end(unsigned long long transaction_group_id, unsigned long long tx_id, Partition* partition) {
 	TransactionChangeCapture dummy_change_capture = TransactionChangeCapture{
 		0,
 		0,
 		0,
-		change_capture->transaction_id,
-		change_capture->transaction_group_id,
-		change_capture->queue,
-		change_capture->partition_id,
+		tx_id,
+		transaction_group_id,
+		partition->get_queue_name(),
+		partition->get_partition_id(),
 		partition->get_active_segment()->get_id()
 	};
-
-	std::lock_guard<std::mutex> lock(partition->transaction_chages_mut);
 
 	this->capture_transaction_changes(partition, dummy_change_capture, TransactionStatus::END);
 }
@@ -460,6 +458,9 @@ void TransactionHandler::capture_transaction_change_to_memory(TransactionChangeC
 	tx_capture_copy.get()->first_message_id = change_capture.first_message_id;
 	tx_capture_copy.get()->file_start_offset = change_capture.file_start_offset;
 	tx_capture_copy.get()->file_end_offset = change_capture.file_end_offset;
+	tx_capture_copy.get()->partition_id = change_capture.partition_id;
+	tx_capture_copy.get()->segment_id = change_capture.segment_id;
+	tx_capture_copy.get()->queue = change_capture.queue;
 
 	std::string key = this->get_transaction_key(change_capture.transaction_group_id, change_capture.transaction_id);
 
@@ -696,7 +697,7 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 
 	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
 	std::unordered_set<std::string> captured_changes_ends;
-	std::unordered_map<std::string, std::shared_ptr<Partition>> all_change_capture_partitions;
+	std::unordered_map<std::string, std::shared_ptr<std::unordered_map<std::string, std::shared_ptr<Partition>>>> all_change_capture_partitions;
 
 	if (this->transaction_changes.find(tx_key) == this->transaction_changes.end()) return;
 
@@ -719,14 +720,12 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 
 		if (status_change == TransactionStatus::END)
 		{
-			std::string queue_partition_key = this->get_transaction_partition_change_capture_key(partition.get());
+			std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
 
-			all_change_capture_partitions[queue_partition_key] = partition;
+			if (all_change_capture_partitions.find(tx_key) == all_change_capture_partitions.end())
+				all_change_capture_partitions[tx_key] = std::make_shared<std::unordered_map<std::string, std::shared_ptr<Partition>>>();
 
-			if (captured_changes_ends.find(queue_partition_key) == captured_changes_ends.end()) {
-				this->capture_transaction_changes_end(partition.get(), change.get());
-				captured_changes_ends.insert(queue_partition_key);
-			}
+			(*(all_change_capture_partitions[tx_key].get()))[this->get_transaction_partition_change_capture_key(partition.get())] = partition;
 			
 			continue;
 		}
@@ -757,7 +756,7 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 			memcpy_s(&message_bytes, TOTAL_METADATA_BYTES, batch.get() + offset + TOTAL_METADATA_BYTES_OFFSET, TOTAL_METADATA_BYTES);
 			memcpy_s(&message_id, MESSAGE_ID_SIZE, batch.get() + offset + MESSAGE_ID_OFFSET, MESSAGE_ID_SIZE);
 
-			memcpy_s(batch.get() + offset + MESSAGE_COMMIT_STATUS_OFFSET, MESSAGE_COMMIT_STATUS_SIZE, &status_change, MESSAGE_COMMIT_STATUS_OFFSET);
+			memcpy_s(batch.get() + offset + MESSAGE_COMMIT_STATUS_OFFSET, MESSAGE_COMMIT_STATUS_SIZE, &status_change, MESSAGE_COMMIT_STATUS_SIZE);
 
 			Helper::update_checksum(batch.get() + offset, message_bytes);
 
@@ -781,7 +780,10 @@ void TransactionHandler::handle_transaction_status_change_notification(unsigned 
 	if (status_change != TransactionStatus::END) return;
 
 	for (auto& iter : all_change_capture_partitions)
-		iter.second.get()->remove_transaction_starting_message_id(iter.first);
+		for (auto& iter_2 : *(iter.second.get())) {
+			this->capture_transaction_changes_end(transaction_group_id, tx_id, iter_2.second.get());
+			iter_2.second.get()->remove_transaction_starting_message_id(iter.first);
+		}
 
 	this->remove_transaction(transaction_group_id, tx_id);
 }
@@ -1100,10 +1102,6 @@ bool TransactionHandler::unregister_transaction_group(UnregisterTransactionGroup
 	return res.get()->ok;
 }
 
-std::string TransactionHandler::get_transaction_partition_change_capture_key(Partition* partition) {
-	return partition->get_queue_name() + "_" + std::to_string(partition->get_partition_id());
-}
-
 void TransactionHandler::abort_all_transaction_changes_for_partition(const std::string& queue, int partition) {
 	std::shared_lock<std::shared_mutex> lock(this->transactions_mut);
 
@@ -1214,4 +1212,8 @@ void TransactionHandler::close_all_queue_involved_transactions(const std::string
 			this->transactions_heartbeats.erase(tx_key);
 		}
 	}
+}
+
+std::string TransactionHandler::get_transaction_partition_change_capture_key(Partition* partition) {
+	return partition->get_queue_name() + "_" + std::to_string(partition->get_partition_id());
 }
