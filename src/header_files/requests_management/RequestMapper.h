@@ -32,6 +32,8 @@ public:
 
 	std::unique_ptr<UnregisterTransactionGroupRequest> to_unregister_transaction_group_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<TransactionStatusUpdateRequest> to_transaction_status_update_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 
 	// External Requests

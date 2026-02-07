@@ -87,7 +87,7 @@ struct UnregisterTransactionGroupRequest {
 struct TransactionStatusUpdateRequest {
 	unsigned long long transaction_group_id;
 	unsigned long long transaction_id;
-	TransactionStatus status;
+	int status;
 };
 
 // ======================================================================

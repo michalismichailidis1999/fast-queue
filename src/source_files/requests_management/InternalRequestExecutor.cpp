@@ -1,7 +1,7 @@
 #include "../../header_files/requests_management/InternalRequestExecutor.h"
 
 
-InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer) {
+InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer, TransactionHandler* th) {
 	this->settings = settings;
 	this->logger = logger;
 	this->cm = cm;
@@ -11,6 +11,7 @@ InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* log
 	this->qm = qm;
 	this->mh = mh;
 	this->transformer = transformer;
+	this->th = th;
 }
 
 void InternalRequestExecutor::handle_append_entries_request(SOCKET_ID socket, SSL* ssl, AppendEntriesRequest* request) {
@@ -71,7 +72,17 @@ void InternalRequestExecutor::handle_get_cluster_metadata_update_request(SOCKET_
 		return;
 	}
 
+	if (request->node_id <= 0) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Node id can only be a positive integer");
+		return;
+	}
+
 	std::shared_ptr<AppendEntriesRequest> res = this->controller->get_cluster_metadata_updates(request);
+
+	if (res == nullptr) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::DATA_NODE_NOT_REGISTERED_YET, "Data node " + std::to_string(request->node_id) + " hasn't been registered to cluster yet");
+		return;
+	}
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get(), true);
 
@@ -331,6 +342,32 @@ void InternalRequestExecutor::handle_unregister_transaction_group_request(SOCKET
 	res.get()->ok = res.get()->leader_id == this->settings->get_node_id();
 
 	if (res.get()->ok) this->controller->unregister_transaction_group(request);
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+}
+
+void InternalRequestExecutor::handle_transaction_status_update_request(SOCKET_ID socket, SSL* ssl, TransactionStatusUpdateRequest* request) {
+	if (request->status < 1 || request->status > 4) {
+		this->cm->respond_to_socket_with_error(
+			socket, 
+			ssl, 
+			ErrorCode::INCORRECT_REQUEST_BODY, 
+			"Incorrect transaction status value " + std::to_string(request->status)
+		);
+
+		return;
+	}
+	
+	this->th->handle_transaction_status_change_notification(
+		request->transaction_group_id, 
+		request->transaction_id,
+		(TransactionStatus)request->status
+	);
+	
+	std::unique_ptr<TransactionStatusUpdateResponse> res = std::make_unique<TransactionStatusUpdateResponse>();
+	res.get()->ok = true;
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 

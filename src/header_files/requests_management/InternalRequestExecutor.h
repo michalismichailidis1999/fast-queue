@@ -9,6 +9,7 @@
 #include "../cluster_management/Controller.h"
 #include "../cluster_management/DataNode.h"
 #include "../queue_management/QueueManager.h"
+#include "../queue_management/TransactionHandler.h"
 #include "../queue_management/messages_management/MessagesHandler.h"
 #include "./ClassToByteTransformer.h"
 #include "./Requests.h"
@@ -26,9 +27,10 @@ private:
 	QueueManager* qm;
 	MessagesHandler* mh;
 	ClassToByteTransformer* transformer;
+	TransactionHandler* th;
 
 public:
-	InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer);
+	InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer, TransactionHandler* th);
 
 	void handle_append_entries_request(SOCKET_ID socket, SSL* ssl, AppendEntriesRequest* request);
 
@@ -47,4 +49,6 @@ public:
 	void handle_remove_lagging_follower_request(SOCKET_ID socket, SSL* ssl, RemoveLaggingFollowerRequest* request);
 
 	void handle_unregister_transaction_group_request(SOCKET_ID socket, SSL* ssl, UnregisterTransactionGroupRequest* request);
+
+	void handle_transaction_status_update_request(SOCKET_ID socket, SSL* ssl, TransactionStatusUpdateRequest* request);
 };

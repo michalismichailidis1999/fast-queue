@@ -671,7 +671,7 @@ std::tuple<bool, int> TransactionHandler::notify_node_about_transaction_status_c
 	std::unique_ptr<TransactionStatusUpdateRequest> req = std::make_unique<TransactionStatusUpdateRequest>();
 	req.get()->transaction_group_id = transaction_group_id;
 	req.get()->transaction_id = tx_id;
-	req.get()->status = status_change;
+	req.get()->status = (int)status_change;
 
 	auto req_buf = this->transformer->transform(req.get());
 
@@ -686,7 +686,7 @@ std::tuple<bool, int> TransactionHandler::notify_node_about_transaction_status_c
 	if (std::get<1>(res_buf) == -1) return std::tuple<bool, int>(false, node_id);
 
 	std::unique_ptr<TransactionStatusUpdateResponse> res = this->response_mapper->to_transaction_status_update_response(
-		std::get<1>(req_buf).get(), std::get<0>(req_buf)
+		std::get<0>(res_buf).get(), std::get<1>(res_buf)
 	);
 
 	return std::tuple<bool, int>(res != nullptr && res.get()->ok, node_id);

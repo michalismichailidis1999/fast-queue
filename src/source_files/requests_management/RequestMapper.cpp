@@ -742,6 +742,39 @@ std::unique_ptr<UnregisterTransactionGroupRequest> RequestMapper::to_unregister_
 	return req;
 }
 
+std::unique_ptr<TransactionStatusUpdateRequest> RequestMapper::to_transaction_status_update_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<TransactionStatusUpdateRequest> req = std::make_unique<TransactionStatusUpdateRequest>();
+
+	req.get()->transaction_group_id = 0;
+	req.get()->transaction_id = 0;
+	req.get()->status = (int)TransactionStatus::NONE;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::TRANSACTION_ID) {
+			req.get()->transaction_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::TRANSACTION_GROUP_ID) {
+			req.get()->transaction_group_id = *(unsigned long long*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == RequestValueKey::TRANSACTION_STATUS) {
+			req.get()->status = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type TransactionStatusUpdateRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}
+
 std::unique_ptr<BeginTransactionRequest> RequestMapper::to_begin_transaction_request(char* recvbuf, int recvbuflen) {
 	int offset = sizeof(RequestType); // skip request type 
 

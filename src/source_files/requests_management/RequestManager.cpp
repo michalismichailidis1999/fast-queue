@@ -33,6 +33,8 @@ bool RequestManager::is_invalid_external_request(RequestType req_type) {
 	case RequestType::FETCH_MESSAGES: return true;
 	case RequestType::ADD_LAGGING_FOLLOWER: return true;
 	case RequestType::REMOVE_LAGGING_FOLLOWER: return true;
+	case RequestType::UNREGISTER_TRANSACTION_GROUP: return true;
+	case RequestType::TRANSACTION_STATUS_UPDATE: return true;
 	default:
 		return false;
 	}
@@ -429,6 +431,18 @@ void RequestManager::execute_request(SOCKET_ID socket, SSL* ssl, bool internal_c
 			this->client_request_executor->handle_finalize_transaction_request(socket, ssl, request.get());
 
 			request_type_str = "FINALIZE_TRANSACTION";
+
+			break;
+		}
+		case RequestType::TRANSACTION_STATUS_UPDATE:
+		{
+			this->logger->log_info("Received and executing request type of TRANSACTION_STATUS_UPDATE");
+
+			std::unique_ptr<TransactionStatusUpdateRequest> request = this->mapper->to_transaction_status_update_request(recvbuf.get(), res_buffer_length);
+
+			this->internal_request_executor->handle_transaction_status_update_request(socket, ssl, request.get());
+
+			request_type_str = "TRANSACTION_STATUS_UPDATE";
 
 			break;
 		}
