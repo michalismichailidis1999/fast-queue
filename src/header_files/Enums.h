@@ -75,6 +75,7 @@ enum class RequestValueKey {
 	TRANSACTION_GROUP_ID,
 	TRANSACTION_ID,
 	COMMIT_TRANSACTION,
+	CLEANUP_POLICY,
 
 	// Internal Communication
 	NODE_ID,
@@ -142,10 +143,6 @@ enum class Status {
 	PENDING_CREATION,
 	ACTIVE,
 	PENDING_DELETION
-};
-
-enum class CompressionAlgorithm {
-	LZ4
 };
 
 enum class NodeState {

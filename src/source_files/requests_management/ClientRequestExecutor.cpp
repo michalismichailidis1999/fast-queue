@@ -71,7 +71,7 @@ void ClientRequestExecutor::handle_create_queue_request(SOCKET_ID socket, SSL* s
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	std::shared_ptr<QueueMetadata> queue_metadata = std::shared_ptr<QueueMetadata>(
-		new QueueMetadata(queue_name, request->partitions, request->replication_factor)
+		new QueueMetadata(queue_name, request->partitions, request->replication_factor, (CleanupPolicyType)request->cleanup_policy)
 	);
 
 	queue_metadata.get()->set_status(Status::PENDING_CREATION);

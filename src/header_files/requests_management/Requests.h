@@ -106,6 +106,7 @@ struct CreateQueueRequest : AuthRequest {
 	char* queue_name;
 	int partitions;
 	int replication_factor;
+	int cleanup_policy;
 };
 
 struct DeleteQueueRequest : AuthRequest {

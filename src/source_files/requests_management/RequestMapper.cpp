@@ -9,6 +9,7 @@ std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char*
 
 	std::unique_ptr<CreateQueueRequest> req = std::make_unique<CreateQueueRequest>();
 	req.get()->queue_name_length = 0;
+	req.get()->cleanup_policy = (int)CleanupPolicyType::DELETE_SEGMENTS;
 
 	while (offset < recvbuflen) {
 		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
@@ -23,7 +24,12 @@ std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char*
 		} else if (*key == RequestValueKey::REPLICATION_FACTOR) {
 			req.get()->replication_factor = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			offset += sizeof(RequestValueKey) + sizeof(int);
-		} else if (*key == RequestValueKey::USERNAME) {
+		}
+		else if (*key == RequestValueKey::CLEANUP_POLICY) {
+			req.get()->cleanup_policy = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else if (*key == RequestValueKey::USERNAME) {
 			req.get()->username_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
 			req.get()->username = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
 			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->username_length;
