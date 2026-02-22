@@ -771,3 +771,16 @@ unsigned long long ClusterMetadata::get_last_transaction_group_id() {
 	std::shared_lock<std::shared_mutex> lock(this->transaction_groups_mut);
 	return this->last_transaction_group_id;
 }
+
+bool ClusterMetadata::queue_is_assigned_to_transaction_group(const std::string& queue) {
+	std::shared_lock<std::shared_mutex> lock(this->transaction_groups_mut);
+
+	for (auto& iter : this->nodes_transaction_groups)
+		if (iter.second != nullptr)
+			for (auto& iter_2 : *(iter.second.get()))
+				if (iter_2.second != nullptr && iter_2.second.get()->find(queue) != iter_2.second.get()->end())
+					return true;
+
+
+	return false;
+}

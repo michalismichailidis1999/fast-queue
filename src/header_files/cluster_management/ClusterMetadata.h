@@ -123,6 +123,8 @@ public:
 
 	unsigned long long get_last_transaction_group_id();
 
+	bool queue_is_assigned_to_transaction_group(const std::string& queue);
+
 	friend class Controller;
 	friend class DataNode;
 	friend class TransactionHandler;

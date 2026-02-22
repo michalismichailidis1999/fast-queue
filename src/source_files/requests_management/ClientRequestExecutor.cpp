@@ -121,7 +121,10 @@ void ClientRequestExecutor::handle_delete_queue_request(SOCKET_ID socket, SSL* s
 		return;
 	}
 
-	// TODO: Check if queue is assigned to transaction group and return error if yes
+	if (this->controller->get_cluster_metadata()->queue_is_assigned_to_transaction_group(queue_name)) {
+		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_ASSIGNED_TO_TRANSACTION_GROUP, "Cannot delete queue. It's assigned to at least one transaction group");
+		return;
+	}
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
