@@ -1254,6 +1254,8 @@ void TransactionHandler::close_transaction(const std::string& tx_key) {
 		this->notify_group_nodes_node_about_transaction_status_change(
 			tx_nodes, transaction_group_id, tx_id, TransactionStatus::END, true
 		);
+
+		this->tlm->release_transaction_lock(tx_key);
 	}
 	catch (const std::exception& ex) {
 		this->tlm->release_transaction_lock(tx_key);
