@@ -121,6 +121,8 @@ void ClientRequestExecutor::handle_delete_queue_request(SOCKET_ID socket, SSL* s
 		return;
 	}
 
+	// TODO: Check if queue is assigned to transaction group and return error if yes
+
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	std::unique_ptr<DeleteQueueResponse> res = std::make_unique<DeleteQueueResponse>();

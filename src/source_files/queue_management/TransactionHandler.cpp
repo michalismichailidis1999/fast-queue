@@ -1,7 +1,8 @@
 #include "../../header_files/queue_management/TransactionHandler.h"
 
-TransactionHandler::TransactionHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, CacheHandler* ch, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
+TransactionHandler::TransactionHandler(QueueManager* qm, TransactionLockManager* tlm, ConnectionsManager* cm, FileHandler* fh, CacheHandler* ch, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger) {
 	this->qm = qm;
+	this->tlm = tlm;
 	this->cm = cm;
 	this->fh = fh;
 	this->ch = ch;
@@ -134,8 +135,24 @@ unsigned long long TransactionHandler::init_transaction(unsigned long long trans
 // 4) Finalize status will be written to transaction segment and update status in memory
 // 5) End transaction
 void TransactionHandler::finalize_transaction(unsigned long long transaction_group_id, unsigned long long tx_id, bool commit) {
+	std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
+
+	bool tx_closed = false;
+
 	try
 	{
+		this->tlm->lock_transaction(tx_key);
+
+		bool tx_closed = false;
+
+		{
+			std::shared_lock<std::shared_mutex> slock(this->transactions_mut);
+			tx_closed = this->open_transactions_statuses.find(tx_key) == this->open_transactions_statuses.end();
+		}
+
+		if (tx_closed)
+			throw std::runtime_error("Transaction has already been closed");
+
 		this->update_transaction_group_heartbeat(transaction_group_id);
 
 		std::shared_ptr<std::unordered_set<int>> tx_nodes = this->find_all_transaction_nodes(transaction_group_id);
@@ -154,11 +171,9 @@ void TransactionHandler::finalize_transaction(unsigned long long transaction_gro
 	}
 	catch (const std::exception& ex)
 	{
-		std::unique_lock<std::shared_mutex> transactions_lock(this->transactions_mut);
+		this->tlm->release_transaction_lock(tx_key);
 
-		std::string tx_key = this->get_transaction_key(transaction_group_id, tx_id);
-
-		{
+		if (!tx_closed) {
 			std::lock_guard<std::shared_mutex> heartbeats_lock(this->transactions_heartbeats_mut);
 			std::lock_guard<std::mutex> tx_to_close_lock(this->transactions_to_close_mut);
 			this->transactions_heartbeats.erase(tx_key);
@@ -1007,35 +1022,11 @@ void TransactionHandler::close_failed_transactions_in_background(std::atomic_boo
 
 			for (const std::string& tx_key : txs_to_close) {
 				try {
-					TransactionStatus status = TransactionStatus::NONE;
-
-					{
-						std::lock_guard<std::shared_mutex> slock(this->transactions_mut);
-						if (this->open_transactions_statuses.find(tx_key) != this->open_transactions_statuses.end())
-							status = this->open_transactions_statuses[tx_key];
-					}
-
-					if (status == TransactionStatus::NONE) continue;
-
-					this->get_transaction_key_parts(tx_key, &transaction_group_id, &tx_id);
-
-					if (status == TransactionStatus::END) {
-						this->remove_transaction(transaction_group_id, tx_id, true);
-						continue;
-					}
-
-					std::shared_ptr<std::unordered_set<int>> tx_nodes = this->find_all_transaction_nodes(transaction_group_id);
-
-					if (status == TransactionStatus::BEGIN)
-						this->notify_group_nodes_node_about_transaction_status_change(
-							tx_nodes, transaction_group_id, tx_id, TransactionStatus::ABORT, true
-						);
-
-					this->notify_group_nodes_node_about_transaction_status_change(
-						tx_nodes, transaction_group_id, tx_id, TransactionStatus::END, true
-					);
+					this->close_transaction(tx_key);
 				}
 				catch (const std::exception& tx_ex) {
+					this->get_transaction_key_parts(tx_key, &transaction_group_id, & tx_id);
+
 					std::string err_msg = "Failed to close transaction's group "
 						+ std::to_string(transaction_group_id)
 						+ " transaction "
@@ -1109,7 +1100,7 @@ bool TransactionHandler::unregister_transaction_group(UnregisterTransactionGroup
 }
 
 void TransactionHandler::abort_all_transaction_changes_for_partition(const std::string& queue, int partition) {
-	std::shared_lock<std::shared_mutex> lock(this->transactions_mut);
+	std::lock_guard<std::shared_mutex> lock(this->transaction_changes_mut);
 
 	TransactionStatus abort_status = TransactionStatus::ABORT;
 
@@ -1201,8 +1192,8 @@ void TransactionHandler::close_all_queue_involved_transactions(const std::string
 	}
 
 	std::shared_lock<std::shared_mutex> slock(this->transactions_mut);
-	std::lock_guard<std::mutex> tx_to_close_mut(this->transactions_to_close_mut);
-	std::lock_guard<std::shared_mutex> heartbeats_mut(this->transactions_heartbeats_mut);
+
+	std::vector<std::string> to_close;
 
 	for (auto tx_group_id : tx_group_ids) {
 		if (this->open_transactions.find(tx_group_id) == this->open_transactions.end())
@@ -1211,15 +1202,61 @@ void TransactionHandler::close_all_queue_involved_transactions(const std::string
 		if (this->open_transactions[tx_group_id] == nullptr || this->open_transactions[tx_group_id].get()->size() == 0)
 			continue;
 
-		for (auto tx_id : *(this->open_transactions[tx_group_id].get())) {
-			std::string tx_key = this->get_transaction_key(tx_group_id, tx_id);
-
-			this->transactions_to_close.insert(tx_key);
-			this->transactions_heartbeats.erase(tx_key);
-		}
+		for (auto tx_id : *(this->open_transactions[tx_group_id].get()))
+			to_close.emplace_back(this->get_transaction_key(tx_group_id, tx_id));
 	}
+
+	if (to_close.empty()) return;
+
+	for(const std::string& tx_key : to_close)
+		this->close_transaction(tx_key);
 }
 
 std::string TransactionHandler::get_transaction_partition_change_capture_key(Partition* partition) {
 	return partition->get_queue_name() + "_" + std::to_string(partition->get_partition_id());
+}
+
+void TransactionHandler::close_transaction(const std::string& tx_key) {
+	try {
+		this->tlm->lock_transaction(tx_key);
+
+		TransactionStatus status = TransactionStatus::NONE;
+
+		unsigned long long transaction_group_id;
+		unsigned long long tx_id;
+
+		{
+			std::lock_guard<std::shared_mutex> slock(this->transactions_mut);
+			if (this->open_transactions_statuses.find(tx_key) != this->open_transactions_statuses.end())
+				status = this->open_transactions_statuses[tx_key];
+		}
+
+		if (status == TransactionStatus::NONE) {
+			this->tlm->release_transaction_lock(tx_key);
+			return;
+		}
+
+		this->get_transaction_key_parts(tx_key, &transaction_group_id, &tx_id);
+
+		if (status == TransactionStatus::END) {
+			this->remove_transaction(transaction_group_id, tx_id, true);
+			this->tlm->release_transaction_lock(tx_key);
+			return;
+		}
+
+		std::shared_ptr<std::unordered_set<int>> tx_nodes = this->find_all_transaction_nodes(transaction_group_id);
+
+		if (status == TransactionStatus::BEGIN)
+			this->notify_group_nodes_node_about_transaction_status_change(
+				tx_nodes, transaction_group_id, tx_id, TransactionStatus::ABORT, true
+			);
+
+		this->notify_group_nodes_node_about_transaction_status_change(
+			tx_nodes, transaction_group_id, tx_id, TransactionStatus::END, true
+		);
+	}
+	catch (const std::exception& ex) {
+		this->tlm->release_transaction_lock(tx_key);
+		throw ex;
+	}
 }

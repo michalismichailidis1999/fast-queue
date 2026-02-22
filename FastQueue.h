@@ -41,6 +41,7 @@
 #include "./src/header_files/queue_management/CompactionHandler.h"
 #include "./src/header_files/queue_management/RetentionHandler.h"
 #include "./src/header_files/queue_management/SegmentLockManager.h"
+#include "./src/header_files/queue_management/TransactionLockManager.h"
 #include "./src/header_files/queue_management/Queue.h"
 #include "./src/header_files/queue_management/Partition.h"
 #include "./src/header_files/network_management/ConnectionsManager.h"

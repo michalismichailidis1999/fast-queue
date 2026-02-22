@@ -19,6 +19,7 @@
 #include "../file_management/QueueSegmentFilePathMapper.h"
 #include "../queue_management/Partition.h"
 #include "../queue_management/QueueManager.h"
+#include "../queue_management/TransactionLockManager.h"
 #include "../requests_management/Requests.h"
 #include "../requests_management/Responses.h"
 #include "../requests_management/ResponseMapper.h"
@@ -55,6 +56,7 @@ typedef struct {
 class TransactionHandler {
 private:
 	QueueManager* qm;
+	TransactionLockManager* tlm;
 	ConnectionsManager* cm;
 	FileHandler* fh;
 	CacheHandler* ch;
@@ -115,8 +117,10 @@ private:
 	void get_transaction_key_parts(const std::string& tx_key, unsigned long long* transaction_group_id, unsigned long long* tx_id);
 
 	std::string get_transaction_partition_change_capture_key(Partition* partition);
+
+	void close_transaction(const std::string& tx_key);
 public:
-	TransactionHandler(QueueManager* qm, ConnectionsManager* cm, FileHandler* fh, CacheHandler* ch, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
+	TransactionHandler(QueueManager* qm, TransactionLockManager* tlm, ConnectionsManager* cm, FileHandler* fh, CacheHandler* ch, QueueSegmentFilePathMapper* pm, ClusterMetadata* cluster_metadata, ResponseMapper* response_mapper, ClassToByteTransformer* transformer, Util* util, Settings* settings, Logger* logger);
 
 	void init_transaction_segment(int segment_id);
 
