@@ -635,7 +635,21 @@ void ClientRequestExecutor::handle_begin_transaction_request(SOCKET_ID socket, S
 	}
 
 	if (!this->controller->get_cluster_metadata()->node_contains_transaction_group(this->settings->get_node_id(), request->transaction_group_id)) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Node does not handle transaction group " + std::to_string(request->transaction_group_id));
+		ErrorCode errCode = ErrorCode::TRANSACTION_GROUP_NOT_FOUND;
+
+		std::string errMsg = "Transaction group "
+			+ std::to_string(request->transaction_group_id)
+			+ " not found. Either it has not been registered yet or it has been assigned to another cluster node";
+
+		if (this->controller->get_cluster_metadata()->get_last_transaction_group_id() >= request->transaction_group_id) {
+			errCode = ErrorCode::TRANSACTION_GROUP_UNREGISTERED;
+			errMsg = "Transaction group "
+				+ std::to_string(request->transaction_group_id)
+				+ " has been unregistered";
+		}
+
+		this->cm->respond_to_socket_with_error(socket, ssl, errCode, errMsg);
+
 		return;
 	}
 
@@ -678,6 +692,22 @@ void ClientRequestExecutor::handle_finalize_transaction_request(SOCKET_ID socket
 void ClientRequestExecutor::handle_verify_transaction_group_creation_request(SOCKET_ID socket, SSL* ssl, VerifyTransactionGroupCreationRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
 		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes");
+		return;
+	}
+
+	if (this->controller->get_cluster_metadata()->get_last_transaction_group_id() >= request->transaction_group_id
+		&& !this->controller->get_cluster_metadata()->node_contains_transaction_group(
+			this->settings->get_node_id(), request->transaction_group_id
+		)
+	) {
+		this->cm->respond_to_socket_with_error(
+			socket, 
+			ssl, 
+			ErrorCode::TRANSACTION_GROUP_UNREGISTERED, 
+			"Transaction group "
+			+ std::to_string(request->transaction_group_id)
+			+ " has been unregistered"
+		);
 		return;
 	}
 

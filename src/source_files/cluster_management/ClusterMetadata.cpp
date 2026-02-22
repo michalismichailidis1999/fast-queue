@@ -766,3 +766,8 @@ bool ClusterMetadata::node_contains_transaction_group(int node_id, unsigned long
 
 	return this->nodes_transaction_groups[node_id].get()->find(transaction_group_id) != this->nodes_transaction_groups[node_id].get()->end();
 }
+
+unsigned long long ClusterMetadata::get_last_transaction_group_id() {
+	std::shared_lock<std::shared_mutex> lock(this->transaction_groups_mut);
+	return this->last_transaction_group_id;
+}

@@ -121,6 +121,8 @@ public:
 
 	bool node_contains_transaction_group(int node_id, unsigned long long transaction_group_id);
 
+	unsigned long long get_last_transaction_group_id();
+
 	friend class Controller;
 	friend class DataNode;
 	friend class TransactionHandler;
