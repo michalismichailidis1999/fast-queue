@@ -69,7 +69,7 @@ private:
 	std::mutex heartbeat_mut;
 	std::condition_variable heartbeat_condition;
 
-	std::atomic_int vote_for;
+	alignas(64) std::atomic_int vote_for;
 
 	std::atomic<unsigned long long> term;
 	std::atomic<unsigned long long> commit_index;

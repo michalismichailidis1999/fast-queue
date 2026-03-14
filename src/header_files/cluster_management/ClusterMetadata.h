@@ -15,10 +15,10 @@
 
 class ClusterMetadata {
 private:
-	std::atomic<unsigned long long> metadata_version;
-	std::atomic<unsigned long long> current_term;
+	alignas(64) std::atomic<unsigned long long> metadata_version;
+	alignas(64) std::atomic<unsigned long long> current_term;
 
-	std::atomic_int leader_id;
+	alignas(64) std::atomic_int leader_id;
 
 	IndexedHeap<int, int>* nodes_partition_counts;
 	IndexedHeap<int, int>* nodes_leader_partition_counts;

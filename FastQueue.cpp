@@ -1,6 +1,6 @@
 ﻿#include "FastQueue.h"
 
-std::atomic_bool should_terminate(false);
+alignas(64) std::atomic_bool should_terminate(false);
 
 Logger* _logger;
 
