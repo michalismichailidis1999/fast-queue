@@ -6,10 +6,13 @@ SocketSession::SocketSession(Logger* logger, bool internal_communication, int ma
     this->max_allowed_request_size = max_allowed_request_size;
     this->fd = (int)this->socket.native_handle();
     this->fd_str = std::to_string(this->fd);
+    this->reduce_external_connections_count = nullptr;
 }
 
-void SocketSession::start_listening(const std::function<void(SocketSession*, char*, int)>& execute_request_fn) {
+void SocketSession::start_listening(const std::function<void(SocketSession*, char*, int)>& execute_request_fn, const std::function<void()>& reduce_external_connections_count) {
     this->execute_request_fn = execute_request_fn;
+    this->reduce_external_connections_count = reduce_external_connections_count;
+    this->logger->log_info("Socket " + this->fd_str + " connected successfully");
     this->read_request_length_async();
 }
 
@@ -20,13 +23,13 @@ void SocketSession::read_request_length_async() {
 
     boost::asio::async_read(this->socket, boost::asio::buffer(req_size.get(), sizeof(int)),
         [this, self, req_size](boost::system::error_code ec, std::size_t size) {
-            if (size != sizeof(int)) {
-                this->logger->log_error("SocketSession.read_request_length_async: Buffer size mismatching in socket " + this->fd_str);
-                this->read_request_length_async();
-                return;
-            }
-
             if (!ec) {
+                if (size != sizeof(int)) {
+                    this->logger->log_error("SocketSession.read_request_length_async: Buffer size mismatching in socket " + this->fd_str);
+                    this->read_request_length_async();
+                    return;
+                }
+
                 int request_body_size = *req_size.get();
 
                 if (request_body_size > max_allowed_request_size) {
@@ -37,11 +40,18 @@ void SocketSession::read_request_length_async() {
 
                 this->read_request_body_async(request_body_size);
             }
-            else if (ec == boost::asio::error::eof) {
-                this->logger->log_info("Socket " + this->fd_str + " disconnected");
-            }
-            else if (ec) {
-                this->logger->log_error("Error code " + std::to_string(ec.value()) + " occured in socket " + this->fd_str + " while reading request bytes asynchronously");
+            else {
+                this->close();
+
+                std::string disconnect_msg = "Socket " + this->fd_str + " disconnected";
+                
+                if (ec != boost::asio::error::eof)
+                    disconnect_msg += ". Error code " + std::to_string(ec.value()) + " occured in socket " + this->fd_str + " while reading request bytes asynchronously";
+
+                if (ec != boost::asio::error::eof)
+                    this->logger->log_error(disconnect_msg);
+                else
+                    this->logger->log_info(disconnect_msg);
             }
         });
 }
@@ -53,18 +63,27 @@ void SocketSession::read_request_body_async(int req_body_size) {
 
     boost::asio::async_read(this->socket, boost::asio::buffer(req.get()->data(), req_body_size),
         [this, self, req, req_body_size](boost::system::error_code ec, std::size_t size) {
-            if (size != req_body_size) {
-                this->logger->log_error("SocketSession.read_request_body_async: Buffer size mismatching in socket " + this->fd_str);
-                this->read_request_length_async();
-                return;
-            }
+            if (!ec) {
+                if (size != req_body_size) {
+                    this->logger->log_error("SocketSession.read_request_body_async: Buffer size mismatching in socket " + this->fd_str);
+                    this->read_request_length_async();
+                    return;
+                }
 
-            if (!ec) this->execute_request_fn(this, req.get()->data(), req_body_size);
-            else if (ec == boost::asio::error::eof) {
-                this->logger->log_info("Socket " + this->fd_str + " disconnected");
+                this->execute_request_fn(this, req.get()->data(), req_body_size);
             }
-            else if (ec) {
-                this->logger->log_error("Error code " + std::to_string(ec.value()) + " occured in socket " + this->fd_str + " while reading body asynchronously");
+            else {
+                this->close();
+
+                std::string disconnect_msg = "Socket " + this->fd_str + " disconnected";
+
+                if (ec != boost::asio::error::eof)
+                    disconnect_msg += ". Error code " + std::to_string(ec.value()) + " occured in socket " + this->fd_str + " while reading request bytes asynchronously";
+
+                if (ec != boost::asio::error::eof)
+                    this->logger->log_error(disconnect_msg);
+                else
+                    this->logger->log_info(disconnect_msg);
             }
         });
 }
@@ -74,16 +93,20 @@ bool SocketSession::write_async(char* buf, int buf_size) {
 
     boost::asio::async_write(this->socket, boost::asio::buffer(buf, buf_size),
         [this, self, buf_size](boost::system::error_code ec, std::size_t size) {
-            if (size != buf_size) {
+            if (!ec && size != buf_size)
                 this->logger->log_error("SocketSession.write_async: Buffer size mismatching in socket " + this->fd_str);
-                return;
-            }
-
-            if (ec == boost::asio::error::eof) {
-                this->logger->log_info("Socket " + this->fd_str + " disconnected");
-            }
             else if (ec) {
-                this->logger->log_error("Error code " + std::to_string(ec.value()) + " occured in socket " + this->fd_str + " while writing asynchronously");
+                this->close();
+
+                std::string disconnect_msg = "Socket " + this->fd_str + " disconnected";
+
+                if (ec != boost::asio::error::eof)
+                    disconnect_msg += ". Error code " + std::to_string(ec.value()) + " occured in socket " + this->fd_str + " while writing response bytes asynchronously";
+
+                if (ec != boost::asio::error::eof)
+                    this->logger->log_error(disconnect_msg);
+                else
+                    this->logger->log_info(disconnect_msg);
             }
         });
 
@@ -126,5 +149,9 @@ bool SocketSession::write(char* buf, int buf_size) {
 
 void SocketSession::close() {
     if (!this->socket.is_open()) return;
+
     this->socket.close();
+
+    if (this->reduce_external_connections_count)
+        this->reduce_external_connections_count();
 }

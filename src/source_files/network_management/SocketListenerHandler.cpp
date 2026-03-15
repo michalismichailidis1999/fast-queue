@@ -13,6 +13,12 @@ SocketListenerHandler::SocketListenerHandler(ConnectionsManager* cm, SocketHandl
     this->execute_request_fn = [&](SocketSession* socket_session, char* reqbuf, int req_buf_size) {
         this->rm->execute_request(socket_session, reqbuf, req_buf_size);
     };
+
+    this->reduce_external_connections_count = [&]() {
+        this->total_connections--;
+    };
+
+    this->ignore_connections_count = []() {};
 }
 
 void SocketListenerHandler::create_and_run_socket_listener(bool internal_communication) {
@@ -35,7 +41,26 @@ void SocketListenerHandler::accept_connection(tcp::acceptor* acceptor, bool inte
             if (!ec)
             {
                 auto new_socket = std::make_shared<SocketSession>(this->logger, internal_communication, this->settings->get_max_message_size(), std::move(socket));
-                new_socket->start_listening(this->execute_request_fn);
+
+                if (!internal_communication && this->total_connections.load() >= this->settings->get_maximum_connections()) {
+                    this->cm->respond_to_socket_with_error(new_socket.get(), ErrorCode::MAX_CONNECTIONS_LIMIT_REACHED, "Maximum connections limit reached. Cannot accept any more connections");
+                    new_socket->close();
+                    this->accept_connection(acceptor, internal_communication);
+                    return;
+                }
+                else
+                    this->cm->respond_to_socket_with_error(new_socket.get(), ErrorCode::NONE, this->dummy_response_byte);
+                
+                new_socket->start_listening(
+                    this->execute_request_fn,
+                    !internal_communication
+                        ? this->reduce_external_connections_count
+                        : this->ignore_connections_count
+                );
+
+                if (!internal_communication)
+                    this->total_connections++;
+
                 this->cm->initialize_connection_heartbeat(new_socket.get());
             }
             
