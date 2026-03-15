@@ -1,15 +1,12 @@
 #include "../../header_files/network_management/ConnectionsManager.h"
 
-ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, SslContextHandler* ssl_context_handler, ResponseMapper* response_mapper, Util* util, Settings* settings, Logger* logger, std::atomic_bool* should_terminate) {
+ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, ResponseMapper* response_mapper, Util* util, Settings* settings, Logger* logger, std::atomic_bool* should_terminate) {
 	this->socket_handler = socket_handler;
-	this->ssl_context_handler = ssl_context_handler;
 	this->response_mapper = response_mapper;
 	this->util = util;
 	this->logger = logger;
 	this->settings = settings;
 	this->should_terminate = should_terminate;
-	this->ssl_context = settings->get_internal_ssl_enabled() ? this->ssl_context_handler->create_ssl_context(true) : nullptr;
-	this->failed_to_create_ssl_context = settings->get_internal_ssl_enabled() && this->ssl_context.get() == NULL;
 
 	this->ping_req_bytes_size = sizeof(unsigned int) + sizeof(RequestType) + sizeof(bool);
 
@@ -33,69 +30,27 @@ ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, SslContext
 	this->ping_req_bytes_size += sizeof(unsigned int);
 }
 
-bool ConnectionsManager::receive_socket_buffer(SOCKET_ID socket, SSL* ssl, char* res_buf, unsigned int res_buf_len) {
-	int res_code = ssl != NULL
-		? this->ssl_context_handler->receive_ssl_buffer(ssl, res_buf, res_buf_len)
-		: this->socket_handler->receive_socket_buffer(socket, res_buf, res_buf_len);
+bool ConnectionsManager::receive_socket_buffer(SocketSession* socket_session, char* res_buf, unsigned int res_buf_len) {
+	bool success = socket_session->read(res_buf, res_buf_len);
 
-	bool is_connection_broken = res_code > 0
-		? false
-		: ssl != NULL
-		? this->ssl_context_handler->is_connection_broken(res_code)
-		: this->socket_handler->is_connection_broken(res_code);
+	if (success)
+		this->update_socket_heartbeat(socket_session->fd);
 
-	if (is_connection_broken) {
-		if (ssl != NULL) this->ssl_context_handler->free_ssl(ssl);
-
-		this->socket_handler->close_socket(socket);
-	}
-
-	if (res_code <= 0)
-	{
-		this->logger->log_error("Could not receive socket's data");
-		this->close_socket_connection(socket, ssl);
-	}
-	else this->update_socket_heartbeat(socket);
-
-	return res_code > 0;
+	return success;
 }
 
-bool ConnectionsManager::respond_to_socket(SOCKET_ID socket, SSL* ssl, char* res_buf, unsigned int res_buf_len) {
-	try
-	{
-		int res_code = ssl != NULL
-			? this->ssl_context_handler->respond_to_ssl(ssl, res_buf, res_buf_len)
-			: this->socket_handler->respond_to_socket(socket, res_buf, res_buf_len);
+bool ConnectionsManager::respond_to_socket(SocketSession* socket_session, char* res_buf, unsigned int res_buf_len, bool synchronously) {
+	bool success = synchronously 
+		? socket_session->write(res_buf, res_buf_len)
+		: socket_session->write_async(res_buf, res_buf_len);
 
-		bool is_connection_broken = res_code > 0 
-			? false
-			: ssl != NULL
-				? this->ssl_context_handler->is_connection_broken(res_code)
-				: this->socket_handler->is_connection_broken(res_code);
+	if (success)
+		this->update_socket_heartbeat(socket_session->fd);
 
-		if (is_connection_broken) {
-			if (ssl != NULL) this->ssl_context_handler->free_ssl(ssl);
-
-			this->socket_handler->close_socket(socket);
-		}
-
-		if (res_code <= 0)
-		{
-			this->logger->log_error("Could not respond back to the socket");
-			this->close_socket_connection(socket, ssl);
-		}
-		else this->update_socket_heartbeat(socket);
-
-		return res_code > 0;
-	}
-	catch (const std::exception& ex)
-	{
-		this->logger->log_error("Error occured while responding to socket. " + ((std::string)ex.what()));
-		return false;
-	}
+	return success;
 }
 
-bool ConnectionsManager::respond_to_socket_with_error(SOCKET_ID socket, SSL* ssl, ErrorCode error_code, const std::string& error_message) {
+bool ConnectionsManager::respond_to_socket_with_error(SocketSession* socket_session, ErrorCode error_code, const std::string& error_message, bool synchronously) {
 	unsigned int err_buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + error_message.size() + sizeof(int) + sizeof(ResponseValueKey);
 
 	int error_message_size = error_message.size();
@@ -120,16 +75,16 @@ bool ConnectionsManager::respond_to_socket_with_error(SOCKET_ID socket, SSL* ssl
 
 	memcpy_s(err_buf.get() + offset, error_message_size, error_message.c_str(), error_message_size);
 
-	return this->respond_to_socket(socket, ssl, err_buf.get(), err_buf_size);
+	return this->respond_to_socket(socket_session, err_buf.get(), err_buf_size, synchronously);
 }
 
 // For internal communication only
-std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(SOCKET_ID socket, SSL* ssl, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
+std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(SocketSession* socket_session, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
 	try
 	{
 		this->logger->log_info("Sending internal request of type " + internal_requets_type);
 
-		bool success = this->respond_to_socket(socket, ssl, buf, buf_len);
+		bool success = this->respond_to_socket(socket_session, buf, buf_len);
 
 		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 
@@ -138,13 +93,13 @@ std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to
 
 		unsigned int response_size = 0;
 
-		success = this->receive_socket_buffer(socket, ssl, (char*)&response_size, sizeof(unsigned int));
+		success = this->receive_socket_buffer(socket_session, (char*)&response_size, sizeof(unsigned int));
 
 		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 
 		std::shared_ptr<char> res_buf = std::shared_ptr<char>(new char[response_size]);
 
-		success = this->receive_socket_buffer(socket, ssl, res_buf.get(), response_size);
+		success = this->receive_socket_buffer(socket_session, res_buf.get(), response_size);
 
 		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 
@@ -179,8 +134,7 @@ std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to
 			}
 
 			auto res_tup = this->send_request_to_socket(
-				connection.get()->socket, 
-				connection.get()->ssl,
+				connection.get()->socket_session.get(),
 				buf, 
 				buf_len,
 				internal_requets_type
@@ -210,11 +164,6 @@ bool ConnectionsManager::should_wait_for_response(RequestType request_type) {
 }
 
 void ConnectionsManager::initialize_controller_nodes_connections() {
-	if (this->failed_to_create_ssl_context) {
-		*this->should_terminate = true;
-		return;
-	}
-
 	int failed_occurunces = 0;
 	int successfull_occurunces = 0;
 
@@ -256,22 +205,12 @@ bool ConnectionsManager::setup_connection_pool(int node_id, std::shared_ptr<Conn
 bool ConnectionsManager::add_connection_to_pool(ConnectionPool* pool) {
 	if (pool->get_connections_missing_count() == 0) return true;
 
-	SOCKET_ID socket = this->socket_handler->get_connect_socket(pool->get_connection_info());
+	auto socket_session = this->socket_handler->get_connect_socket(pool->get_connection_info());
 
-	if (socket == invalid_socket) return false;
-
-	SSL* ssl = this->settings->get_internal_ssl_enabled()
-		? this->ssl_context_handler->wrap_connection_with_ssl(this->ssl_context.get(), socket)
-		: NULL;
-
-	if (this->settings->get_internal_ssl_enabled() && ssl == NULL) {
-		this->socket_handler->close_socket(socket);
-		return false;
-	}
+	if (socket_session == nullptr) return false;
 
 	std::shared_ptr<Connection> connection = std::make_shared<Connection>();
-	connection.get()->socket = socket;
-	connection.get()->ssl = ssl;
+	connection.get()->socket_session = socket_session;
 	connection.get()->last_used_timestamp = this->util->get_current_time_milli().count();
 
 	pool->add_connection(connection);
@@ -326,12 +265,7 @@ void ConnectionsManager::terminate_connections() {
 			std::shared_ptr<Connection> connection = connection_pool.get()->get_connection();
 
 			while (connection != nullptr) {
-				if(!this->socket_handler->close_socket(connection.get()->socket))
-					this->logger->log_error("Error occured while trying to close controller connection on socket " + std::to_string(connection.get()->socket));
-
-				if (connection.get()->ssl != NULL && !this->ssl_context_handler->free_ssl(connection.get()->ssl))
-					this->logger->log_error("Error occured while trying to close controller ssl connection wrap on socket " + std::to_string(connection.get()->socket));
-
+				this->close_socket_connection(connection.get()->socket_session.get());
 				connection = connection_pool.get()->get_connection();
 			}
 		}
@@ -348,12 +282,7 @@ void ConnectionsManager::terminate_connections() {
 			std::shared_ptr<Connection> connection = connection_pool.get()->get_connection();
 
 			while (connection != nullptr) {
-				if (!this->socket_handler->close_socket(connection.get()->socket))
-					this->logger->log_error("Error occured while trying to close data node connection on socket " + std::to_string(connection.get()->socket));
-
-				if (connection.get()->ssl != NULL && !this->ssl_context_handler->free_ssl(connection.get()->ssl))
-					this->logger->log_error("Error occured while trying to close data node ssl connection wrap on socket " + std::to_string(connection.get()->socket));
-
+				this->close_socket_connection(connection.get()->socket_session.get());
 				connection = connection_pool.get()->get_connection();
 			}
 		}
@@ -441,8 +370,7 @@ void ConnectionsManager::ping_connection_pools(std::shared_mutex* connections_mu
 			}
 			
 			auto res = this->send_request_to_socket(
-				conn.get()->socket, 
-				conn.get()->ssl, 
+				conn.get()->socket_session.get(),
 				this->ping_req.get(), 
 				this->ping_req_bytes_size, 
 				"ConnectionPing"
@@ -455,7 +383,7 @@ void ConnectionsManager::ping_connection_pools(std::shared_mutex* connections_mu
 
 			if (success) {
 				conn.get()->last_used_timestamp = this->util->get_current_time_milli().count();
-				this->logger->log_info("Pinged connection pool socket " + std::to_string(conn->socket));
+				this->logger->log_info("Pinged connection pool socket " + conn->socket_session.get()->fd_str);
 			}
 
 			iter.second.get()->add_connection(success ? conn : nullptr, true);
@@ -481,18 +409,6 @@ std::shared_ptr<ConnectionPool> ConnectionsManager::get_controller_node_connecti
 	return this->controller_node_connections[node_id];
 }
 
-bool ConnectionsManager::add_socket_lock(SOCKET_ID socket) {
-	std::lock_guard<std::mutex> lock(this->socket_locks_mut);
-	if (this->locked_sockets.find(socket) != this->locked_sockets.end()) return false;
-	this->locked_sockets.insert(socket);
-	return true;
-}
-
-void ConnectionsManager::remove_socket_lock(SOCKET_ID socket) {
-	std::lock_guard<std::mutex> lock(this->socket_locks_mut);
-	this->locked_sockets.erase(socket);
-}
-
 void ConnectionsManager::remove_data_node_connections(int node_id) {
 	std::lock_guard<std::shared_mutex> lock(this->data_mut);
 
@@ -511,52 +427,49 @@ void ConnectionsManager::close_connection_pool(ConnectionPool* pool) {
 
 		if (conn.get() == NULL) continue;
 
-		if (conn.get()->ssl != NULL)
-			this->ssl_context_handler->free_ssl(conn.get()->ssl);
-
-		this->socket_handler->close_socket(conn.get()->socket);
+		this->close_socket_connection(conn.get()->socket_session.get());
 
 		pool->add_connection(nullptr, true);
 	}
 }
 
-void ConnectionsManager::initialize_connection_heartbeat(SOCKET_ID socket, SSL* ssl) {
+void ConnectionsManager::initialize_connection_heartbeat(SocketSession* socket_session) {
 	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
-	this->connections_heartbeats[socket] = std::tuple<bool, std::chrono::milliseconds>(false, this->util->get_current_time_milli());
-
-	if(ssl != NULL)
-		this->connections_ssls[socket] = ssl;
+	this->connections_heartbeats[socket_session->fd] = std::tuple<bool, std::chrono::milliseconds, SocketSession*>(false, this->util->get_current_time_milli(), socket_session);
 }
 
-void ConnectionsManager::remove_socket_connection_heartbeat(SOCKET_ID socket) {
+void ConnectionsManager::remove_socket_connection_heartbeat(int socket_fd) {
 	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
-	this->connections_heartbeats.erase(socket);
-	this->connections_ssls.erase(socket);
+	this->connections_heartbeats.erase(socket_fd);
 }
 
-bool ConnectionsManager::socket_expired(SOCKET_ID socket) {
+bool ConnectionsManager::socket_expired(int socket_fd) {
 	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 
-	if (this->connections_heartbeats.find(socket) == this->connections_heartbeats.end()) return false;
+	if (this->connections_heartbeats.find(socket_fd) == this->connections_heartbeats.end()) return false;
 
-	return std::get<0>(this->connections_heartbeats[socket]);
+	return std::get<0>(this->connections_heartbeats[socket_fd]);
 }
 
-void ConnectionsManager::update_socket_heartbeat(SOCKET_ID socket) {
+void ConnectionsManager::update_socket_heartbeat(int socket_fd) {
 	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 
-	if (this->connections_heartbeats.find(socket) == this->connections_heartbeats.end()) return;
+	if (this->connections_heartbeats.find(socket_fd) == this->connections_heartbeats.end()) return;
 
-	if (std::get<0>(this->connections_heartbeats[socket])) return;
+	if (std::get<0>(this->connections_heartbeats[socket_fd])) return;
 
-	this->connections_heartbeats[socket] = std::tuple<bool, std::chrono::milliseconds>(false, this->util->get_current_time_milli());
+	this->connections_heartbeats[socket_fd] = std::tuple<bool, std::chrono::milliseconds, SocketSession*>(
+		false, 
+		this->util->get_current_time_milli(),
+		std::get<2>(this->connections_heartbeats[socket_fd])
+	);
 }
 
 void ConnectionsManager::check_connections_heartbeats() {
-	std::vector<SOCKET_ID> to_expire;
+	std::vector<int> expired;
 
 	while (!(this->should_terminate->load())) {
-		to_expire.clear();
+		expired.clear();
 
 		try
 		{
@@ -565,19 +478,14 @@ void ConnectionsManager::check_connections_heartbeats() {
 			for (auto iter : this->connections_heartbeats)
 				if (!std::get<0>(iter.second) && this->util->has_timeframe_expired(std::get<1>(iter.second), this->settings->get_idle_connection_timeout_ms()))
 				{
-					SSL* ssl = this->connections_ssls[iter.first];
-
-					if (ssl != NULL) this->ssl_context_handler->free_ssl(ssl);
-
-					this->socket_handler->close_socket(iter.first);
-
-					to_expire.emplace_back(iter.first);
+					this->close_socket_connection(std::get<2>(iter.second));
+					expired.emplace_back(iter.first);
 				}
 
-			if (to_expire.size() > 0)
-				for (SOCKET_ID socket : to_expire) {
-					this->connections_heartbeats[socket] = std::tuple<bool, std::chrono::milliseconds>(true, std::chrono::milliseconds(0));
-					this->logger->log_info("Socket " + std::to_string(socket) + " expired");
+			if (expired.size() > 0)
+				for (int socket_fd : expired) {
+					this->connections_heartbeats.erase(socket_fd);
+					this->logger->log_info("Socket " + std::to_string(socket_fd) + " expired");
 				}
 		}
 		catch (const std::exception& ex)
@@ -614,7 +522,6 @@ std::shared_ptr<ConnectionPool> ConnectionsManager::get_node_connection_pool(int
 	return nullptr;
 }
 
-void ConnectionsManager::close_socket_connection(SOCKET_ID socket, SSL* ssl) {
-	if (ssl != NULL) this->ssl_context_handler->free_ssl(ssl);
-	this->socket_handler->close_socket(socket);
+void ConnectionsManager::close_socket_connection(SocketSession* socket_session) {
+	socket_session->close();
 }

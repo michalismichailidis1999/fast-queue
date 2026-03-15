@@ -29,5 +29,5 @@ private:
 public:
 	RequestManager(ConnectionsManager* cm, Settings* settings, ClientRequestExecutor* client_request_executor, InternalRequestExecutor* internal_request_executor, RequestMapper* mapper, Logger* logger);
 
-	void execute_request(SOCKET_ID socket, SSL* ssl, bool internal_communication);
+	void execute_request(SocketSession* socket_session, char* reqbuf, int req_buf_size);
 };

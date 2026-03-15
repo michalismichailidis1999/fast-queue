@@ -31,33 +31,33 @@ private:
 public:
 	ClientRequestExecutor(MessagesHandler* mh, MessageOffsetAckHandler* oah, TransactionHandler* th, ConnectionsManager* cm, QueueManager* qm, Controller* controller, DataNode* data_node, ClassToByteTransformer* transformer, Settings* settings, Logger* logger);
 
-	void handle_get_controllers_connection_info_request(SOCKET_ID socket, SSL* ssl);
+	void handle_get_controllers_connection_info_request(SocketSession* socket_session);
 
-	void handle_get_controller_leader_id_request(SOCKET_ID socket, SSL* ssl);
+	void handle_get_controller_leader_id_request(SocketSession* socket_session);
 
-	void handle_create_queue_request(SOCKET_ID socket, SSL* ssl, CreateQueueRequest* request);
+	void handle_create_queue_request(SocketSession* socket_session, CreateQueueRequest* request);
 
-	void handle_produce_request(SOCKET_ID socket, SSL* ssl, ProduceMessagesRequest* request);
+	void handle_produce_request(SocketSession* socket_session, ProduceMessagesRequest* request);
 
-	void handle_delete_queue_request(SOCKET_ID socket, SSL* ssl, DeleteQueueRequest* request);
+	void handle_delete_queue_request(SocketSession* socket_session, DeleteQueueRequest* request);
 
-	void handle_get_queue_partitions_info_request(SOCKET_ID socket, SSL* ssl, GetQueuePartitionsInfoRequest* request);
+	void handle_get_queue_partitions_info_request(SocketSession* socket_session, GetQueuePartitionsInfoRequest* request);
 
-	void handle_register_consumer_request(SOCKET_ID socket, SSL* ssl, RegisterConsumerRequest* request);
+	void handle_register_consumer_request(SocketSession* socket_session, RegisterConsumerRequest* request);
 
-	void handle_get_consumer_assigned_partitions_request(SOCKET_ID socket, SSL* ssl, GetConsumerAssignedPartitionsRequest* request);
+	void handle_get_consumer_assigned_partitions_request(SocketSession* socket_session, GetConsumerAssignedPartitionsRequest* request);
 
-	void handle_consume_request(SOCKET_ID socket, SSL* ssl, ConsumeRequest* request);
+	void handle_consume_request(SocketSession* socket_session, ConsumeRequest* request);
 
-	void handle_ack_message_offset_request(SOCKET_ID socket, SSL* ssl, AckMessageOffsetRequest* request);
+	void handle_ack_message_offset_request(SocketSession* socket_session, AckMessageOffsetRequest* request);
 
-	void handle_register_transaction_group_request(SOCKET_ID socket, SSL* ssl, RegisterTransactionGroupRequest* request);
+	void handle_register_transaction_group_request(SocketSession* socket_session, RegisterTransactionGroupRequest* request);
 
-	void handle_begin_transaction_request(SOCKET_ID socket, SSL* ssl, BeginTransactionRequest* request);
+	void handle_begin_transaction_request(SocketSession* socket_session, BeginTransactionRequest* request);
 
-	void handle_finalize_transaction_request(SOCKET_ID socket, SSL* ssl, FinalizeTransactionRequest* request);
+	void handle_finalize_transaction_request(SocketSession* socket_session, FinalizeTransactionRequest* request);
 
-	void handle_verify_transaction_group_creation_request(SOCKET_ID socket, SSL* ssl, VerifyTransactionGroupCreationRequest* request);
+	void handle_verify_transaction_group_creation_request(SocketSession* socket_session, VerifyTransactionGroupCreationRequest* request);
 
-	void handle_transaction_group_heartbeat_request(SOCKET_ID socket, SSL* ssl, TransactionGroupHeartbeatRequest* request);
+	void handle_transaction_group_heartbeat_request(SocketSession* socket_session, TransactionGroupHeartbeatRequest* request);
 };

@@ -1,6 +1,7 @@
 #include "../header_files/Settings.h"
 #include "../header_files/network_management/Connection.h"
 
+
 Settings::Settings(char* conf, long total_conf_chars) {
 	this->node_id = 0;
 

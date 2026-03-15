@@ -3,181 +3,54 @@
 SocketHandler::SocketHandler(Settings* settings, Logger* logger) {
 	this->settings = settings;
 	this->logger = logger;
+    this->external_connections_socket = std::make_shared<boost::asio::io_context>();
 }
 
-void SocketHandler::setup_socket_timeout(SOCKET_ID socket, long timeout_ms) {
-    // Set socket options
+std::shared_ptr<SocketSession> SocketHandler::get_connect_socket(ConnectionInfo* info) {
+    try {
+        tcp::resolver resolver(*this->external_connections_socket.get());
+        auto endpoints = resolver.resolve(info->address, std::to_string(info->port));
 
-    // TODOl Uncomment later
-    //struct timeval timeout;
-    //timeout.tv_sec = 0;
-    //timeout.tv_usec = timeout_ms * 1000;
-    //
-    //setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
-    //setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
-}
+        tcp::socket socket(*this->external_connections_socket.get());
 
-SOCKET_ID SocketHandler::get_socket(long timeout_ms) {
-    #ifdef _WIN32
-        WSADATA wsaData;
+        boost::asio::connect(socket, endpoints);
 
-        int websocket_res = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        std::shared_ptr<SocketSession> socket_session = std::make_shared<SocketSession>(
+            this->logger, true, this->settings->get_max_message_size(), std::move(socket)
+        );
 
-        if (websocket_res != 0) {
-            this->logger->log_error("Failed to start Web Sockets");
-            return invalid_socket;
-        }
-    #endif
-
-    SOCKET_ID socket_id = invalid_socket;
-
-    socket_id = socket(AF_INET, SOCK_STREAM, 0);
-    if (socket_id < 0) {
-        this->logger->log_error("socket failed with error");
-        this->socket_cleanup();
-        return invalid_socket;
+        return socket_session;
     }
-
-    if(timeout_ms > 0)
-        this->setup_socket_timeout(socket_id, timeout_ms);
-
-    return socket_id;
+    catch (std::exception& e) {
+        std::string err_msg = "Failed to connect to address " + info->address + ":" + std::to_string(info->port) + ". Reason: " + std::string(e.what());
+        this->logger->log_error(err_msg);
+        return nullptr;
+    }
 }
 
-SOCKET_ID SocketHandler::get_listen_socket(bool internal_communication) {
-    SOCKET_ID listen_socket = this->get_socket(settings->get_request_timeout_ms());
+std::shared_ptr<tcp::acceptor> SocketHandler::get_tcp_acceptor(boost::asio::io_context* io_context, bool internal_communication) {
+    int port = internal_communication 
+        ? settings->get_internal_port() 
+        : settings->get_external_port();
 
-    if (listen_socket == invalid_socket) return listen_socket;
+    std::string ip = internal_communication 
+        ? settings->get_internal_ip() 
+        : settings->get_external_ip();
 
-    int port = internal_communication ? settings->get_internal_port() : settings->get_external_port();
-    std::string ip = internal_communication ? settings->get_internal_ip() : settings->get_external_ip();
-
-    bool bind_all_interfaces = internal_communication ? settings->get_internal_bind_all_interfaces() : settings->get_external_bind_all_interfaces();
+    bool bind_all_interfaces = internal_communication 
+        ? settings->get_internal_bind_all_interfaces() 
+        : settings->get_external_bind_all_interfaces();
 
     if (bind_all_interfaces)
         ip = "0.0.0.0";
 
-    sockaddr_in serv_addr;
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons((u_short)port);
+    auto endpoint = tcp::endpoint(boost::asio::ip::make_address(ip), port);
 
-    if (inet_pton(AF_INET, ip.c_str(), &serv_addr.sin_addr) <= 0) {
-        this->logger->log_error("inet_pton failed with error");
-        this->socket_cleanup();
-        return invalid_socket;
-    }
+    auto acceptor = std::make_shared<tcp::acceptor>(tcp::acceptor(*io_context));
+    acceptor.get()->open(endpoint.protocol());
+    acceptor.get()->set_option(tcp::acceptor::reuse_address(true));
+    acceptor.get()->bind(endpoint);
+    acceptor.get()->listen();
 
-    if (bind(listen_socket, (sockaddr*)&serv_addr, sizeof(serv_addr)) == SOCKET_ERROR) {
-        this->logger->log_error("bind failed with error");
-        this->close_socket(listen_socket);
-        this->socket_cleanup();
-        return invalid_socket;
-    }
-
-    if (listen(listen_socket, SOMAXCONN) < 0) {
-        this->logger->log_error("listen failed with error");
-        this->close_socket(listen_socket);
-        this->socket_cleanup();
-        return invalid_socket;
-    }
-
-    std::string communication_info = internal_communication
-        ? "for internal communication on "
-        : "for external communication on ";
-
-    this->logger->log_info("Listening " + communication_info + ip + ":" + std::to_string(port));
-
-    return listen_socket;
-}
-
-SOCKET_ID SocketHandler::get_connect_socket(ConnectionInfo* info) {
-    SOCKET_ID connect_socket = this->get_socket(1000);
-
-    sockaddr_in serv_addr;
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons((u_short)(info->port));
-
-    if (inet_pton(AF_INET, (info->address).c_str(), &serv_addr.sin_addr) <= 0) {
-        this->logger->log_error("inet_pton failed with error");
-        this->socket_cleanup();
-        return invalid_socket;
-    }
-
-    if (connect(connect_socket, (sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-        this->logger->log_error("Failed to connect to socket");
-        this->socket_cleanup();
-        return invalid_socket;
-    }
-
-    return connect_socket;
-}
-
-int SocketHandler::poll_events(std::vector<POLLED_FD>* fds) {
-    #ifdef _WIN32
-        return WSAPoll((*fds).data(), (*fds).size(), this->settings->get_request_polling_interval_ms());
-    #else
-        return poll((*fds).data(), (*fds).size(), this->settings->get_request_polling_interval_ms());
-    #endif
-}
-
-bool SocketHandler::pollin_event_occur(POLLED_FD* fd) {
-    return fd->revents & POLLIN_EVENT;
-}
-
-bool SocketHandler::error_event_occur(POLLED_FD* fd, bool is_listen_socket) {
-    bool err_occured = fd->revents & (POLLERR_EVENT | POLLHUP_EVENT | POLLNVAL_EVENT);
-
-    if (err_occured) return true;
-
-    if (is_listen_socket) return false;
-
-    char temp = 'a';
-    return fd->revents & POLLIN_EVENT && recv(fd->fd, &temp, 1, MSG_PEEK) <= 0;
-}
-
-bool SocketHandler::close_socket(SOCKET_ID socket) {
-    try
-    {
-        #ifdef _WIN32
-            if (closesocket(socket) < 0) return false;
-        #else
-            if (close(socket) < 0) return false;
-        #endif
-
-        return true;
-    }
-    catch (const std::exception&)
-    {
-        return false;
-    }
-}
-
-void SocketHandler::socket_cleanup() {
-	#ifdef _WIN32
-		WSACleanup();
-	#endif
-}
-
-SOCKET_ID SocketHandler::accept_connection(SOCKET_ID listen_socket) {
-    return accept(listen_socket, NULL, NULL);
-}
-
-int SocketHandler::respond_to_socket(SOCKET_ID socket, char* res_buf, unsigned int res_buf_len) {
-    return send(socket, res_buf, res_buf_len, 0);
-}
-
-int SocketHandler::receive_socket_buffer(SOCKET_ID socket, char* res_buf, unsigned int res_buf_len) {
-    return recv(socket, res_buf, res_buf_len, 0);
-}
-
-bool SocketHandler::is_connection_broken(int response_code) {
-    bool is_broken = response_code == ECONNRESET;
-
-    #ifdef _WIN32
-        is_broken = is_broken || response_code == WSAECONNRESET;
-    #else
-        is_broken = is_broken || response_code == EPIPE;
-    #endif
-
-    return is_broken;
+    return acceptor;
 }

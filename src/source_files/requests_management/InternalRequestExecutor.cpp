@@ -14,9 +14,9 @@ InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* log
 	this->th = th;
 }
 
-void InternalRequestExecutor::handle_append_entries_request(SOCKET_ID socket, SSL* ssl, AppendEntriesRequest* request) {
+void InternalRequestExecutor::handle_append_entries_request(SocketSession* socket_session, AppendEntriesRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Append entries request must only be sent to controller nodes");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Append entries request must only be sent to controller nodes", false);
 		return;
 	}
 
@@ -24,12 +24,12 @@ void InternalRequestExecutor::handle_append_entries_request(SOCKET_ID socket, SS
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 }
 
-void InternalRequestExecutor::handle_request_vote_request(SOCKET_ID socket, SSL* ssl, RequestVoteRequest* request) {
+void InternalRequestExecutor::handle_request_vote_request(SocketSession* socket_session, RequestVoteRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Vote request must only be sent to controller nodes");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Vote request must only be sent to controller nodes", false);
 		return;
 	}
 
@@ -37,12 +37,12 @@ void InternalRequestExecutor::handle_request_vote_request(SOCKET_ID socket, SSL*
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 }
 
-void InternalRequestExecutor::handle_data_node_heartbeat_request(SOCKET_ID socket, SSL* ssl, DataNodeHeartbeatRequest* request) {
+void InternalRequestExecutor::handle_data_node_heartbeat_request(SocketSession* socket_session, DataNodeHeartbeatRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Heartbeat must only be sent to controller nodes");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Heartbeat must only be sent to controller nodes", false);
 		return;
 	}
 
@@ -63,40 +63,40 @@ void InternalRequestExecutor::handle_data_node_heartbeat_request(SOCKET_ID socke
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 }
 
-void InternalRequestExecutor::handle_get_cluster_metadata_update_request(SOCKET_ID socket, SSL* ssl, GetClusterMetadataUpdateRequest* request) {
+void InternalRequestExecutor::handle_get_cluster_metadata_update_request(SocketSession* socket_session, GetClusterMetadataUpdateRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Cluster metadata can only be retrieved from controller node");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cluster metadata can only be retrieved from controller node", false);
 		return;
 	}
 
 	if (request->node_id <= 0) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Node id can only be a positive integer");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Node id can only be a positive integer", false);
 		return;
 	}
 
 	std::shared_ptr<AppendEntriesRequest> res = this->controller->get_cluster_metadata_updates(request);
 
 	if (res == nullptr) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::DATA_NODE_NOT_REGISTERED_YET, "Data node " + std::to_string(request->node_id) + " hasn't been registered to cluster yet");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::DATA_NODE_NOT_REGISTERED_YET, "Data node " + std::to_string(request->node_id) + " hasn't been registered to cluster yet", false);
 		return;
 	}
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get(), true);
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 }
 
-void InternalRequestExecutor::handle_expire_consumers_request(SOCKET_ID socket, SSL* ssl, ExpireConsumersRequest* request) {
+void InternalRequestExecutor::handle_expire_consumers_request(SocketSession* socket_session, ExpireConsumersRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Consumer expiration can only be handled by a controller node");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Consumer expiration can only be handled by a controller node", false);
 		return;
 	}
 
 	if (this->controller->get_leader_id() == 0) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::UNASSIGNED_LEADERSHIP, "No controller node leader elected yet");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::UNASSIGNED_LEADERSHIP, "No controller node leader elected yet", false);
 		return;
 	}
 
@@ -108,31 +108,31 @@ void InternalRequestExecutor::handle_expire_consumers_request(SOCKET_ID socket, 
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 }
 
-void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SSL* ssl, FetchMessagesRequest* request) {
+void InternalRequestExecutor::handle_fetch_messages_request(SocketSession* socket_session, FetchMessagesRequest* request) {
 	if (request->queue_name_length == 0) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required", false);
 		return;
 	}
 
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	if (Helper::is_internal_queue(queue_name)) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Cannot fetch messages from internal queue");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot fetch messages from internal queue", false);
 		return;
 	}
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue " + queue_name + " not found");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue " + queue_name + " not found", false);
 		return;
 	}
 
 	if ((request->partition > 0 && queue.get()->get_metadata()->get_partitions() - 1 < request->partition) || request->partition < 0) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_REQUEST_BODY, "Incorrect partition number " + std::to_string(request->partition));
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Incorrect partition number " + std::to_string(request->partition), false);
 		return;
 	}
 
@@ -140,12 +140,12 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 
 	if (partition == nullptr
 		|| this->controller->get_partition_leader(queue_name, request->partition) != this->settings->get_node_id()) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader", false);
 		return;
 	}
 
 	if (!this->controller->is_node_partition_owner(queue_name, request->partition, request->node_id)) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Only partition followers can fetch data from partition");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Only partition followers can fetch data from partition", false);
 		return;
 	}
 
@@ -264,7 +264,7 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 	
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	bool success = this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	bool success = this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 
 	if (success)
 		this->controller->add_replicated_message_offset(leader_key, this->settings->get_node_id(), last_message_offset);
@@ -297,9 +297,9 @@ void InternalRequestExecutor::handle_fetch_messages_request(SOCKET_ID socket, SS
 	);
 }
 
-void InternalRequestExecutor::handle_add_lagging_follower_request(SOCKET_ID socket, SSL* ssl, AddLaggingFollowerRequest* request) {
+void InternalRequestExecutor::handle_add_lagging_follower_request(SocketSession* socket_session, AddLaggingFollowerRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Lag follower addition can only be handled by a controller node");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Lag follower addition can only be handled by a controller node", false);
 		return;
 	}
 
@@ -311,12 +311,12 @@ void InternalRequestExecutor::handle_add_lagging_follower_request(SOCKET_ID sock
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 }
 
-void InternalRequestExecutor::handle_remove_lagging_follower_request(SOCKET_ID socket, SSL* ssl, RemoveLaggingFollowerRequest* request) {
+void InternalRequestExecutor::handle_remove_lagging_follower_request(SocketSession* socket_session, RemoveLaggingFollowerRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Lag follower removal can only be handled by a controller node");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Lag follower removal can only be handled by a controller node", false);
 		return;
 	}
 
@@ -328,12 +328,12 @@ void InternalRequestExecutor::handle_remove_lagging_follower_request(SOCKET_ID s
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 }
 
-void InternalRequestExecutor::handle_unregister_transaction_group_request(SOCKET_ID socket, SSL* ssl, UnregisterTransactionGroupRequest* request) {
+void InternalRequestExecutor::handle_unregister_transaction_group_request(SocketSession* socket_session, UnregisterTransactionGroupRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket, ssl, ErrorCode::INCORRECT_ACTION, "Transaction group removal can only be handled by a controller node");
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Transaction group removal can only be handled by a controller node", false);
 		return;
 	}
 
@@ -345,16 +345,16 @@ void InternalRequestExecutor::handle_unregister_transaction_group_request(SOCKET
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 }
 
-void InternalRequestExecutor::handle_transaction_status_update_request(SOCKET_ID socket, SSL* ssl, TransactionStatusUpdateRequest* request) {
+void InternalRequestExecutor::handle_transaction_status_update_request(SocketSession* socket_session, TransactionStatusUpdateRequest* request) {
 	if (request->status < 1 || request->status > 4) {
 		this->cm->respond_to_socket_with_error(
-			socket, 
-			ssl, 
-			ErrorCode::INCORRECT_REQUEST_BODY, 
-			"Incorrect transaction status value " + std::to_string(request->status)
+			socket_session,
+			ErrorCode::INCORRECT_REQUEST_BODY,
+			"Incorrect transaction status value " + std::to_string(request->status),
+			false
 		);
 
 		return;
@@ -371,5 +371,5 @@ void InternalRequestExecutor::handle_transaction_status_update_request(SOCKET_ID
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket, ssl, std::get<1>(buf_tup).get(), std::get<0>(buf_tup));
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
 }

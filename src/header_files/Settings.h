@@ -6,6 +6,7 @@
 #include <atomic>
 #include <shared_mutex>
 #include <functional>
+#include "./Constants.h"
 
 #include "./__linux/memcpy_s.h"
 

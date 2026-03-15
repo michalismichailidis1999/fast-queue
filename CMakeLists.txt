@@ -30,5 +30,8 @@ find_package(OpenSSL REQUIRED)
 target_link_libraries(FastQueue PRIVATE OpenSSL::SSL)
 target_link_libraries(FastQueue PRIVATE OpenSSL::Crypto)
 
+find_package(Boost REQUIRED COMPONENTS asio)
+target_link_libraries(FastQueue PRIVATE Boost::asio)
+
 find_package(ZLIB REQUIRED)
 target_link_libraries(FastQueue PRIVATE ZLIB::ZLIB)

@@ -65,13 +65,12 @@ int main(int argc, char* argv[])
     std::unique_ptr<QueueSegmentFilePathMapper> pm = std::unique_ptr<QueueSegmentFilePathMapper>(new QueueSegmentFilePathMapper(util.get(), settings.get()));
 
     std::unique_ptr<SocketHandler> socket_handler = std::unique_ptr<SocketHandler>(new SocketHandler(settings.get(), server_logger.get()));
-    std::unique_ptr<SslContextHandler> ssl_context_handler = std::unique_ptr<SslContextHandler>(new SslContextHandler(settings.get(), server_logger.get()));
 
     std::unique_ptr<ClassToByteTransformer> transformer = std::unique_ptr<ClassToByteTransformer>(new ClassToByteTransformer());
     std::unique_ptr<RequestMapper> request_mapper = std::unique_ptr<RequestMapper>(new RequestMapper(server_logger.get()));
     std::unique_ptr<ResponseMapper> response_mapper = std::unique_ptr<ResponseMapper>(new ResponseMapper(server_logger.get()));
 
-    std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), ssl_context_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
+    std::unique_ptr<ConnectionsManager> cm = std::unique_ptr<ConnectionsManager>(new ConnectionsManager(socket_handler.get(), response_mapper.get(), util.get(), settings.get(), server_logger.get(), &should_terminate));
 
     std::unique_ptr<CacheHandler> cache_handler = std::unique_ptr<CacheHandler>(new CacheHandler(util.get(), settings.get()));
 
@@ -145,14 +144,10 @@ int main(int argc, char* argv[])
     std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), data_node.get(), qm.get(), mh.get(), transformer.get(), th.get()));
     std::unique_ptr<RequestManager> rm = std::unique_ptr<RequestManager>(new RequestManager(cm.get(), settings.get(), client_request_executor.get(), internal_request_executor.get(), request_mapper.get(), server_logger.get()));
 
-    std::unique_ptr<ThreadPool> external_thread_pool = std::unique_ptr<ThreadPool>(new ThreadPool(settings.get()->get_external_request_parallelism()));
-    std::unique_ptr<ThreadPool> internal_thread_pool = std::unique_ptr<ThreadPool>(new ThreadPool(settings.get()->get_internal_request_parallelism()));
-
     std::unique_ptr<SocketListenerHandler> slh = std::unique_ptr<SocketListenerHandler>(
         new SocketListenerHandler(
             cm.get(),
             socket_handler.get(),
-            ssl_context_handler.get(),
             rm.get(),
             server_logger.get(),
             settings.get(),
@@ -164,13 +159,8 @@ int main(int argc, char* argv[])
 
     try
     {
-        ssl_context_handler.get()->initialize_ssl();
-
         auto create_and_run_socket_listener = [&](bool internal_communication) {
-            slh.get()->create_and_run_socket_listener(
-                internal_communication ? internal_thread_pool.get() : external_thread_pool.get(), 
-                internal_communication
-            );
+            slh.get()->create_and_run_socket_listener(internal_communication);
         };
 
         auto keep_connections_to_maximum = [&]() {
@@ -289,8 +279,6 @@ int main(int argc, char* argv[])
     }
 
     cm.get()->terminate_connections();
-
-    ssl_context_handler->cleanup_ssl();
 
 	return 0;
 }

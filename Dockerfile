@@ -21,7 +21,7 @@ RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg \
     && /opt/vcpkg/bootstrap-vcpkg.sh
 
 # Install required packages
-RUN /opt/vcpkg/vcpkg install openssl zlib
+RUN /opt/vcpkg/vcpkg install openssl zlib boost-asio
 
 # Copy source code
 COPY . .

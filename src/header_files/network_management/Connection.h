@@ -1,13 +1,12 @@
 #pragma once
-#include "./SocketHandler.h"
-#include "./SslContextHandler.h"
 #include <string>
+#include <memory>
+#include "./SocketSession.h"
 
 #include "../__linux/memcpy_s.h"
 
 struct Connection {
-	SOCKET_ID socket;
-	SSL* ssl;
+	std::shared_ptr<SocketSession> socket_session;
 	long long last_used_timestamp = 0;
 };
 
