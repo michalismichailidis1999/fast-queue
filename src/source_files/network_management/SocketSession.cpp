@@ -7,12 +7,20 @@ SocketSession::SocketSession(Logger* logger, bool internal_communication, int ma
     this->fd = (int)this->socket.native_handle();
     this->fd_str = std::to_string(this->fd);
     this->reduce_external_connections_count = nullptr;
+    this->remove_stored_socket_from_cache = nullptr;
+    this->core_id = -1;
 }
 
-void SocketSession::start_listening(const std::function<void(SocketSession*, char*, int)>& execute_request_fn, const std::function<void()>& reduce_external_connections_count) {
+SocketSession::~SocketSession() {
+    this->close();
+}
+
+void SocketSession::start_listening(const std::function<void(SocketSession*, char*, int)>& execute_request_fn, const std::function<void()>& reduce_external_connections_count, std::function<void(int, long long)> remove_stored_socket_from_cache, int core_id) {
+    this->core_id = core_id;
     this->execute_request_fn = execute_request_fn;
     this->reduce_external_connections_count = reduce_external_connections_count;
-    this->logger->log_info("Socket " + this->fd_str + " connected successfully");
+    this->remove_stored_socket_from_cache = remove_stored_socket_from_cache;
+    this->logger->log_info("Socket " + this->fd_str + " connected successfully and is handled by Core " + std::to_string(core_id));
     this->read_request_length_async();
 }
 
@@ -43,7 +51,7 @@ void SocketSession::read_request_length_async() {
             else {
                 this->close();
 
-                std::string disconnect_msg = "Socket " + this->fd_str + " disconnected";
+                std::string disconnect_msg = "Socket " + this->fd_str + " running on Core " + std::to_string(this->core_id) + " disconnected";
                 
                 if (ec != boost::asio::error::eof)
                     disconnect_msg += ". Error code " + std::to_string(ec.value()) + " occured in socket " + this->fd_str + " while reading request bytes asynchronously";
@@ -71,11 +79,13 @@ void SocketSession::read_request_body_async(int req_body_size) {
                 }
 
                 this->execute_request_fn(this, req.get()->data(), req_body_size);
+
+                this->read_request_length_async();
             }
             else {
                 this->close();
 
-                std::string disconnect_msg = "Socket " + this->fd_str + " disconnected";
+                std::string disconnect_msg = "Socket " + this->fd_str + " running on Core " + std::to_string(this->core_id) + " disconnected";
 
                 if (ec != boost::asio::error::eof)
                     disconnect_msg += ". Error code " + std::to_string(ec.value()) + " occured in socket " + this->fd_str + " while reading request bytes asynchronously";
@@ -99,6 +109,9 @@ bool SocketSession::write_async(char* buf, int buf_size) {
                 this->close();
 
                 std::string disconnect_msg = "Socket " + this->fd_str + " disconnected";
+
+                if (this->core_id >= 0)
+                    disconnect_msg = "Socket " + this->fd_str + " running on Core " + std::to_string(this->core_id) + " disconnected";
 
                 if (ec != boost::asio::error::eof)
                     disconnect_msg += ". Error code " + std::to_string(ec.value()) + " occured in socket " + this->fd_str + " while writing response bytes asynchronously";
@@ -154,4 +167,7 @@ void SocketSession::close() {
 
     if (this->reduce_external_connections_count)
         this->reduce_external_connections_count();
+
+    if (this->remove_stored_socket_from_cache)
+        this->remove_stored_socket_from_cache(this->fd, this->creation_time);
 }

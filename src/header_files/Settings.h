@@ -28,9 +28,6 @@ private:
 	unsigned int max_cached_memory;
 	unsigned int flush_to_disk_after_ms;
 
-	unsigned int external_request_parallelism;
-	unsigned int internal_request_parallelism;
-	unsigned int request_polling_interval_ms;
 	unsigned int maximum_connections;
 	unsigned int idle_connection_check_ms;
 	unsigned int idle_connection_timeout_ms;
@@ -111,9 +108,6 @@ public:
 	unsigned int get_max_cached_memory();
 	unsigned int get_flush_to_disk_after_ms();
 
-	unsigned int get_external_request_parallelism();
-	unsigned int get_internal_request_parallelism();
-	unsigned int get_request_polling_interval_ms();
 	unsigned int get_maximum_connections();
 	unsigned int get_idle_connection_check_ms();
 	unsigned int get_idle_connection_timeout_ms();

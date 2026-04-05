@@ -6,7 +6,7 @@
       "hidden": true,
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "toolchainFile": "C:/Program Files/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "toolchainFile": "C:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
         "CMAKE_CXX_COMPILER": "cl.exe"

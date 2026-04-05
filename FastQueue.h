@@ -9,6 +9,12 @@
 #include <tuple>
 #include <filesystem>
 
+#if defined(_WIN32) || defined(_WIN64)
+#define WIN32_LEAN_AND_MEAN // Prevents windows.h from including old winsock.h
+#endif
+
+#include <hwloc.h>
+
 #include "./src/header_files/__linux/memcpy_s.h"
 
 #include "./src/header_files/Enums.h"

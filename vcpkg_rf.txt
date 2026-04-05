@@ -2,3 +2,4 @@ install
 openssl
 zlib
 boost-asio
+hwloc

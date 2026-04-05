@@ -17,5 +17,5 @@ public:
 
 	std::shared_ptr<SocketSession> get_connect_socket(ConnectionInfo* info);
 
-	std::shared_ptr<tcp::acceptor> get_tcp_acceptor(boost::asio::io_context* io_context, bool internal_communication);
+	std::shared_ptr<tcp::acceptor> get_tcp_acceptor(boost::asio::io_context* io_context, bool internal_communication, int core_id);
 };

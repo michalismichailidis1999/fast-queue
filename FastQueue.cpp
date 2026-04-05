@@ -44,6 +44,14 @@ std::string get_config_path(int argc, char* argv[]) {
 
 int main(int argc, char* argv[])
 {
+    hwloc_topology_t topology;
+
+    // Initialize and load the topology
+    hwloc_topology_init(&topology);
+    hwloc_topology_load(topology);
+
+    int physical_cores = hwloc_get_nbobjs_by_type(topology, HWLOC_OBJ_CORE);
+
     std::unique_ptr<Util> util = std::unique_ptr<Util>(new Util());
 
     std::unique_ptr<FileHandler> fh = std::unique_ptr<FileHandler>(new FileHandler());
@@ -151,7 +159,9 @@ int main(int argc, char* argv[])
             rm.get(),
             server_logger.get(),
             settings.get(),
-            &should_terminate
+            util.get(),
+            &should_terminate,
+            physical_cores
         )
     );
 
@@ -159,8 +169,8 @@ int main(int argc, char* argv[])
 
     try
     {
-        auto create_and_run_socket_listener = [&](bool internal_communication) {
-            slh.get()->create_and_run_socket_listener(internal_communication);
+        auto create_and_run_socket_listener = [&](bool internal_communication, hwloc_topology_t topo, int core_id) {
+            slh.get()->create_and_run_socket_listener(internal_communication, topo, core_id);
         };
 
         auto keep_connections_to_maximum = [&]() {
@@ -231,8 +241,14 @@ int main(int argc, char* argv[])
             th.get()->close_failed_transactions_in_background(&should_terminate);
         };
 
-        std::thread internal_listener_thread = std::thread(create_and_run_socket_listener, true);
-        std::thread external_listener_thread = std::thread(create_and_run_socket_listener, false);
+        std::vector<std::thread> internal_listener_threads;
+        std::vector<std::thread> external_listener_threads;
+
+        for (int i = 0; i < physical_cores; i++)
+        {
+            internal_listener_threads.emplace_back(std::thread(create_and_run_socket_listener, true, topology, i));
+            external_listener_threads.emplace_back(std::thread(create_and_run_socket_listener, false, topology, i));
+        }
 
         cm.get()->initialize_controller_nodes_connections();
 
@@ -254,8 +270,12 @@ int main(int argc, char* argv[])
         std::thread check_for_expired_transactions_thread = std::thread(check_for_expired_transactions);
         std::thread close_failed_transactions_in_background_thread = std::thread(close_failed_transactions_in_background);
 
-        internal_listener_thread.join();
-        external_listener_thread.join();
+        for (auto& listener_thread : internal_listener_threads)
+            listener_thread.join();
+
+        for (auto& listener_thread : external_listener_threads)
+            listener_thread.join();
+
         connection_pools_thread.join();
         ping_pool_connections_thread.join();
         check_connections_heartbeat_thread.join();
@@ -279,6 +299,7 @@ int main(int argc, char* argv[])
     }
 
     cm.get()->terminate_connections();
+    hwloc_topology_destroy(topology);
 
 	return 0;
 }

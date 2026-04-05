@@ -62,9 +62,6 @@ void Settings::set_default_values() {
 	this->index_message_gap_size = 2000;
 	this->flush_to_disk_after_ms = 5000;
 	this->max_cached_memory = 33554432;
-	this->external_request_parallelism = 2;
-	this->internal_request_parallelism = 2;
-	this->request_polling_interval_ms = 1000;
 	this->maximum_connections = 1000;
 	this->idle_connection_check_ms = 5000;
 	this->idle_connection_timeout_ms = 240000;
@@ -104,9 +101,6 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			lhs == "node_id"
 			|| lhs == "internal_port"
 			|| lhs == "external_port"
-			|| lhs == "external_request_parallelism"
-			|| lhs == "internal_request_parallelism"
-			|| lhs == "request_polling_interval_ms"
 			|| lhs == "maximum_connections"
 			|| lhs == "max_message_size"
 			|| lhs == "segment_size"
@@ -135,9 +129,6 @@ void Settings::set_settings_variable(char* conf, int var_start_pos, int var_end_
 			unsigned int* val = lhs == "node_id" ? &this->node_id
 				: lhs == "internal_port" ? &this->internal_port
 				: lhs == "external_port" ? &this->external_port
-				: lhs == "external_request_parallelism" ? &this->external_request_parallelism
-				: lhs == "internal_request_parallelism" ? &this->internal_request_parallelism
-				: lhs == "request_polling_interval_ms" ? &this->request_polling_interval_ms
 				: lhs == "maximum_connections" ? &this->maximum_connections
 				: lhs == "max_message_size" ? &this->max_message_size
 				: lhs == "segment_size" ? &this->segment_size
@@ -312,18 +303,6 @@ unsigned int Settings::get_max_cached_memory() {
 
 unsigned int Settings::get_flush_to_disk_after_ms() {
 	return this->flush_to_disk_after_ms;
-}
-
-unsigned int Settings::get_external_request_parallelism() {
-	return this->external_request_parallelism;
-}
-
-unsigned int Settings::get_internal_request_parallelism() {
-	return this->internal_request_parallelism;
-}
-
-unsigned int Settings::get_request_polling_interval_ms() {
-	return this->request_polling_interval_ms;
 }
 
 unsigned int Settings::get_maximum_connections() {

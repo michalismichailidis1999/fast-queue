@@ -13,8 +13,11 @@ private:
     tcp::socket socket;
     int max_allowed_request_size;
 
+    int core_id;
+
     std::function<void(SocketSession*, char*, int)> execute_request_fn;
     std::function<void()> reduce_external_connections_count;
+    std::function<void(int, long long)> remove_stored_socket_from_cache;
 
     void read_request_length_async();
     void read_request_body_async(int req_body_size);
@@ -24,10 +27,12 @@ public:
     int fd;
     std::string fd_str;
     bool internal_communication;
+    long long creation_time;
 
     SocketSession(Logger* logger, bool internal_communication, int max_allowed_request_size, tcp::socket socket);
+    ~SocketSession();
 
-    void start_listening(const std::function<void(SocketSession*, char*, int)>& execute_request_fn, const std::function<void()>& reduce_external_connections_count);
+    void start_listening(const std::function<void(SocketSession*, char*, int)>& execute_request_fn, const std::function<void()>& reduce_external_connections_count, std::function<void(int, long long)> remove_stored_socket_from_cache, int core_id);
 
     bool write_async(char* buf, int buf_size);
 

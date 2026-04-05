@@ -28,10 +28,16 @@ std::shared_ptr<SocketSession> SocketHandler::get_connect_socket(ConnectionInfo*
     }
 }
 
-std::shared_ptr<tcp::acceptor> SocketHandler::get_tcp_acceptor(boost::asio::io_context* io_context, bool internal_communication) {
+std::shared_ptr<tcp::acceptor> SocketHandler::get_tcp_acceptor(boost::asio::io_context* io_context, bool internal_communication, int core_id) {
     int port = internal_communication 
         ? settings->get_internal_port() 
         : settings->get_external_port();
+
+
+    // In case its windows this will handle socket load balancing to the other threads
+    #if defined(_WIN32) || defined(_WIN64)
+    port += core_id;
+    #endif
 
     std::string ip = internal_communication 
         ? settings->get_internal_ip() 
@@ -49,6 +55,12 @@ std::shared_ptr<tcp::acceptor> SocketHandler::get_tcp_acceptor(boost::asio::io_c
     auto acceptor = std::make_shared<tcp::acceptor>(tcp::acceptor(*io_context));
     acceptor.get()->open(endpoint.protocol());
     acceptor.get()->set_option(tcp::acceptor::reuse_address(true));
+
+    // SO_REUSEPORT -> Allowes multiple bindings to same port and handles load balancing of accepted connections
+    #if defined(SO_REUSEPORT)
+    acceptor->set_option(boost::asio::detail::socket_option::boolean<SOL_SOCKET, SO_REUSEPORT>(true));
+    #endif
+
     acceptor.get()->bind(endpoint);
     acceptor.get()->listen();
 

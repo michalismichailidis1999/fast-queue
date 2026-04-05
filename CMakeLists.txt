@@ -35,3 +35,22 @@ target_link_libraries(FastQueue PRIVATE Boost::asio)
 
 find_package(ZLIB REQUIRED)
 target_link_libraries(FastQueue PRIVATE ZLIB::ZLIB)
+
+# --- HWLOC Generic Search ---
+find_path(HWLOC_INCLUDE_DIR NAMES hwloc.h)
+find_library(HWLOC_LIBRARY NAMES hwloc)
+
+if(HWLOC_INCLUDE_DIR AND HWLOC_LIBRARY)
+    # Create a "fake" target that behaves like ZLIB::ZLIB
+    if(NOT TARGET hwloc::hwloc)
+        add_library(hwloc::hwloc UNKNOWN IMPORTED)
+        set_target_properties(hwloc::hwloc PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${HWLOC_INCLUDE_DIR}"
+            IMPORTED_LOCATION "${HWLOC_LIBRARY}"
+        )
+    endif()
+else()
+    message(FATAL_ERROR "hwloc not found! Ensure it is installed via vcpkg (Windows) or apt/brew (Linux/macOS).")
+endif()
+
+target_link_libraries(FastQueue PRIVATE hwloc::hwloc)
