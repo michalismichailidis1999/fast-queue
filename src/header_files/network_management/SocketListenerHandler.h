@@ -2,10 +2,7 @@
 #include <functional>
 #include <mutex>
 #include <unordered_map>
-#if defined(_WIN32) || defined(_WIN64)
-#define WIN32_LEAN_AND_MEAN // Prevents windows.h from including old winsock.h
-#endif
-#include <hwloc.h>
+#include "../util/Helper.h"
 #include "../requests_management/RequestManager.h"
 
 #include "../__linux/memcpy_s.h"
@@ -54,5 +51,5 @@ private:
 public:
 	SocketListenerHandler(ConnectionsManager* cm, SocketHandler* socket_handler, RequestManager* rm, Logger* logger, Settings* settings, Util* util, std::atomic_bool* should_terminate, int total_cores);
 
-	void create_and_run_socket_listener(bool internal_communication, hwloc_topology_t topo, int core_id);
+	void create_and_run_socket_listener(bool internal_communication, int core_id);
 };

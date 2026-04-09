@@ -85,3 +85,13 @@ bool Helper::starts_with(const std::string& value, const std::string& prefix) {
 
 	return true;
 }
+
+void Helper::pin_thread_to_core(hwloc_topology_t topo, int core_id) {
+	hwloc_obj_t core_obj = hwloc_get_obj_by_type(topo, HWLOC_OBJ_CORE, core_id);
+
+	if (!core_obj)
+		throw std::runtime_error("Failed to get core object from core id " + std::to_string(core_id));
+
+	if (hwloc_set_cpubind(topo, core_obj->cpuset, HWLOC_CPUBIND_THREAD) < 0)
+		throw std::runtime_error("Failed to bind listener thread to core " + std::to_string(core_id));
+}

@@ -44,6 +44,8 @@ std::string get_config_path(int argc, char* argv[]) {
 
 int main(int argc, char* argv[])
 {
+    std::string config_path = get_config_path(argc, argv);
+
     hwloc_topology_t topology;
 
     // Initialize and load the topology
@@ -55,8 +57,6 @@ int main(int argc, char* argv[])
     std::unique_ptr<Util> util = std::unique_ptr<Util>(new Util());
 
     std::unique_ptr<FileHandler> fh = std::unique_ptr<FileHandler>(new FileHandler());
-
-    std::string config_path = get_config_path(argc, argv);;
 
     std::unique_ptr<Settings> settings = setup_settings(fh.get(), config_path);
 
@@ -170,7 +170,8 @@ int main(int argc, char* argv[])
     try
     {
         auto create_and_run_socket_listener = [&](bool internal_communication, hwloc_topology_t topo, int core_id) {
-            slh.get()->create_and_run_socket_listener(internal_communication, topo, core_id);
+            Helper::pin_thread_to_core(topo, core_id);
+            slh.get()->create_and_run_socket_listener(internal_communication, core_id);
         };
 
         auto keep_connections_to_maximum = [&]() {

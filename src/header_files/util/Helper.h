@@ -3,6 +3,10 @@
 #include <string>
 #include "../Constants.h"
 #include "../Enums.h"
+#if defined(_WIN32) || defined(_WIN64)
+#define WIN32_LEAN_AND_MEAN // Prevents windows.h from including old winsock.h
+#endif
+#include <hwloc.h>
 
 #include "../__linux/memcpy_s.h"
 
@@ -18,4 +22,5 @@ public:
 	static unsigned long long get_min(unsigned long long val1, unsigned long long val2);
 	static unsigned long long get_max(unsigned long long val1, unsigned long long val2);
 	static bool starts_with(const std::string& value, const std::string& prefix);
+	static void pin_thread_to_core(hwloc_topology_t topo, int core_id);
 };

@@ -29,7 +29,7 @@ SocketListenerHandler::SocketListenerHandler(ConnectionsManager* cm, SocketHandl
     };
 }
 
-void SocketListenerHandler::create_and_run_socket_listener(bool internal_communication, hwloc_topology_t topo, int core_id) {
+void SocketListenerHandler::create_and_run_socket_listener(bool internal_communication, int core_id) {
     std::shared_ptr<boost::asio::io_context> io_context = std::make_shared<boost::asio::io_context>();
     
     std::unordered_map<int, std::shared_ptr<boost::asio::io_context>>* workers_io_contexts = internal_communication
@@ -46,16 +46,6 @@ void SocketListenerHandler::create_and_run_socket_listener(bool internal_communi
     std::shared_ptr<tcp::acceptor> acceptor = this->socket_handler->get_tcp_acceptor(io_context.get(), internal_communication, core_id);
 
     this->accept_connection(acceptor.get(), internal_communication, core_id);
-
-    // Pin socket listener to specific core to increase cache hit ratio
-    hwloc_obj_t core_obj = hwloc_get_obj_by_type(topo, HWLOC_OBJ_CORE, core_id);
-
-    if (!core_obj)
-        throw std::runtime_error("Failed to get core object from core id " + std::to_string(core_id));
-
-    if (hwloc_set_cpubind(topo, core_obj->cpuset, HWLOC_CPUBIND_THREAD) < 0)
-        throw std::runtime_error("Failed to bind listener thread to core " + std::to_string(core_id));
-    // =========================================
 
     this->logger->log_info("Initialized and pinned I/O Context for socket handling for " + ((std::string)(internal_communication ? "internal" : "external")) + " communication on Core " + std::to_string(core_id));
 
