@@ -1,22 +1,3 @@
-#!/bin/bash
-
-# Default values
-CONFIG_PATH=""
-
-# Parse arguments
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --config-path)
-      CONFIG_PATH="$2"
-      shift 2
-      ;;
-    *)
-      echo "Unknown argument: $1"
-      exit 1
-      ;;
-  esac
-done
-
 declare -A config # create associative array
 
 while IFS= read -r line; do
@@ -35,5 +16,3 @@ while IFS= read -r line; do
   config["$key"]="$value"
 
 done < $CONFIG_PATH
-
-# D:/MessageBrokerHelperFiles/dummy.conf
