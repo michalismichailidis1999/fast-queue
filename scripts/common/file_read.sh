@@ -2,6 +2,7 @@
 
 BLOCK_SIZE=4096 # 4KB
 READ_BATCH=$(( $BLOCK_SIZE * 4 )) # 16KB
+SEGMENT_INITIAL_OFFSET=42
 
 bytes_hex=""
 bytes_read=0
@@ -11,7 +12,7 @@ actual_bytes_read=0
 # Arg 2: Offset
 # Arg 3: Bytes to read
 read_from_file() {
-	bytes_hex=$(dd if=$1 bs=1 skip=$2 count=$3 status=none | xxd -p)
+	bytes_hex=$(dd if=$1 bs=1 skip=$2 count=$3 status=none | xxd -p -c 0)
 
 	# Length in bytes
     bytes_read=$(( ${#bytes_hex} / 2 ))   # each byte = 2 hex chars

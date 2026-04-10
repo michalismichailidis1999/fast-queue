@@ -4,51 +4,39 @@ get_metadata_type_description() {
 	case "$1" in
 	  1)
 	    echo "CREATE_QUEUE"
-		break
 		;;
 	  2)
 	    echo "DELETE_QUEUE"
-		break
 		;;
 	  3)
 	    echo "ALTER_PARTITION_ASSIGNMENT"
-		break
 		;;
 	  4)
 	    echo "ALTER_PARTITION_LEADER_ASSIGNMENT"
-		break
 		;;
 	  5)
 	    echo "REGISTER_DATA_NODE"
-		break
 		;;
 	  6)
 	    echo "UNREGISTER_DATA_NODE"
-		break
 		;;
 	  7)
 	    echo "REGISTER_CONSUMER_GROUP"
-		break
 		;;
 	  8)
 	    echo "UNREGISTER_CONSUMER_GROUP"
-		break
 		;;
 	  9)
 	    echo "ADD_LAGGING_FOLLOWER"
-		break
 		;;
 	  10)
 	    echo "REMOVE_LAGGING_FOLLOWER"
-		break
 		;;
 	  11)
 	    echo "REGISTER_TRANSACTION_GROUP"
-		break
 		;;
 	  12)
 	    echo "UNREGISTER_TRANSACTION_GROUP"
-		break
 		;;
 	  *)
         echo "Unknown metadata type: $1"
@@ -103,7 +91,6 @@ print_metadata_change() {
 	case "$1" in
 	  1)
 	    print_create_queue_metadata_change_values
-		break
 		;;
 	  *)
         echo "Unknown metadata type: $1"
@@ -116,18 +103,23 @@ print_metadata_change() {
 }
 
 source ./common/reverse_endian.sh
+source ./common/validations/is_corrupted.sh
 
 parse_and_print_metadata_values() {
-	while (( $bytes_offset < $actual_bytes_read )); do
+	bytes_offset=0
+
+	while (( bytes_offset < actual_bytes_read && total_messages_print < MESSAGES_TO_PRINT )); do
+		if (( actual_bytes_read - bytes_offset < TOTAL_METADATA_BYTES )); then
+			return 0;
+		fi
+
 		byte_from=$(( $bytes_offset + $TOTAL_METADATA_BYTES_OFFSET ))
-		echo $byte_from
 		current_hex=$(reverse_endian "${bytes_hex:byte_from:TOTAL_METADATA_BYTES}")
 		total_bytes=$(to_int $current_hex)
 
 		new_offset=$(( $bytes_offset + $total_bytes * 2 ))
 
 		if (( new_offset > actual_bytes_read )); then
-			echo here
 			return 0;
 		fi
 
@@ -136,6 +128,12 @@ parse_and_print_metadata_values() {
 		command_type_id=$(to_int $current_hex)
 
 		command_type=$(get_metadata_type_description $command_type_id)
+
+		# TODO: Convert all common command schema values here
+
+		check_if_corrupted
+
+		# TODO: Check if message id > OFFSET passed in script options
 
 		print_metadata_change
 
