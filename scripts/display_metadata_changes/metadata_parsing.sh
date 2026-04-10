@@ -58,8 +58,8 @@ MESSAGE_TIMESTAMP_SIZE=16
 MESSAGE_TIMESTAMP_OFFSET=$(( $MESSAGE_ID_SIZE + $MESSAGE_ID_OFFSET ))
 MESSAGE_IS_ACTIVE_SIZE=2
 MESSAGE_IS_ACTIVE_OFFSET=$(( $MESSAGE_TIMESTAMP_SIZE + $MESSAGE_TIMESTAMP_OFFSET ))
-MESSAGE_COMMIT_STATUS_SIZE=8
-MESSAGE_COMMIT_STATUS_OFFSET=$(( $MESSAGE_IS_ACTIVE_SIZE + $MESSAGE_IS_ACTIVE_OFFSET ))
+MESSAGE_COMMIT_STATUS_SIZE=8 # Ignore this in metadata printing
+MESSAGE_COMMIT_STATUS_OFFSET=$(( $MESSAGE_IS_ACTIVE_SIZE + $MESSAGE_IS_ACTIVE_OFFSET )) # Ignore this in metadata printing
 MESSAGE_LEADER_ID_SIZE=16 # Ignore this in metadata printing
 MESSAGE_LEADER_ID_OFFSET=$(( $MESSAGE_COMMIT_STATUS_SIZE + $MESSAGE_COMMIT_STATUS_OFFSET )) # Ignore this in metadata printing
 MESSAGE_KEY_SIZE=8
@@ -74,11 +74,20 @@ COMMAND_TERM_OFFSET=$(( $COMMAND_TYPE_SIZE + $COMMAND_TYPE_OFFSET ))
 bytes_offset=0
 byte_from=0
 current_hex=""
+new_offset=0
 
 total_bytes=0
+checksum=0
+version=""
+message_id=0
+message_timestamp_milli=0
+message_timestamp=""
+is_active=0
 command_type_id=0
-new_offset=0
 command_type=""
+command_term=0
+key_size=0
+payload_size=0
 
 source ./display_metadata_changes/print/create_queue.sh
 
@@ -86,6 +95,12 @@ print_metadata_change() {
 	echo =========== Metadata Change ====================
 
 	echo "Total Bytes: $total_bytes"
+	echo "Version: $version"
+	echo "Checksum: $checksum"
+	echo "Message Offset: $message_id"
+	echo "Message Timestamp: $message_timestamp (UTC)"
+	echo "Is Active: $is_active"
+	echo "Leader Term: $command_term"
 	echo "Metadata Change Type: $command_type"
 
 	case "$1" in
@@ -93,7 +108,7 @@ print_metadata_change() {
 	    print_create_queue_metadata_change_values
 		;;
 	  *)
-        echo "Unknown metadata type: $1"
+        #echo "Unknown metadata type: $1"
         #exit 1
         ;;
 	esac
@@ -104,6 +119,8 @@ print_metadata_change() {
 
 source ./common/reverse_endian.sh
 source ./common/validations/is_corrupted.sh
+source ./common/version_conversion.sh
+source ./common/date_conversion.sh
 
 parse_and_print_metadata_values() {
 	bytes_offset=0
@@ -123,19 +140,46 @@ parse_and_print_metadata_values() {
 			return 0;
 		fi
 
+		byte_from=$(( $bytes_offset + $CHECKSUM_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:CHECKSUM_SIZE}")
+		checksum=$(to_int $current_hex)
+
+		check_if_corrupted
+
+		byte_from=$(( $bytes_offset + $MESSAGE_ID_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:MESSAGE_ID_SIZE}")
+		message_id=$(to_int $current_hex)
+
+		if (( message_id <= OFFSET )); then
+			bytes_offset=$(( $bytes_offset + $total_bytes * 2 ))
+			continue
+		fi
+
+		byte_from=$(( $bytes_offset + $VERSION_SIZE_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:VERSION_SIZE}")
+		version=$(convert_version_to_str $current_hex)
+
+		byte_from=$(( $bytes_offset + $MESSAGE_TIMESTAMP_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:MESSAGE_TIMESTAMP_SIZE}")
+		message_timestamp_milli=$(to_int $current_hex)
+
+		message_timestamp=$( convert_milli_to_datetime $message_timestamp_milli )
+
+		byte_from=$(( $bytes_offset + $MESSAGE_IS_ACTIVE_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:MESSAGE_IS_ACTIVE_SIZE}")
+		is_active=$(to_int $current_hex)
+
 		byte_from=$(( $bytes_offset + $COMMAND_TYPE_OFFSET ))
 		current_hex=$(reverse_endian "${bytes_hex:byte_from:COMMAND_TYPE_SIZE}")
 		command_type_id=$(to_int $current_hex)
 
 		command_type=$(get_metadata_type_description $command_type_id)
 
-		# TODO: Convert all common command schema values here
+		byte_from=$(( $bytes_offset + $COMMAND_TERM_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:COMMAND_TERM_SIZE}")
+		command_term=$(to_int $current_hex)
 
-		check_if_corrupted
-
-		# TODO: Check if message id > OFFSET passed in script options
-
-		print_metadata_change
+		print_metadata_change $command_type_id
 
 		total_messages_print=$(( $total_messages_print + 1 ))
 		bytes_offset=$(( $bytes_offset + $total_bytes * 2 ))
