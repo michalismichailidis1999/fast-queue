@@ -72,6 +72,17 @@ COMMAND_TERM_SIZE=16
 COMMAND_TERM_OFFSET=$(( $COMMAND_TYPE_SIZE + $COMMAND_TYPE_OFFSET ))
 
 COMMON_METADATA_TOTAL_BYTES=$(( $TOTAL_METADATA_BYTES + $VERSION_SIZE + $CHECKSUM_SIZE ))
+MESSAGE_TOTAL_BYTES=$(( $COMMON_METADATA_TOTAL_BYTES + $MESSAGE_ID_SIZE + $MESSAGE_TIMESTAMP_SIZE + $MESSAGE_IS_ACTIVE_SIZE + $MESSAGE_COMMIT_STATUS_SIZE + $MESSAGE_LEADER_ID_SIZE + $MESSAGE_KEY_SIZE + $MESSAGE_PAYLOAD_SIZE ))
+COMMAND_TOTAL_BYTES=$(( $MESSAGE_TOTAL_BYTES + $COMMAND_TYPE_SIZE + $COMMAND_TERM_SIZE ))
+
+CQ_COMMAND_QUEUE_NAME_LENGTH_SIZE=8
+CQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET=$COMMAND_TOTAL_BYTES
+CQ_COMMAND_QUEUE_NAME_SIZE=200
+CQ_COMMAND_QUEUE_NAME_OFFSET=$(( $CQ_COMMAND_QUEUE_NAME_LENGTH_SIZE + $CQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET ))
+CQ_COMMAND_PARTITION_SIZE=8
+CQ_COMMAND_PARTITION_OFFSET=$(( $CQ_COMMAND_QUEUE_NAME_SIZE + $CQ_COMMAND_QUEUE_NAME_OFFSET ))
+CQ_COMMAND_REPLICATION_SIZE=8
+CQ_COMMAND_REPLICATION_OFFSET=$(( $CQ_COMMAND_PARTITION_SIZE + $CQ_COMMAND_PARTITION_OFFSET ))
 
 bytes_offset=0
 byte_from=0
@@ -93,6 +104,11 @@ payload_size=0
 
 computed_checksum_total_bytes=0
 computed_checksum=0
+
+source ./common/reverse_endian.sh
+source ./common/validations/is_corrupted.sh
+source ./common/version_conversion.sh
+source ./common/date_conversion.sh
 
 source ./display_metadata_changes/print/create_queue.sh
 
@@ -121,11 +137,6 @@ print_metadata_change() {
 	echo ================================================
 	echo ""
 }
-
-source ./common/reverse_endian.sh
-source ./common/validations/is_corrupted.sh
-source ./common/version_conversion.sh
-source ./common/date_conversion.sh
 
 parse_and_print_metadata_values() {
 	bytes_offset=0
