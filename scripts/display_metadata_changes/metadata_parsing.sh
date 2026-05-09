@@ -84,6 +84,11 @@ CQ_COMMAND_PARTITION_OFFSET=$(( $CQ_COMMAND_QUEUE_NAME_SIZE + $CQ_COMMAND_QUEUE_
 CQ_COMMAND_REPLICATION_SIZE=8
 CQ_COMMAND_REPLICATION_OFFSET=$(( $CQ_COMMAND_PARTITION_SIZE + $CQ_COMMAND_PARTITION_OFFSET ))
 
+DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE=8
+DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET=$COMMAND_TOTAL_BYTES
+DQ_COMMAND_QUEUE_NAME_SIZE=200
+DQ_COMMAND_QUEUE_NAME_OFFSET=$(( $DQ_COMMAND_QUEUE_NAME_LENGTH_SIZE + $DQ_COMMAND_QUEUE_NAME_LENGTH_OFFSET ))
+
 PA_COMMAND_QUEUE_NAME_LENGTH_SIZE=8
 PA_COMMAND_QUEUE_NAME_LENGTH_OFFSET=$COMMAND_TOTAL_BYTES
 PA_COMMAND_QUEUE_NAME_SIZE=200
@@ -134,7 +139,7 @@ source ./common/validations/is_corrupted.sh
 source ./common/version_conversion.sh
 source ./common/date_conversion.sh
 
-source ./display_metadata_changes/print/create_queue.sh
+source ./display_metadata_changes/print/queue.sh
 source ./display_metadata_changes/print/partition_assignment.sh
 
 print_metadata_change() {
@@ -152,6 +157,9 @@ print_metadata_change() {
 	case "$1" in
 	  1)
 	    print_create_queue_metadata_change_values
+		;;
+	  2)
+	    print_delete_queue_metadata_change_values
 		;;
 	  3)
 		print_partition_assignment_metadata_change_values
