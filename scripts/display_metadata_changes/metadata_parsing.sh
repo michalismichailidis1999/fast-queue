@@ -162,7 +162,6 @@ parse_and_print_metadata_values() {
 			printf("%08x\n", $crc ^ 0xFFFFFFFF);
 		')
 		computed_checksum=$((16#$computed_checksum))
-		computed_checksum=0
 
 		check_if_corrupted
 
