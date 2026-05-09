@@ -6,7 +6,9 @@ SEGMENT_INITIAL_OFFSET=42
 
 bytes_hex=""
 bytes_read=0
+file_read_offset=0
 actual_bytes_read=0
+actual_file_offset=0
 
 # Arg 1: File
 # Arg 2: Offset
@@ -18,6 +20,7 @@ read_from_file() {
     bytes_read=$(( ${#bytes_hex} / 2 ))   # each byte = 2 hex chars
 
 	actual_bytes_read=${#bytes_hex}
+	file_read_offset=$2
 }
 
 # Use after each usage of read_from_file to check if end of file reached

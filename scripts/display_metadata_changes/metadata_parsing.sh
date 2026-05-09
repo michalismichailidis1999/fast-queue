@@ -40,7 +40,7 @@ get_metadata_type_description() {
 		;;
 	  *)
         echo "Unknown metadata type: $1"
-        #exit 1
+        exit 1
         ;;
 	esac
 }
@@ -71,6 +71,8 @@ COMMAND_TYPE_OFFSET=$(( $MESSAGE_PAYLOAD_SIZE + $MESSAGE_PAYLOAD_OFFSET ))
 COMMAND_TERM_SIZE=16
 COMMAND_TERM_OFFSET=$(( $COMMAND_TYPE_SIZE + $COMMAND_TYPE_OFFSET ))
 
+COMMON_METADATA_TOTAL_BYTES=$(( $TOTAL_METADATA_BYTES + $VERSION_SIZE + $CHECKSUM_SIZE ))
+
 bytes_offset=0
 byte_from=0
 current_hex=""
@@ -88,6 +90,9 @@ command_type=""
 command_term=0
 key_size=0
 payload_size=0
+
+computed_checksum_total_bytes=0
+computed_checksum=0
 
 source ./display_metadata_changes/print/create_queue.sh
 
@@ -144,6 +149,21 @@ parse_and_print_metadata_values() {
 		current_hex=$(reverse_endian "${bytes_hex:byte_from:CHECKSUM_SIZE}")
 		checksum=$(to_int $current_hex)
 
+		byte_from=$(( $bytes_offset + $COMMON_METADATA_TOTAL_BYTES ))
+		computed_checksum_total_bytes=$(( $total_bytes * 2 - $COMMON_METADATA_TOTAL_BYTES ))
+		computed_checksum=$(echo -n "${bytes_hex:byte_from:computed_checksum_total_bytes}" | xxd -r -p | perl -e '
+			$crc = 0xFFFFFFFF;
+			while(read(STDIN, $buffer, 1)) {
+				$crc ^= ord($buffer);
+				for (0..7) {
+					$crc = ($crc >> 1) ^ ($crc & 1 ? 0xEDB88320 : 0);
+				}
+			}
+			printf("%08x\n", $crc ^ 0xFFFFFFFF);
+		')
+		computed_checksum=$((16#$computed_checksum))
+		computed_checksum=0
+
 		check_if_corrupted
 
 		byte_from=$(( $bytes_offset + $MESSAGE_ID_OFFSET ))
@@ -182,7 +202,7 @@ parse_and_print_metadata_values() {
 		print_metadata_change $command_type_id
 
 		total_messages_print=$(( $total_messages_print + 1 ))
-		bytes_offset=$(( $bytes_offset + $total_bytes * 2 ))
+		bytes_offset=$new_offset
 	done
 
 	return 1;
