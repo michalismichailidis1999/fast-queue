@@ -28,7 +28,7 @@ void ClientRequestExecutor::handle_get_controllers_connection_info_request(Socke
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_get_controller_leader_id_request(SocketSession* socket_session) {
@@ -38,7 +38,7 @@ void ClientRequestExecutor::handle_get_controller_leader_id_request(SocketSessio
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_create_queue_request(SocketSession* socket_session, CreateQueueRequest* request) {
@@ -104,7 +104,7 @@ void ClientRequestExecutor::handle_create_queue_request(SocketSession* socket_se
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_delete_queue_request(SocketSession* socket_session, DeleteQueueRequest* request) {
@@ -140,7 +140,7 @@ void ClientRequestExecutor::handle_delete_queue_request(SocketSession* socket_se
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session, ProduceMessagesRequest* request) {
@@ -211,7 +211,7 @@ void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
 	if (request->transaction_messages_group.size() == 0) {
-		this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+		this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 		return;
 	}
 
@@ -234,7 +234,7 @@ void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session
 
 	this->controller->add_replicated_message_offset(leader_key, this->settings->get_node_id(), partition.get()->get_message_offset());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_get_queue_partitions_info_request(SocketSession* socket_session, GetQueuePartitionsInfoRequest* request) {
@@ -298,7 +298,7 @@ void ClientRequestExecutor::handle_get_queue_partitions_info_request(SocketSessi
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_register_consumer_request(SocketSession* socket_session, RegisterConsumerRequest* request) {
@@ -355,7 +355,7 @@ void ClientRequestExecutor::handle_register_consumer_request(SocketSession* sock
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_get_consumer_assigned_partitions_request(SocketSession* socket_session, GetConsumerAssignedPartitionsRequest* request) {
@@ -406,7 +406,7 @@ void ClientRequestExecutor::handle_get_consumer_assigned_partitions_request(Sock
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_consume_request(SocketSession* socket_session, ConsumeRequest* request) {
@@ -502,7 +502,7 @@ void ClientRequestExecutor::handle_consume_request(SocketSession* socket_session
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_ack_message_offset_request(SocketSession* socket_session, AckMessageOffsetRequest* request) {
@@ -588,7 +588,7 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SocketSession* soc
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_register_transaction_group_request(SocketSession* socket_session, RegisterTransactionGroupRequest* request) {
@@ -630,7 +630,7 @@ void ClientRequestExecutor::handle_register_transaction_group_request(SocketSess
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_begin_transaction_request(SocketSession* socket_session, BeginTransactionRequest* request) {
@@ -670,7 +670,7 @@ void ClientRequestExecutor::handle_begin_transaction_request(SocketSession* sock
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_finalize_transaction_request(SocketSession* socket_session, FinalizeTransactionRequest* request) {
@@ -691,7 +691,7 @@ void ClientRequestExecutor::handle_finalize_transaction_request(SocketSession* s
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_verify_transaction_group_creation_request(SocketSession* socket_session, VerifyTransactionGroupCreationRequest* request) {
@@ -723,7 +723,7 @@ void ClientRequestExecutor::handle_verify_transaction_group_creation_request(Soc
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void ClientRequestExecutor::handle_transaction_group_heartbeat_request(SocketSession* socket_session, TransactionGroupHeartbeatRequest* request) {
@@ -737,5 +737,5 @@ void ClientRequestExecutor::handle_transaction_group_heartbeat_request(SocketSes
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }

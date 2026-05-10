@@ -45,7 +45,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 
 			pool = pool != nullptr ? pool : this->get_leader_connection_pool(leader_id);
 
-			if (pool != nullptr && !this->send_heartbeat_to_leader(&leader_id, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), pool.get()))
+			if (pool != nullptr && !this->send_heartbeat_to_leader(&leader_id, std::get<1>(buf_tup), std::get<0>(buf_tup), pool.get()))
 			{
 				pool = nullptr;
 
@@ -69,7 +69,7 @@ void DataNode::send_heartbeats_to_leader(std::atomic_bool* should_terminate) {
 	}
 }
 
-bool DataNode::send_heartbeat_to_leader(int* leader_id, char* req_buf, long req_buf_size, ConnectionPool* pool) {
+bool DataNode::send_heartbeat_to_leader(int* leader_id, std::shared_ptr<char> req_buf, long req_buf_size, ConnectionPool* pool) {
 	std::tuple<std::shared_ptr<char>, long, bool> res_tup = this->cm->send_request_to_socket(
 		pool,
 		3,
@@ -171,7 +171,7 @@ void DataNode::retrieve_cluster_metadata_updates(std::atomic_bool* should_termin
 				res = this->cm->send_request_to_socket(
 					pool.get(),
 					3,
-					std::get<1>(buf_tup).get(),
+					std::get<1>(buf_tup),
 					std::get<0>(buf_tup),
 					"GetClusterMetadataUpdate"
 				);
@@ -315,7 +315,7 @@ void DataNode::check_for_dead_consumer(std::atomic_bool* should_terminate) {
 			auto res = this->cm->send_request_to_socket(
 				pool.get(),
 				3,
-				std::get<1>(buf_tup).get(),
+				std::get<1>(buf_tup),
 				std::get<0>(buf_tup),
 				"ExpireConsumers"
 			);
@@ -407,7 +407,7 @@ void DataNode::fetch_data_from_partition_leaders(std::atomic_bool* should_termin
 				auto res = this->cm->send_request_to_socket(
 					pool.get(),
 					3,
-					std::get<1>(buf_tup).get(),
+					std::get<1>(buf_tup),
 					std::get<0>(buf_tup),
 					"FetchMessages"
 				);
@@ -549,7 +549,7 @@ void DataNode::check_for_lagging_followers(std::atomic_bool* should_terminate) {
 					auto res = this->cm->send_request_to_socket(
 						pool.get(),
 						3,
-						std::get<1>(buf_tup).get(),
+						std::get<1>(buf_tup),
 						std::get<0>(buf_tup),
 						"AddLaggingFollower"
 					);

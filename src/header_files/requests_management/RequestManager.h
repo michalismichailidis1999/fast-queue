@@ -18,7 +18,7 @@ private:
 	Settings* settings;
 	Logger* logger;
 
-	std::unique_ptr<char> ping_res;
+	std::shared_ptr<char> ping_res;
 	unsigned int ping_res_buff_size;
 
 	bool is_user_authorized_for_action(AuthRequest* request);

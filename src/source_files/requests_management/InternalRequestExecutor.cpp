@@ -24,7 +24,7 @@ void InternalRequestExecutor::handle_append_entries_request(SocketSession* socke
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void InternalRequestExecutor::handle_request_vote_request(SocketSession* socket_session, RequestVoteRequest* request) {
@@ -37,7 +37,7 @@ void InternalRequestExecutor::handle_request_vote_request(SocketSession* socket_
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void InternalRequestExecutor::handle_data_node_heartbeat_request(SocketSession* socket_session, DataNodeHeartbeatRequest* request) {
@@ -63,7 +63,7 @@ void InternalRequestExecutor::handle_data_node_heartbeat_request(SocketSession* 
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void InternalRequestExecutor::handle_get_cluster_metadata_update_request(SocketSession* socket_session, GetClusterMetadataUpdateRequest* request) {
@@ -86,7 +86,7 @@ void InternalRequestExecutor::handle_get_cluster_metadata_update_request(SocketS
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get(), true);
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void InternalRequestExecutor::handle_expire_consumers_request(SocketSession* socket_session, ExpireConsumersRequest* request) {
@@ -108,7 +108,7 @@ void InternalRequestExecutor::handle_expire_consumers_request(SocketSession* soc
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void InternalRequestExecutor::handle_fetch_messages_request(SocketSession* socket_session, FetchMessagesRequest* request) {
@@ -264,7 +264,7 @@ void InternalRequestExecutor::handle_fetch_messages_request(SocketSession* socke
 	
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	bool success = this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	bool success = this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 
 	if (success)
 		this->controller->add_replicated_message_offset(leader_key, this->settings->get_node_id(), last_message_offset);
@@ -291,7 +291,7 @@ void InternalRequestExecutor::handle_fetch_messages_request(SocketSession* socke
 	this->cm->send_request_to_socket(
 		pool.get(),
 		3,
-		std::get<1>(buf_tup).get(),
+		std::get<1>(buf_tup),
 		std::get<0>(buf_tup),
 		"RemoveLaggingFollower"
 	);
@@ -311,7 +311,7 @@ void InternalRequestExecutor::handle_add_lagging_follower_request(SocketSession*
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void InternalRequestExecutor::handle_remove_lagging_follower_request(SocketSession* socket_session, RemoveLaggingFollowerRequest* request) {
@@ -328,7 +328,7 @@ void InternalRequestExecutor::handle_remove_lagging_follower_request(SocketSessi
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void InternalRequestExecutor::handle_unregister_transaction_group_request(SocketSession* socket_session, UnregisterTransactionGroupRequest* request) {
@@ -345,7 +345,7 @@ void InternalRequestExecutor::handle_unregister_transaction_group_request(Socket
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }
 
 void InternalRequestExecutor::handle_transaction_status_update_request(SocketSession* socket_session, TransactionStatusUpdateRequest* request) {
@@ -371,5 +371,5 @@ void InternalRequestExecutor::handle_transaction_status_update_request(SocketSes
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup).get(), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
 }

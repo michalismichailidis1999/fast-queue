@@ -98,11 +98,11 @@ void SocketSession::read_request_body_async(int req_body_size) {
         });
 }
 
-bool SocketSession::write_async(char* buf, int buf_size) {
+bool SocketSession::write_async(std::shared_ptr<char> buf, int buf_size) {
     auto self(shared_from_this());
 
-    boost::asio::async_write(this->socket, boost::asio::buffer(buf, buf_size),
-        [this, self, buf_size](boost::system::error_code ec, std::size_t size) {
+    boost::asio::async_write(this->socket, boost::asio::buffer(buf.get(), buf_size),
+        [this, self, buf, buf_size](boost::system::error_code ec, std::size_t size) {
             if (!ec && size != buf_size)
                 this->logger->log_error("SocketSession.write_async: Buffer size mismatching in socket " + this->fd_str);
             else if (ec) {
@@ -137,24 +137,24 @@ bool SocketSession::read(char* buf, int buf_size) {
     }
     catch (std::exception& e) {
         success = false;
-        this->logger->log_error("Exception occured while reading data from socket " + this->fd_str + ". Reason: " + std::string(e.what()));
+        this->logger->log_error("Exception occured while reading data from socket " + this->fd_str);
     }
 
     return success;
 }
 
-bool SocketSession::write(char* buf, int buf_size) {
+bool SocketSession::write(std::shared_ptr<char> buf, int buf_size) {
     bool success = true;
 
     try {
-        std::size_t bytes_written = boost::asio::write(this->socket, boost::asio::buffer(buf, buf_size));
+        std::size_t bytes_written = boost::asio::write(this->socket, boost::asio::buffer(buf.get(), buf_size));
 
         if (bytes_written != buf_size)
             throw std::runtime_error("Failed to write all bytes to socket");
     }
     catch (std::exception& e) {
         success = false;
-        this->logger->log_error("Exception occured while writing data to socket " + this->fd_str + ". Reason: " + std::string(e.what()));
+        this->logger->log_error("Exception occured while writing data to socket " + this->fd_str);
     }
 
     return success;

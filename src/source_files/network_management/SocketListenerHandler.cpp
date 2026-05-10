@@ -120,7 +120,10 @@ void SocketListenerHandler::check_for_stop_request(boost::asio::executor_work_gu
         if (ec) return;
 
         if (this->should_terminate->load())
+        {
             work_guard->reset();
+            this->logger->log_info("Gracefully shutting down socket listener");
+        }
         else this->check_for_stop_request(work_guard, check_timer);
     });
 }

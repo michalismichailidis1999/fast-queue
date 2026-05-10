@@ -131,7 +131,7 @@ void Controller::start_election() {
 		std::tuple<std::shared_ptr<char>, long, bool> res_tup = this->cm->send_request_to_socket(
 			iter.second.get(),
 			3,
-			std::get<1>(buf_tup).get(),
+			std::get<1>(buf_tup),
 			std::get<0>(buf_tup),
 			"RequestVote"
 		);
@@ -212,7 +212,7 @@ void Controller::append_entries_to_followers() {
 		std::tuple<std::shared_ptr<char>, long, bool> res_tup = this->cm->send_request_to_socket(
 			iter.second.get(),
 			3,
-			std::get<1>(buf_tup).get(),
+			std::get<1>(buf_tup),
 			std::get<0>(buf_tup),
 			"AppendEntries"
 		);
@@ -513,7 +513,13 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info, b
 			);
 	}
 
-	if (!is_controller_node && this->get_state() == NodeState::LEADER && info != NULL) {
+	std::lock_guard<std::mutex> _lock(this->ingore_registration_lock);
+
+	if (!is_controller_node 
+		&& this->get_state() == NodeState::LEADER 
+		&& info != NULL 
+		&& this->ingore_node_registration.find(node_id) == this->ingore_node_registration.end()
+	) {
 		Command command = Command(
 			CommandType::REGISTER_DATA_NODE,
 			this->term,
@@ -527,6 +533,8 @@ void Controller::update_data_node_heartbeat(int node_id, ConnectionInfo* info, b
 		this->store_commands(&commands);
 
 		this->future_cluster_metadata->init_node_partitions(node_id);
+
+		this->ingore_node_registration.insert(node_id);
 	}
 }
 
@@ -1129,6 +1137,7 @@ void Controller::execute_command(void* command_metadata) {
 	if (command.get_command_type() == CommandType::REGISTER_DATA_NODE) {
 		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 		std::lock_guard<std::shared_mutex> followers_lock(this->follower_indexes_mut);
+		std::lock_guard ignore_lock(this->ingore_registration_lock);
 
 		RegisterDataNodeCommand* command_info = (RegisterDataNodeCommand*)command.get_command_info();
 
@@ -1141,15 +1150,20 @@ void Controller::execute_command(void* command_metadata) {
 				this->last_log_term,
 				this->last_log_index
 			);
+
+		this->ingore_node_registration.insert(command_info->get_node_id());
 	}
 	else if (command.get_command_type() == CommandType::UNREGISTER_DATA_NODE) {
 		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 		std::lock_guard<std::shared_mutex> followers_lock(this->follower_indexes_mut);
+		std::lock_guard ignore_lock(this->ingore_registration_lock);
 
 		UnregisterDataNodeCommand* command_info = (UnregisterDataNodeCommand*)command.get_command_info();
 
 		this->data_nodes_heartbeats.erase(command_info->get_node_id());
 		this->follower_indexes.erase(command_info->get_node_id());
+		
+		this->ingore_node_registration.erase(command_info->get_node_id());
 	}
 	else if (command.get_command_type() == CommandType::REGISTER_TRANSACTION_GROUP) {
 		RegisterTransactionGroupCommand* command_info = (RegisterTransactionGroupCommand*)command.get_command_info();

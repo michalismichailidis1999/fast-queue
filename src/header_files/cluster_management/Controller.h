@@ -89,6 +89,9 @@ private:
 
 	std::unordered_set<int> controller_nodes_ids;
 
+	std::mutex ingore_registration_lock;
+	std::unordered_set<int> ingore_node_registration;
+
 	void start_election();
 	void append_entries_to_followers();
 	void wait_for_leader_heartbeat();

@@ -22,7 +22,7 @@ std::shared_ptr<SocketSession> SocketHandler::get_connect_socket(ConnectionInfo*
         return socket_session;
     }
     catch (std::exception& e) {
-        std::string err_msg = "Failed to connect to address " + info->address + ":" + std::to_string(info->port) + ". Reason: " + std::string(e.what());
+        std::string err_msg = "Failed to connect to address " + info->address + ":" + std::to_string(info->port);
         this->logger->log_error(err_msg);
         return nullptr;
     }

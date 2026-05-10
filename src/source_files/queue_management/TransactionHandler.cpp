@@ -699,7 +699,7 @@ std::tuple<bool, int> TransactionHandler::notify_node_about_transaction_status_c
 	auto res_buf = this->cm->send_request_to_socket(
 		pool.get(),
 		1,
-		std::get<1>(req_buf).get(),
+		std::get<1>(req_buf),
 		std::get<0>(req_buf),
 		"TransactionStatusUpdate"
 	);
@@ -1083,7 +1083,7 @@ bool TransactionHandler::unregister_transaction_group(UnregisterTransactionGroup
 	auto res_buf = this->cm->send_request_to_socket(
 		pool.get(),
 		3,
-		std::get<1>(buf_tup).get(),
+		std::get<1>(buf_tup),
 		std::get<0>(buf_tup),
 		"UnregisterTransactionGroup"
 	);

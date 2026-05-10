@@ -9,7 +9,7 @@ RequestManager::RequestManager(ConnectionsManager* cm, Settings* settings, Clien
 	this->logger = logger;
 
 	this->ping_res_buff_size = sizeof(unsigned int) + sizeof(bool);
-	this->ping_res = std::unique_ptr<char>(new char[this->ping_res_buff_size]);
+	this->ping_res = std::shared_ptr<char>(new char[this->ping_res_buff_size]);
 
 	bool success = true;
 
@@ -65,7 +65,7 @@ void RequestManager::execute_request(SocketSession* socket_session, char* recvbu
 		switch (request_type) {
 		case RequestType::NONE: {
 			this->logger->log_info("Received connection ping for socket " + socket_session->fd_str);
-			this->cm->respond_to_socket(socket_session, this->ping_res.get(), this->ping_res_buff_size);
+			this->cm->respond_to_socket(socket_session, this->ping_res, this->ping_res_buff_size, false);
 			break;
 		}
 		case RequestType::CREATE_QUEUE:
@@ -426,7 +426,8 @@ void RequestManager::execute_request(SocketSession* socket_session, char* recvbu
 			this->cm->respond_to_socket_with_error(
 				socket_session,
 				ErrorCode::INCORRECT_ACTION,
-				"Received invalid request type " + std::to_string((int)recvbuf[0])
+				"Received invalid request type " + std::to_string((int)recvbuf[0]),
+				false
 			);
 
 			return;

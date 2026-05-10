@@ -10,7 +10,7 @@ ConnectionsManager::ConnectionsManager(SocketHandler* socket_handler, ResponseMa
 
 	this->ping_req_bytes_size = sizeof(unsigned int) + sizeof(RequestType) + sizeof(bool);
 
-	this->ping_req = std::unique_ptr<char>(new char[this->ping_req_bytes_size]);
+	this->ping_req = std::shared_ptr<char>(new char[this->ping_req_bytes_size]);
 
 	RequestType ping_req_type = RequestType::NONE;
 	bool success = true;
@@ -39,7 +39,7 @@ bool ConnectionsManager::receive_socket_buffer(SocketSession* socket_session, ch
 	return success;
 }
 
-bool ConnectionsManager::respond_to_socket(SocketSession* socket_session, char* res_buf, unsigned int res_buf_len, bool synchronously) {
+bool ConnectionsManager::respond_to_socket(SocketSession* socket_session, std::shared_ptr<char> res_buf, unsigned int res_buf_len, bool synchronously) {
 	bool success = synchronously 
 		? socket_session->write(res_buf, res_buf_len)
 		: socket_session->write_async(res_buf, res_buf_len);
@@ -59,7 +59,7 @@ bool ConnectionsManager::respond_to_socket_with_error(SocketSession* socket_sess
 	unsigned int offset = 0;
 	unsigned int req_err_buf_size = err_buf_size - sizeof(unsigned int);
 
-	std::unique_ptr<char> err_buf = std::unique_ptr<char>(new char[err_buf_size]);
+	std::shared_ptr<char> err_buf = std::shared_ptr<char>(new char[err_buf_size]);
 
 	memcpy_s(err_buf.get() + offset, sizeof(unsigned int), &req_err_buf_size, sizeof(unsigned int));
 	offset += sizeof(unsigned int);
@@ -75,20 +75,24 @@ bool ConnectionsManager::respond_to_socket_with_error(SocketSession* socket_sess
 
 	memcpy_s(err_buf.get() + offset, error_message_size, error_message.c_str(), error_message_size);
 
-	return this->respond_to_socket(socket_session, err_buf.get(), err_buf_size, synchronously);
+	return this->respond_to_socket(socket_session, err_buf, err_buf_size, synchronously);
 }
 
 // For internal communication only
-std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(SocketSession* socket_session, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
+std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(SocketSession* socket_session, std::shared_ptr<char> buf, unsigned int buf_len, const std::string& internal_requets_type) {
 	try
 	{
+		if (internal_requets_type == "DataNodeHeartbeat") {
+			int temp = 1;
+		}
+
 		this->logger->log_info("Sending internal request of type " + internal_requets_type);
 
 		bool success = this->respond_to_socket(socket_session, buf, buf_len);
 
 		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 
-		if (!this->should_wait_for_response(*((RequestType*)(buf + sizeof(unsigned int)))))
+		if (!this->should_wait_for_response(*((RequestType*)(buf.get() + sizeof(unsigned int)))))
 			return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, 0, false);
 
 		unsigned int response_size = 0;
@@ -103,8 +107,10 @@ std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to
 
 		if (!success) return std::tuple<std::shared_ptr<char>, int, bool>(nullptr, -1, true);
 
+		ErrorCode err_code = *((ErrorCode*)res_buf.get());
+
 		success = (internal_requets_type == "ConnectionPing" && success) 
-			|| (internal_requets_type != "ConnectionPing" && *((ErrorCode*)res_buf.get()) == ErrorCode::NONE);
+			|| (internal_requets_type != "ConnectionPing" && err_code == ErrorCode::NONE);
 
 		if (!success) {
 			std::unique_ptr<ErrorResponse> res = this->response_mapper->to_error_response(res_buf.get(), response_size);
@@ -122,7 +128,7 @@ std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to
 	}
 }
 
-std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(ConnectionPool* pool, int retries, char* buf, unsigned int buf_len, const std::string& internal_requets_type) {
+std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(ConnectionPool* pool, int retries, std::shared_ptr<char> buf, unsigned int buf_len, const std::string& internal_requets_type) {
 	try
 	{
 		while (retries > 0) {
@@ -195,6 +201,11 @@ bool ConnectionsManager::setup_connection_pool(int node_id, std::shared_ptr<Conn
 	std::shared_ptr<ConnectionPool> connection_pool = std::shared_ptr<ConnectionPool>(new ConnectionPool(3, info));
 
 	bool failed = this->create_node_connection_pool(node_id, connection_pool.get(), 3000);
+
+	if (failed)
+		this->logger->log_error("Failed to establish connection with node " + std::to_string(node_id));
+	else
+		this->logger->log_info("Successfully established connection with node " + std::to_string(node_id));
 	
 	std::lock_guard<std::shared_mutex> lock(*connections_mut);
 	(*connections)[node_id] = connection_pool;
@@ -371,7 +382,7 @@ void ConnectionsManager::ping_connection_pools(std::shared_mutex* connections_mu
 			
 			auto res = this->send_request_to_socket(
 				conn.get()->socket_session.get(),
-				this->ping_req.get(), 
+				this->ping_req, 
 				this->ping_req_bytes_size, 
 				"ConnectionPing"
 			);

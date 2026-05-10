@@ -48,7 +48,7 @@ private:
 	Settings* settings;
 	Logger* logger;
 
-	bool send_heartbeat_to_leader(int* leader_id, char* req_buf, long req_buf_size, ConnectionPool* pool);
+	bool send_heartbeat_to_leader(int* leader_id, std::shared_ptr<char> req_buf, long req_buf_size, ConnectionPool* pool);
 
 	int get_next_leader_id(int leader_id);
 
