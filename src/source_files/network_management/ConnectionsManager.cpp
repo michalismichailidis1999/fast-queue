@@ -82,9 +82,9 @@ bool ConnectionsManager::respond_to_socket_with_error(SocketSession* socket_sess
 std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(SocketSession* socket_session, std::shared_ptr<char> buf, unsigned int buf_len, const std::string& internal_requets_type) {
 	try
 	{
-		if (internal_requets_type == "DataNodeHeartbeat") {
-			int temp = 1;
-		}
+		//if (internal_requets_type == "DataNodeHeartbeat") {
+		//	int temp = 1;
+		//}
 
 		this->logger->log_info("Sending internal request of type " + internal_requets_type);
 
