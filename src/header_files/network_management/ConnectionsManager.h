@@ -56,8 +56,8 @@ public:
 	ConnectionsManager(SocketHandler* socket_handler, ResponseMapper* response_mapper, Util* util, Settings* settings, Logger* logger, std::atomic_bool* should_terminate);
 
 	bool receive_socket_buffer(SocketSession* socket_session, char* res_buf, unsigned int res_buf_len);
-	bool respond_to_socket(SocketSession* socket_session, std::shared_ptr<char> res_buf, unsigned int res_buf_len, bool synchronously = true);
-	bool respond_to_socket_with_error(SocketSession* socket_session, ErrorCode error_code, const std::string& error_message, bool synchronously = true);
+	bool respond_to_socket(SocketSession* socket_session, std::shared_ptr<char> res_buf, unsigned int res_buf_len);
+	bool respond_to_socket_with_error(SocketSession* socket_session, ErrorCode error_code, const std::string& error_message);
 
 	std::tuple<std::shared_ptr<char>, int, bool> send_request_to_socket(SocketSession* socket_session, std::shared_ptr<char> buf, unsigned int buf_len, const std::string& internal_requets_type);
 	std::tuple<std::shared_ptr<char>, int, bool> send_request_to_socket(ConnectionPool* pool, int retries, std::shared_ptr<char> buf, unsigned int buf_len, const std::string& internal_requets_type);

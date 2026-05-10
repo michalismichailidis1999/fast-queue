@@ -28,7 +28,7 @@ void ClientRequestExecutor::handle_get_controllers_connection_info_request(Socke
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_get_controller_leader_id_request(SocketSession* socket_session) {
@@ -38,17 +38,17 @@ void ClientRequestExecutor::handle_get_controller_leader_id_request(SocketSessio
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_create_queue_request(SocketSession* socket_session, CreateQueueRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to create queue must only be sent to controller nodes", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to create queue must only be sent to controller nodes");
 		return;
 	}
 
 	if (this->controller->get_cluster_metadata()->get_leader_id() != this->settings->get_node_id()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Non leader node. Cannot create queue.", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Non leader node. Cannot create queue.");
 		return;
 	}
 
@@ -56,15 +56,14 @@ void ClientRequestExecutor::handle_create_queue_request(SocketSession* socket_se
 		this->cm->respond_to_socket_with_error(
 			socket_session,
 			ErrorCode::TOO_FEW_AVAILABLE_NODES,
-			"There are not enough active nodes to handle replication factor of " + std::to_string(request->replication_factor), 
-			false
+			"There are not enough active nodes to handle replication factor of " + std::to_string(request->replication_factor)
 		);
 		return;
 	}
 
 	if (request->queue_name_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
 		return;
 	}
 
@@ -87,8 +86,7 @@ void ClientRequestExecutor::handle_create_queue_request(SocketSession* socket_se
 			this->cm->respond_to_socket_with_error(
 				socket_session,
 				ErrorCode::TOO_FEW_AVAILABLE_NODES,
-				"There are not enough active nodes to handle replication factor of " + std::to_string(request->replication_factor), 
-				false
+				"There are not enough active nodes to handle replication factor of " + std::to_string(request->replication_factor)
 			);
 			return;
 		case ErrorCode::QUEUE_ALREADY_EXISTS:
@@ -104,25 +102,25 @@ void ClientRequestExecutor::handle_create_queue_request(SocketSession* socket_se
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_delete_queue_request(SocketSession* socket_session, DeleteQueueRequest* request) {
 	if (request->queue_name_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
 		return;
 	}
 
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	if (Helper::is_internal_queue(queue_name)) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot delete queue. This name is assigned to an internal queue", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot delete queue. This name is assigned to an internal queue");
 		return;
 	}
 
 	if (this->controller->get_cluster_metadata()->queue_is_assigned_to_transaction_group(queue_name)) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_ASSIGNED_TO_TRANSACTION_GROUP, "Cannot delete queue. It's assigned to at least one transaction group", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_ASSIGNED_TO_TRANSACTION_GROUP, "Cannot delete queue. It's assigned to at least one transaction group");
 		return;
 	}
 
@@ -140,13 +138,13 @@ void ClientRequestExecutor::handle_delete_queue_request(SocketSession* socket_se
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session, ProduceMessagesRequest* request) {
 	if (request->queue_name_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
 		return;
 	}
 
@@ -155,22 +153,22 @@ void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (Helper::is_internal_queue(queue_name)) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot produce messages to internal queue", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot produce messages to internal queue");
 		return;
 	}
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
 
 	if (request->partition < 0) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Partition cannot be less than 0", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Partition cannot be less than 0");
 		return;
 	}
 
 	if (queue.get()->get_metadata()->get_partitions() - 1 < request->partition) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Queue has only " + std::to_string(queue.get()->get_metadata()->get_partitions()) + " partitions", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Queue has only " + std::to_string(queue.get()->get_metadata()->get_partitions()) + " partitions");
 		return;
 	}
 
@@ -180,8 +178,7 @@ void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session
 		this->cm->respond_to_socket_with_error(
 			socket_session,
 			ErrorCode::INCORRECT_LEADER,
-			"Partition is not assigned to node", 
-			false
+			"Partition is not assigned to node"
 		);
 
 		return;
@@ -190,7 +187,7 @@ void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session
 	int partition_leader = this->controller->get_partition_leader(queue_name, request->partition);
 
 	if (partition_leader == -1) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Not assigned partition leader found", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Not assigned partition leader found");
 		return;
 	}
 
@@ -198,8 +195,7 @@ void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session
 		this->cm->respond_to_socket_with_error(
 			socket_session, 
 			ErrorCode::INCORRECT_LEADER, 
-			"Node is not partition's leader", 
-			false
+			"Node is not partition's leader"
 		);
 
 		return;
@@ -211,14 +207,14 @@ void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
 	if (request->transaction_messages_group.size() == 0) {
-		this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+		this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 		return;
 	}
 
 	unsigned long long partition_leader_id = this->controller->get_queue_partition_unique_leader_id(queue_name, request->partition);
 
 	if (partition_leader_id == 0) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::UNASSIGNED_LEADERSHIP, "Leader unique id has not been assigned yet", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::UNASSIGNED_LEADERSHIP, "Leader unique id has not been assigned yet");
 		return;
 	}
 
@@ -234,13 +230,13 @@ void ClientRequestExecutor::handle_produce_request(SocketSession* socket_session
 
 	this->controller->add_replicated_message_offset(leader_key, this->settings->get_node_id(), partition.get()->get_message_offset());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_get_queue_partitions_info_request(SocketSession* socket_session, GetQueuePartitionsInfoRequest* request) {
 	if (request->queue_name_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
 		return;
 	}
 
@@ -249,12 +245,12 @@ void ClientRequestExecutor::handle_get_queue_partitions_info_request(SocketSessi
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (Helper::is_internal_queue(queue_name)) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot get internal queue's partitions info", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot get internal queue's partitions info");
 		return;
 	}
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
 
@@ -270,7 +266,7 @@ void ClientRequestExecutor::handle_get_queue_partitions_info_request(SocketSessi
 	auto queue_partitions_leaders = cluster_metadata->get_queue_partition_leaders(queue_name);
 
 	if (queue_partitions_leaders == nullptr) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::UNASSIGNED_LEADERSHIP, "Queue does not have assigned leaders yet for its partitions", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::UNASSIGNED_LEADERSHIP, "Queue does not have assigned leaders yet for its partitions");
 		return;
 	}
 
@@ -298,35 +294,35 @@ void ClientRequestExecutor::handle_get_queue_partitions_info_request(SocketSessi
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_register_consumer_request(SocketSession* socket_session, RegisterConsumerRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register consumer must only be sent to controller nodes", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register consumer must only be sent to controller nodes");
 		return;
 	}
 
 	if (this->controller->get_cluster_metadata()->get_leader_id() != this->settings->get_node_id()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Non leader node. Cannot register consumer.", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Non leader node. Cannot register consumer.");
 		return;
 	}
 
 	if (request->queue_name_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
 		return;
 	}
 
 	if (request->consumer_group_id_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required");
 		return;
 	}
 
 	if (request->consumer_group_id_length > MAX_CONSUMER_GROUP_ID_CHARS)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id cannot be larger than " + std::to_string(MAX_CONSUMER_GROUP_ID_CHARS) + " characters", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id cannot be larger than " + std::to_string(MAX_CONSUMER_GROUP_ID_CHARS) + " characters");
 		return;
 	}
 
@@ -335,12 +331,12 @@ void ClientRequestExecutor::handle_register_consumer_request(SocketSession* sock
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (Helper::is_internal_queue(queue_name)) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot register consumer for internal queue", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot register consumer for internal queue");
 		return;
 	}
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
 
@@ -355,24 +351,24 @@ void ClientRequestExecutor::handle_register_consumer_request(SocketSession* sock
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_get_consumer_assigned_partitions_request(SocketSession* socket_session, GetConsumerAssignedPartitionsRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to get consumer assigned partitions must only be sent to controller nodes", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to get consumer assigned partitions must only be sent to controller nodes");
 		return;
 	}
 	
 	if (request->queue_name_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
 		return;
 	}
 
 	if (request->consumer_group_id_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required");
 		return;
 	}
 
@@ -381,12 +377,12 @@ void ClientRequestExecutor::handle_get_consumer_assigned_partitions_request(Sock
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (Helper::is_internal_queue(queue_name)) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Action is not allowed for internal queue", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Action is not allowed for internal queue");
 		return;
 	}
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
 
@@ -406,19 +402,19 @@ void ClientRequestExecutor::handle_get_consumer_assigned_partitions_request(Sock
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_consume_request(SocketSession* socket_session, ConsumeRequest* request) {
 	if (request->queue_name_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
 		return;
 	}
 
 	if (request->consumer_group_id_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required");
 		return;
 	}
 
@@ -427,27 +423,27 @@ void ClientRequestExecutor::handle_consume_request(SocketSession* socket_session
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (Helper::is_internal_queue(queue_name)) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot consume from internal queue", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot consume from internal queue");
 		return;
 	}
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
 
 	if (request->partition < 0) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Partition cannot be less than 0", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Partition cannot be less than 0");
 		return;
 	}
 
 	if (queue.get()->get_metadata()->get_partitions() - 1 < request->partition) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Queue has only " + std::to_string(queue.get()->get_metadata()->get_partitions()) + " partitions", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Queue has only " + std::to_string(queue.get()->get_metadata()->get_partitions()) + " partitions");
 		return;
 	}
 
 	if (this->controller->get_partition_leader(queue_name, request->partition) != this->settings->get_node_id()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
 		return;
 	}
 
@@ -456,7 +452,7 @@ void ClientRequestExecutor::handle_consume_request(SocketSession* socket_session
 	std::shared_ptr<Partition> partition = queue.get()->get_partition(request->partition);
 
 	if (partition == nullptr) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
 		return;
 	}
 
@@ -474,12 +470,12 @@ void ClientRequestExecutor::handle_consume_request(SocketSession* socket_session
 			? ErrorCode::CONSUMER_UNREGISTERED
 			: ErrorCode::CONSUMER_NOT_FOUND;
 
-		this->cm->respond_to_socket_with_error(socket_session, err_code, "Consumer not found", false);
+		this->cm->respond_to_socket_with_error(socket_session, err_code, "Consumer not found");
 		return;
 	}
 
 	if (consumer.get()->get_group_id() != group_id) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_CONSUMER_GROUP_ID, "Incorrect consumer group id " + group_id, false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_CONSUMER_GROUP_ID, "Incorrect consumer group id " + group_id);
 		return;
 	}
 
@@ -502,19 +498,19 @@ void ClientRequestExecutor::handle_consume_request(SocketSession* socket_session
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_ack_message_offset_request(SocketSession* socket_session, AckMessageOffsetRequest* request) {
 	if (request->queue_name_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
 		return;
 	}
 
 	if (request->consumer_group_id_length == 0)
 	{
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Group id is required");
 		return;
 	}
 
@@ -523,27 +519,27 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SocketSession* soc
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (Helper::is_internal_queue(queue_name)) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot consume from internal queue", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Cannot consume from internal queue");
 		return;
 	}
 
 	if (queue == nullptr || queue.get()->get_metadata()->get_status() != Status::ACTIVE) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue not found");
 		return;
 	}
 
 	if (request->partition < 0) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Partition cannot be less than 0", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Partition cannot be less than 0");
 		return;
 	}
 
 	if (queue.get()->get_metadata()->get_partitions() - 1 < request->partition) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Queue has only " + std::to_string(queue.get()->get_metadata()->get_partitions()) + " partitions", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Queue has only " + std::to_string(queue.get()->get_metadata()->get_partitions()) + " partitions");
 		return;
 	}
 
 	if (this->controller->get_partition_leader(queue_name, request->partition) != this->settings->get_node_id()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
 		return;
 	}
 
@@ -552,7 +548,7 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SocketSession* soc
 	std::shared_ptr<Partition> partition = queue.get()->get_partition(request->partition);
 
 	if (partition == nullptr) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not partition's " + std::to_string(request->partition) + " leader");
 		return;
 	}
 
@@ -570,12 +566,12 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SocketSession* soc
 			? ErrorCode::CONSUMER_UNREGISTERED
 			: ErrorCode::CONSUMER_NOT_FOUND;
 
-		this->cm->respond_to_socket_with_error(socket_session, err_code, "Consumer not found", false);
+		this->cm->respond_to_socket_with_error(socket_session, err_code, "Consumer not found");
 		return;
 	}
 
 	if (consumer.get()->get_group_id() != group_id) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_CONSUMER_GROUP_ID, "Incorrect consumer group id " + group_id, false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_CONSUMER_GROUP_ID, "Incorrect consumer group id " + group_id);
 		return;
 	}
 
@@ -588,22 +584,22 @@ void ClientRequestExecutor::handle_ack_message_offset_request(SocketSession* soc
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_register_transaction_group_request(SocketSession* socket_session, RegisterTransactionGroupRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes");
 		return;
 	}
 
 	if (this->controller->get_cluster_metadata()->get_leader_id() != this->settings->get_node_id()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Non leader node. Cannot register transaction group.", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Non leader node. Cannot register transaction group.");
 		return;
 	}
 
 	if (request->registered_queues->size() == 0) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "At least one queue name is required to register a transaction group", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "At least one queue name is required to register a transaction group");
 		return;
 	}
 
@@ -614,7 +610,7 @@ void ClientRequestExecutor::handle_register_transaction_group_request(SocketSess
 		char* queue_name = (*(request->registered_queues.get()))[i];
 
 		if (queue_name_size == 0) {
-			this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Qeueue name cannot be size of 0 bytes", false);
+			this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Qeueue name cannot be size of 0 bytes");
 			return;
 		}
 
@@ -624,18 +620,18 @@ void ClientRequestExecutor::handle_register_transaction_group_request(SocketSess
 	auto res = this->controller->register_transaction_group(request);
 
 	if (res == nullptr) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INTERNAL_SERVER_ERROR, "Something went wrong while trying to register transaction group", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INTERNAL_SERVER_ERROR, "Something went wrong while trying to register transaction group");
 		return;
 	}
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_begin_transaction_request(SocketSession* socket_session, BeginTransactionRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes");
 		return;
 	}
 
@@ -653,7 +649,7 @@ void ClientRequestExecutor::handle_begin_transaction_request(SocketSession* sock
 				+ " has been unregistered";
 		}
 
-		this->cm->respond_to_socket_with_error(socket_session, errCode, errMsg, false);
+		this->cm->respond_to_socket_with_error(socket_session, errCode, errMsg);
 
 		return;
 	}
@@ -661,7 +657,7 @@ void ClientRequestExecutor::handle_begin_transaction_request(SocketSession* sock
 	unsigned long long new_tx_id = this->th->init_transaction(request->transaction_group_id);
 
 	if (new_tx_id == 0) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INTERNAL_SERVER_ERROR, "Something went wrong. Could not initiate a new transaction", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INTERNAL_SERVER_ERROR, "Something went wrong. Could not initiate a new transaction");
 		return;
 	}
 
@@ -670,17 +666,17 @@ void ClientRequestExecutor::handle_begin_transaction_request(SocketSession* sock
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_finalize_transaction_request(SocketSession* socket_session, FinalizeTransactionRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes");
 		return;
 	}
 
 	if (!this->controller->get_cluster_metadata()->node_contains_transaction_group(this->settings->get_node_id(), request->transaction_group_id)) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node does not handle transaction group " + std::to_string(request->transaction_group_id), false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node does not handle transaction group " + std::to_string(request->transaction_group_id));
 		return;
 	}
 
@@ -691,12 +687,12 @@ void ClientRequestExecutor::handle_finalize_transaction_request(SocketSession* s
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_verify_transaction_group_creation_request(SocketSession* socket_session, VerifyTransactionGroupCreationRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to register transaction group must only be sent to controller nodes");
 		return;
 	}
 
@@ -710,8 +706,7 @@ void ClientRequestExecutor::handle_verify_transaction_group_creation_request(Soc
 			ErrorCode::TRANSACTION_GROUP_UNREGISTERED, 
 			"Transaction group "
 			+ std::to_string(request->transaction_group_id)
-			+ " has been unregistered", 
-			false
+			+ " has been unregistered"
 		);
 		return;
 	}
@@ -723,12 +718,12 @@ void ClientRequestExecutor::handle_verify_transaction_group_creation_request(Soc
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
 void ClientRequestExecutor::handle_transaction_group_heartbeat_request(SocketSession* socket_session, TransactionGroupHeartbeatRequest* request) {
 	if (!this->settings->get_is_controller_node()) {
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to update transaction group heartbeat must only be sent to controller nodes", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Request to update transaction group heartbeat must only be sent to controller nodes");
 		return;
 	}
 
@@ -737,5 +732,5 @@ void ClientRequestExecutor::handle_transaction_group_heartbeat_request(SocketSes
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup), false);
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }

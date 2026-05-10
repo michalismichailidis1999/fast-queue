@@ -89,13 +89,15 @@ void SocketListenerHandler::handle_new_connected_socket(tcp::socket socket, bool
     auto new_socket = std::make_shared<SocketSession>(this->logger, internal_communication, this->settings->get_max_message_size(), std::move(socket));
     new_socket.get()->creation_time = this->util->get_current_time_milli().count();
 
-    if (!internal_communication && this->total_connections.load() >= this->settings->get_maximum_connections()) {
-        this->cm->respond_to_socket_with_error(new_socket.get(), ErrorCode::MAX_CONNECTIONS_LIMIT_REACHED, "Maximum connections limit reached. Cannot accept any more connections");
-        new_socket->close();
-        return;
+    if (!internal_communication) {
+        if (this->total_connections.load() >= this->settings->get_maximum_connections()) {
+            this->cm->respond_to_socket_with_error(new_socket.get(), ErrorCode::MAX_CONNECTIONS_LIMIT_REACHED, "Maximum connections limit reached. Cannot accept any more connections");
+            new_socket->close();
+            return;
+        }
+        else
+            this->cm->respond_to_socket_with_error(new_socket.get(), ErrorCode::NONE, this->dummy_response_byte);
     }
-    else
-        this->cm->respond_to_socket_with_error(new_socket.get(), ErrorCode::NONE, this->dummy_response_byte);
 
     new_socket->start_listening(
         this->execute_request_fn,

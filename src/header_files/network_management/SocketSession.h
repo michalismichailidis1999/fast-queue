@@ -34,8 +34,6 @@ public:
 
     void start_listening(const std::function<void(SocketSession*, char*, int)>& execute_request_fn, const std::function<void()>& reduce_external_connections_count, std::function<void(int, long long)> remove_stored_socket_from_cache, int core_id);
 
-    bool write_async(std::shared_ptr<char> buf, int buf_size);
-
     bool read(char* buf, int buf_size);
     bool write(std::shared_ptr<char> buf, int buf_size);
 

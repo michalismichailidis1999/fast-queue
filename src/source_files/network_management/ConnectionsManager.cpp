@@ -39,10 +39,8 @@ bool ConnectionsManager::receive_socket_buffer(SocketSession* socket_session, ch
 	return success;
 }
 
-bool ConnectionsManager::respond_to_socket(SocketSession* socket_session, std::shared_ptr<char> res_buf, unsigned int res_buf_len, bool synchronously) {
-	bool success = synchronously 
-		? socket_session->write(res_buf, res_buf_len)
-		: socket_session->write_async(res_buf, res_buf_len);
+bool ConnectionsManager::respond_to_socket(SocketSession* socket_session, std::shared_ptr<char> res_buf, unsigned int res_buf_len) {
+	bool success = socket_session->write(res_buf, res_buf_len);
 
 	if (success)
 		this->update_socket_heartbeat(socket_session->fd);
@@ -50,7 +48,7 @@ bool ConnectionsManager::respond_to_socket(SocketSession* socket_session, std::s
 	return success;
 }
 
-bool ConnectionsManager::respond_to_socket_with_error(SocketSession* socket_session, ErrorCode error_code, const std::string& error_message, bool synchronously) {
+bool ConnectionsManager::respond_to_socket_with_error(SocketSession* socket_session, ErrorCode error_code, const std::string& error_message) {
 	unsigned int err_buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + error_message.size() + sizeof(int) + sizeof(ResponseValueKey);
 
 	int error_message_size = error_message.size();
@@ -75,18 +73,14 @@ bool ConnectionsManager::respond_to_socket_with_error(SocketSession* socket_sess
 
 	memcpy_s(err_buf.get() + offset, error_message_size, error_message.c_str(), error_message_size);
 
-	return this->respond_to_socket(socket_session, err_buf, err_buf_size, synchronously);
+	return this->respond_to_socket(socket_session, err_buf, err_buf_size);
 }
 
 // For internal communication only
 std::tuple<std::shared_ptr<char>, int, bool> ConnectionsManager::send_request_to_socket(SocketSession* socket_session, std::shared_ptr<char> buf, unsigned int buf_len, const std::string& internal_requets_type) {
 	try
 	{
-		//if (internal_requets_type == "DataNodeHeartbeat") {
-		//	int temp = 1;
-		//}
-
-		this->logger->log_info("Sending internal request of type " + internal_requets_type);
+		this->logger->log_info("Sending internal request of type " + internal_requets_type + " (Socket " + socket_session->fd_str + ")");
 
 		bool success = this->respond_to_socket(socket_session, buf, buf_len);
 

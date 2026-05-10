@@ -65,7 +65,7 @@ void RequestManager::execute_request(SocketSession* socket_session, char* recvbu
 		switch (request_type) {
 		case RequestType::NONE: {
 			this->logger->log_info("Received connection ping for socket " + socket_session->fd_str);
-			this->cm->respond_to_socket(socket_session, this->ping_res, this->ping_res_buff_size, false);
+			this->cm->respond_to_socket(socket_session, this->ping_res, this->ping_res_buff_size);
 			break;
 		}
 		case RequestType::CREATE_QUEUE:
@@ -426,8 +426,7 @@ void RequestManager::execute_request(SocketSession* socket_session, char* recvbu
 			this->cm->respond_to_socket_with_error(
 				socket_session,
 				ErrorCode::INCORRECT_ACTION,
-				"Received invalid request type " + std::to_string((int)recvbuf[0]),
-				false
+				"Received invalid request type " + std::to_string((int)recvbuf[0])
 			);
 
 			return;
@@ -439,6 +438,6 @@ void RequestManager::execute_request(SocketSession* socket_session, char* recvbu
 	catch (const std::exception& ex)
 	{
 		this->logger->log_error("Error occured while trying to serve the request. Reason: " + std::string(ex.what()));
-		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INTERNAL_SERVER_ERROR, "Error occured while trying to serve the request", false);
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INTERNAL_SERVER_ERROR, "Error occured while trying to serve the request");
 	}
 }
