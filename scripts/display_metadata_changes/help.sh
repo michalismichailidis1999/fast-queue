@@ -1,3 +1,5 @@
+#!/bin/bash
+
 usage() {
 cat << EOF
 Usage: $(basename "$0") [OPTIONS]

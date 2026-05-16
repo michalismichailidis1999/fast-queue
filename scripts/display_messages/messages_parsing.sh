@@ -1,51 +1,24 @@
 #!/bin/bash
 
-get_metadata_type_description() {
+get_commit_status_description() {
 	case "$1" in
+	  0)
+	    echo "UNCOMMITED"
+		;;
 	  1)
-	    echo "CREATE_QUEUE"
+	    echo "COMMITED"
 		;;
 	  2)
-	    echo "DELETE_QUEUE"
-		;;
-	  3)
-	    echo "ALTER_PARTITION_ASSIGNMENT"
-		;;
-	  4)
-	    echo "ALTER_PARTITION_LEADER_ASSIGNMENT"
-		;;
-	  5)
-	    echo "REGISTER_DATA_NODE"
-		;;
-	  6)
-	    echo "UNREGISTER_DATA_NODE"
-		;;
-	  7)
-	    echo "REGISTER_CONSUMER_GROUP"
-		;;
-	  8)
-	    echo "UNREGISTER_CONSUMER_GROUP"
-		;;
-	  9)
-	    echo "ADD_LAGGING_FOLLOWER"
-		;;
-	  10)
-	    echo "REMOVE_LAGGING_FOLLOWER"
-		;;
-	  11)
-	    echo "REGISTER_TRANSACTION_GROUP"
-		;;
-	  12)
-	    echo "UNREGISTER_TRANSACTION_GROUP"
+	    echo "ABORTED"
 		;;
 	  *)
-        echo "Unknown metadata type: $1"
+        echo "Unknown commit status: $1"
         exit 1
         ;;
 	esac
 }
 
-#Command Schema
+#Message Schema
 TOTAL_METADATA_BYTES=8
 TOTAL_METADATA_BYTES_OFFSET=0
 VERSION_SIZE=8
@@ -58,22 +31,17 @@ MESSAGE_TIMESTAMP_SIZE=16
 MESSAGE_TIMESTAMP_OFFSET=$(( $MESSAGE_ID_SIZE + $MESSAGE_ID_OFFSET ))
 MESSAGE_IS_ACTIVE_SIZE=2
 MESSAGE_IS_ACTIVE_OFFSET=$(( $MESSAGE_TIMESTAMP_SIZE + $MESSAGE_TIMESTAMP_OFFSET ))
-MESSAGE_COMMIT_STATUS_SIZE=8 # Ignore this in metadata printing
-MESSAGE_COMMIT_STATUS_OFFSET=$(( $MESSAGE_IS_ACTIVE_SIZE + $MESSAGE_IS_ACTIVE_OFFSET )) # Ignore this in metadata printing
-MESSAGE_LEADER_ID_SIZE=16 # Ignore this in metadata printing
-MESSAGE_LEADER_ID_OFFSET=$(( $MESSAGE_COMMIT_STATUS_SIZE + $MESSAGE_COMMIT_STATUS_OFFSET )) # Ignore this in metadata printing
+MESSAGE_COMMIT_STATUS_SIZE=8
+MESSAGE_COMMIT_STATUS_OFFSET=$(( $MESSAGE_IS_ACTIVE_SIZE + $MESSAGE_IS_ACTIVE_OFFSET ))
+MESSAGE_LEADER_ID_SIZE=16
+MESSAGE_LEADER_ID_OFFSET=$(( $MESSAGE_COMMIT_STATUS_SIZE + $MESSAGE_COMMIT_STATUS_OFFSET ))
 MESSAGE_KEY_SIZE=8
 MESSAGE_KEY_OFFSET=$(( $MESSAGE_LEADER_ID_SIZE + $MESSAGE_LEADER_ID_OFFSET ))
 MESSAGE_PAYLOAD_SIZE=8
 MESSAGE_PAYLOAD_OFFSET=$(( $MESSAGE_KEY_SIZE + $MESSAGE_KEY_OFFSET ))
-COMMAND_TYPE_SIZE=8
-COMMAND_TYPE_OFFSET=$(( $MESSAGE_PAYLOAD_SIZE + $MESSAGE_PAYLOAD_OFFSET ))
-COMMAND_TERM_SIZE=16
-COMMAND_TERM_OFFSET=$(( $COMMAND_TYPE_SIZE + $COMMAND_TYPE_OFFSET ))
 
 COMMON_METADATA_TOTAL_BYTES=$(( $TOTAL_METADATA_BYTES + $VERSION_SIZE + $CHECKSUM_SIZE ))
 MESSAGE_TOTAL_BYTES=$(( $COMMON_METADATA_TOTAL_BYTES + $MESSAGE_ID_SIZE + $MESSAGE_TIMESTAMP_SIZE + $MESSAGE_IS_ACTIVE_SIZE + $MESSAGE_COMMIT_STATUS_SIZE + $MESSAGE_LEADER_ID_SIZE + $MESSAGE_KEY_SIZE + $MESSAGE_PAYLOAD_SIZE ))
-COMMAND_TOTAL_BYTES=$(( $MESSAGE_TOTAL_BYTES + $COMMAND_TYPE_SIZE + $COMMAND_TERM_SIZE ))
 
 bytes_offset=0
 byte_from=0
@@ -87,9 +55,13 @@ message_id=0
 message_timestamp_milli=0
 message_timestamp=""
 is_active=0
-command_type_id=0
-command_type=""
-command_term=0
+commit_status=0
+commit_status_desc=""
+message_leader_id=0
+key_size=0
+payload_size=0
+key=""
+payload=""
 
 computed_checksum_total_bytes=0
 computed_checksum=0
@@ -99,15 +71,8 @@ source ./common/validations/is_corrupted.sh
 source ./common/version_conversion.sh
 source ./common/date_conversion.sh
 
-source ./display_metadata_changes/print/queue.sh
-source ./display_metadata_changes/print/partition_assignment.sh
-source ./display_metadata_changes/print/node_registration.sh
-source ./display_metadata_changes/print/consumer_group.sh
-source ./display_metadata_changes/print/lagging_follower.sh
-source ./display_metadata_changes/print/transaction_group.sh
-
-print_metadata_change() {
-	echo =========== Metadata Change ====================
+print_message() {
+	echo "=========== Message $message_id ===================="
 
 	echo "Total Bytes: $total_bytes"
 	echo "Version: $version"
@@ -115,51 +80,10 @@ print_metadata_change() {
 	echo "Message Offset: $message_id"
 	echo "Message Timestamp: $message_timestamp (UTC)"
 	echo "Is Active: $is_active"
-	echo "Leader Term: $command_term"
-	echo "Metadata Change Type: $command_type"
-
-	case "$1" in
-	  1)
-	    print_create_queue_metadata_change_values
-		;;
-	  2)
-	    print_delete_queue_metadata_change_values
-		;;
-	  3)
-		print_partition_assignment_metadata_change_values
-		;;
-	  4)
-		print_partition_leader_assignment_metadata_change_values
-		;;
-	  5)
-		print_register_data_node_metadata_change_values
-		;;
-	  6)
-		print_unregister_data_node_metadata_change_values
-		;;
-	  7)
-		print_consumer_group_register_metadata_change_values
-		;;
-	  8)
-		print_consumer_group_unregister_metadata_change_values
-		;;
-	  9)
-		print_add_lagging_follower_metadata_change_values
-		;;
-	  10)
-		print_remove_lagging_follower_metadata_change_values
-		;;
-	  11)
-		print_register_transaction_group_metadata_change_values
-		;;
-	  12)
-		print_unregister_transaction_group_metadata_change_values
-		;;
-	  *)
-        echo "Unknown metadata type: $1"
-        exit 1
-        ;;
-	esac
+	echo "Commit Status: $commit_status_desc"
+	echo "Message Leader Id: $message_leader_id"
+	echo "Key: $key"
+	echo "Payload: $payload"
 
 	echo ================================================
 	echo ""
@@ -179,7 +103,7 @@ parse_and_print_metadata_values() {
 
 		new_offset=$(( $bytes_offset + $total_bytes * 2 ))
 
-		if (( $new_offset > $actual_bytes_read )); then
+		if (( new_offset > actual_bytes_read )); then
 			return 0;
 		fi
 
@@ -226,17 +150,39 @@ parse_and_print_metadata_values() {
 		current_hex=$(reverse_endian "${bytes_hex:byte_from:MESSAGE_IS_ACTIVE_SIZE}")
 		is_active=$(to_int $current_hex)
 
-		byte_from=$(( $bytes_offset + $COMMAND_TYPE_OFFSET ))
-		current_hex=$(reverse_endian "${bytes_hex:byte_from:COMMAND_TYPE_SIZE}")
-		command_type_id=$(to_int $current_hex)
+		byte_from=$(( $bytes_offset + $MESSAGE_COMMIT_STATUS_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:MESSAGE_COMMIT_STATUS_SIZE}")
+		commit_status=$(to_int $current_hex)
 
-		command_type=$(get_metadata_type_description $command_type_id)
+		commit_status_desc=$(get_commit_status_description $commit_status)
 
-		byte_from=$(( $bytes_offset + $COMMAND_TERM_OFFSET ))
-		current_hex=$(reverse_endian "${bytes_hex:byte_from:COMMAND_TERM_SIZE}")
-		command_term=$(to_int $current_hex)
+		byte_from=$(( $bytes_offset + $MESSAGE_LEADER_ID_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:MESSAGE_LEADER_ID_SIZE}")
+		message_leader_id=$(to_int $current_hex)
+		
+		byte_from=$(( $bytes_offset + $MESSAGE_KEY_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:MESSAGE_KEY_SIZE}")
+		key_size=$(to_int $current_hex)
 
-		print_metadata_change $command_type_id
+		byte_from=$(( $bytes_offset + $MESSAGE_PAYLOAD_OFFSET ))
+		current_hex=$(reverse_endian "${bytes_hex:byte_from:MESSAGE_PAYLOAD_SIZE}")
+		payload_size=$(to_int $current_hex)
+
+		if (( $key_size <= 0 )); then
+			key="NULL"
+		else
+			byte_from=$(( $bytes_offset + $MESSAGE_TOTAL_BYTES ))
+			key=$(echo -n ${bytes_hex:byte_from:key_size} | xxd -r -p)
+		fi
+
+		if (( $payload_size <= 0 )); then
+			payload="NULL"
+		else
+			byte_from=$(( $bytes_offset + $MESSAGE_TOTAL_BYTES + $key_size ))
+			payload=$(echo -n ${bytes_hex:byte_from:payload_size} | xxd -r -p)
+		fi
+
+		print_message
 
 		total_messages_print=$(( $total_messages_print + 1 ))
 		bytes_offset=$new_offset
