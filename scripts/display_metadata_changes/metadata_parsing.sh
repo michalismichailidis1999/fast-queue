@@ -106,6 +106,7 @@ source ./display_metadata_changes/print/partition_assignment.sh
 source ./display_metadata_changes/print/node_registration.sh
 source ./display_metadata_changes/print/consumer_group.sh
 source ./display_metadata_changes/print/lagging_follower.sh
+source ./display_metadata_changes/print/transaction_group.sh
 
 print_metadata_change() {
 	echo =========== Metadata Change ====================
@@ -150,9 +151,15 @@ print_metadata_change() {
 	  10)
 		print_remove_lagging_follower_metadata_change_values
 		;;
+	  11)
+		print_register_transaction_group_metadata_change_values
+		;;
+	  12)
+		print_unregister_transaction_group_metadata_change_values
+		;;
 	  *)
-        #echo "Unknown metadata type: $1"
-        #exit 1
+        echo "Unknown metadata type: $1"
+        exit 1
         ;;
 	esac
 
