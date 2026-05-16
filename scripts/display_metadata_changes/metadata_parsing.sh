@@ -105,6 +105,7 @@ source ./display_metadata_changes/print/queue.sh
 source ./display_metadata_changes/print/partition_assignment.sh
 source ./display_metadata_changes/print/node_registration.sh
 source ./display_metadata_changes/print/consumer_group.sh
+source ./display_metadata_changes/print/lagging_follower.sh
 
 print_metadata_change() {
 	echo =========== Metadata Change ====================
@@ -142,6 +143,12 @@ print_metadata_change() {
 		;;
 	  8)
 		print_consumer_group_unregister_metadata_change_values
+		;;
+	  9)
+		print_add_lagging_follower_metadata_change_values
+		;;
+	  10)
+		print_remove_lagging_follower_metadata_change_values
 		;;
 	  *)
         #echo "Unknown metadata type: $1"
