@@ -104,6 +104,7 @@ source ./common/date_conversion.sh
 source ./display_metadata_changes/print/queue.sh
 source ./display_metadata_changes/print/partition_assignment.sh
 source ./display_metadata_changes/print/node_registration.sh
+source ./display_metadata_changes/print/consumer_group.sh
 
 print_metadata_change() {
 	echo =========== Metadata Change ====================
@@ -135,6 +136,12 @@ print_metadata_change() {
 		;;
 	  6)
 		print_unregister_data_node_metadata_change_values
+		;;
+	  7)
+		print_consumer_group_register_metadata_change_values
+		;;
+	  8)
+		print_consumer_group_unregister_metadata_change_values
 		;;
 	  *)
         #echo "Unknown metadata type: $1"
