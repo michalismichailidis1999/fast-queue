@@ -22,6 +22,7 @@
 #include "./src/header_files/logging/Logger.h"
 #include "./src/header_files/Settings.h"
 #include "./src/header_files/BeforeServerStartupHandler.h"
+#include "./src/header_files/InterProcessCommunicator.h"
 #include "./src/header_files/util/Util.h"
 #include "./src/header_files/file_management/FileHandler.h"
 #include "./src/header_files/file_management/CacheHandler.h"

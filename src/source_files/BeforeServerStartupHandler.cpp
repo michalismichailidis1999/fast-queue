@@ -27,6 +27,9 @@ void BeforeServerStartupHandler::initialize_required_folders_and_queues() {
     // Creating required subfolders to run the broker
     this->fh->create_directory(this->pm->get_queue_folder_path(CLUSTER_METADATA_QUEUE_NAME));
 
+    // For IPC
+    this->fh->create_directory(this->pm->get_queue_folder_path(PIPES_QUEUE_NAME));
+
     if (this->settings->get_is_controller_node())
         this->fh->create_directory(this->pm->get_transactions_folder_path());
 

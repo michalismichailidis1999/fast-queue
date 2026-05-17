@@ -1,3 +1,5 @@
+#!/bin/bash
+
 declare -A config # create associative array
 
 while IFS= read -r line; do
