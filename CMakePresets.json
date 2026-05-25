@@ -38,7 +38,9 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "/usr/bin/gcc",
+        "CMAKE_CXX_COMPILER": "/usr/bin/g++"
       },
       "architecture": {
         "value": "x64",
@@ -46,7 +48,17 @@
       },
       "vendor": {
         "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": [ "Linux" ]
+          "hostOS": [ "Linux" ],
+          "intelliSenseMode": "linux-gcc-x64",
+          "additionalCompilerArgs": [ "-std=c++17" ],
+          "intelliSensePath": "/usr/bin/g++",
+          "includeSearchPath": [
+            "${sourceDir}/**",
+            "/usr/include",
+            "/usr/include/boost",
+            "/usr/include/x86_64-linux-gnu",
+            "/usr/local/include"
+          ]
         }
       },
       "environment": {

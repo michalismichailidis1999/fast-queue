@@ -165,8 +165,6 @@ int main(int argc, char* argv[])
         )
     );
 
-    //std::unique_ptr<InterProcessCommunicator> ipc = std::unique_ptr<InterProcessCommunicator>(new InterProcessCommunicator(server_logger.get()));
-
     server_logger->log_info("Server starting...");
 
     try
@@ -244,11 +242,6 @@ int main(int argc, char* argv[])
             th.get()->close_failed_transactions_in_background(&should_terminate);
         };
 
-        //auto start_listening_for_inter_process_communication = [&]() {
-        //    Helper::pin_thread_to_core(topology, physical_cores - 1);
-        //    ipc.get()->start_ipc(&should_terminate);
-        //};
-
         std::vector<std::thread> internal_listener_threads;
         std::vector<std::thread> external_listener_threads;
 
@@ -277,7 +270,6 @@ int main(int argc, char* argv[])
         std::thread check_for_expired_transaction_groups_thread = std::thread(check_for_expired_transaction_groups);
         std::thread check_for_expired_transactions_thread = std::thread(check_for_expired_transactions);
         std::thread close_failed_transactions_in_background_thread = std::thread(close_failed_transactions_in_background);
-        //std::thread start_listening_for_inter_process_communication_thread = std::thread(start_listening_for_inter_process_communication);
 
         for (auto& listener_thread : internal_listener_threads)
             listener_thread.join();
@@ -302,7 +294,6 @@ int main(int argc, char* argv[])
         check_for_expired_transaction_groups_thread.join();
         check_for_expired_transactions_thread.join();
         close_failed_transactions_in_background_thread.join();
-        //start_listening_for_inter_process_communication_thread.join();
     }
     catch (const std::exception&) {
         should_terminate = true;

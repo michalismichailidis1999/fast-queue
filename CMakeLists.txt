@@ -25,32 +25,80 @@ include_directories(${HEADER_DIR})
 set_property(TARGET FastQueue PROPERTY CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
+# ── IntelliSense include paths for WSL ────────────────────────────────
+if(UNIX AND NOT APPLE)
+    # these paths tell VS IntelliSense where headers live inside WSL
+    target_include_directories(FastQueue PRIVATE
+        /usr/include                        # standard system headers
+        /usr/include/boost                  # boost headers
+        /usr/include/x86_64-linux-gnu       # arch specific headers
+    )
+endif()
+
 # TODO: Add tests and install targets if needed.
 find_package(OpenSSL REQUIRED)
 target_link_libraries(FastQueue PRIVATE OpenSSL::SSL)
 target_link_libraries(FastQueue PRIVATE OpenSSL::Crypto)
 
-find_package(Boost REQUIRED COMPONENTS asio)
-target_link_libraries(FastQueue PRIVATE Boost::asio)
+# ── Boost ──────────────────────────────────────────────────────────────
+if(WIN32)
+    # Windows — vcpkg provides Boost::asio as a proper target
+    find_package(Boost REQUIRED COMPONENTS system)
+    target_link_libraries(FastQueue PRIVATE Boost::system)
+else()
+    # Linux — asio is header-only, link Boost::system for async support
+    find_package(Boost REQUIRED COMPONENTS system)
+    include_directories(${Boost_INCLUDE_DIRS})
+    target_link_libraries(FastQueue PRIVATE Boost::system)
+endif()
 
 find_package(ZLIB REQUIRED)
 target_link_libraries(FastQueue PRIVATE ZLIB::ZLIB)
 
-# --- HWLOC Generic Search ---
-find_path(HWLOC_INCLUDE_DIR NAMES hwloc.h)
-find_library(HWLOC_LIBRARY NAMES hwloc)
-
-if(HWLOC_INCLUDE_DIR AND HWLOC_LIBRARY)
-    # Create a "fake" target that behaves like ZLIB::ZLIB
-    if(NOT TARGET hwloc::hwloc)
-        add_library(hwloc::hwloc UNKNOWN IMPORTED)
-        set_target_properties(hwloc::hwloc PROPERTIES
-            INTERFACE_INCLUDE_DIRECTORIES "${HWLOC_INCLUDE_DIR}"
-            IMPORTED_LOCATION "${HWLOC_LIBRARY}"
-        )
+# ── HWLOC ──────────────────────────────────────────────────────────────
+if(WIN32)
+    find_package(hwloc CONFIG QUIET)
+    if(hwloc_FOUND)
+        target_link_libraries(FastQueue PRIVATE hwloc::hwloc)
+    else()
+        find_path(HWLOC_INCLUDE_DIR NAMES hwloc.h)
+        find_library(HWLOC_LIBRARY NAMES hwloc hwloc-15 libhwloc)
+        if(HWLOC_INCLUDE_DIR AND HWLOC_LIBRARY)
+            if(NOT TARGET hwloc::hwloc)
+                add_library(hwloc::hwloc UNKNOWN IMPORTED)
+                set_target_properties(hwloc::hwloc PROPERTIES
+                    INTERFACE_INCLUDE_DIRECTORIES "${HWLOC_INCLUDE_DIR}"
+                    IMPORTED_LOCATION "${HWLOC_LIBRARY}"
+                )
+            endif()
+            target_link_libraries(FastQueue PRIVATE hwloc::hwloc)
+        else()
+            message(FATAL_ERROR "hwloc not found on Windows — install via: vcpkg install hwloc")
+        endif()
     endif()
 else()
-    message(FATAL_ERROR "hwloc not found! Ensure it is installed via vcpkg (Windows) or apt/brew (Linux/macOS).")
+    find_path(HWLOC_INCLUDE_DIR NAMES hwloc.h)
+    find_library(HWLOC_LIBRARY NAMES hwloc)
+    if(HWLOC_INCLUDE_DIR AND HWLOC_LIBRARY)
+        if(NOT TARGET hwloc::hwloc)
+            add_library(hwloc::hwloc UNKNOWN IMPORTED)
+            set_target_properties(hwloc::hwloc PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${HWLOC_INCLUDE_DIR}"
+                IMPORTED_LOCATION "${HWLOC_LIBRARY}"
+            )
+        endif()
+        target_include_directories(FastQueue PRIVATE ${HWLOC_INCLUDE_DIR})
+        target_link_libraries(FastQueue PRIVATE hwloc::hwloc)
+    else()
+        message(FATAL_ERROR "hwloc not found — sudo apt install libhwloc-dev")
+    endif()
 endif()
 
-target_link_libraries(FastQueue PRIVATE hwloc::hwloc)
+# ── Platform specific libraries ────────────────────────────────────────
+if(WIN32)
+    target_link_libraries(FastQueue PRIVATE ws2_32 mswsock kernel32)
+endif()
+
+if(UNIX AND NOT APPLE)
+    target_link_libraries(FastQueue PRIVATE pthread rt)
+endif()
