@@ -25,4 +25,4 @@ if [ $status -ne 0 ]; then
     exit 1
 fi
 
-echo "Got: $response"
+echo "Queue $QUEUE created successfully"
