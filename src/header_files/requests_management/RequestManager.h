@@ -26,6 +26,8 @@ private:
 	bool is_invalid_external_request(RequestType req_type);
 
 	bool is_invalid_internal_request(RequestType req_type);
+
+	bool is_external_that_is_allowed_from_internal_network(RequestType req_type);
 public:
 	RequestManager(ConnectionsManager* cm, Settings* settings, ClientRequestExecutor* client_request_executor, InternalRequestExecutor* internal_request_executor, RequestMapper* mapper, Logger* logger);
 

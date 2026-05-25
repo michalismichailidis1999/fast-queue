@@ -9,6 +9,8 @@ std::unique_ptr<CreateQueueRequest> RequestMapper::to_create_queue_request(char*
 
 	std::unique_ptr<CreateQueueRequest> req = std::make_unique<CreateQueueRequest>();
 	req.get()->queue_name_length = 0;
+	req.get()->partitions = 1;
+	req.get()->replication_factor = 1;
 	req.get()->cleanup_policy = (int)CleanupPolicyType::DELETE_SEGMENTS;
 
 	while (offset < recvbuflen) {

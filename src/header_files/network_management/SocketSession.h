@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <functional>
+#include <atomic>
 #include "../logging/Logger.h"
 
 using namespace boost::asio::ip;
@@ -18,6 +19,8 @@ private:
     std::function<void(SocketSession*, char*, int)> execute_request_fn;
     std::function<void()> reduce_external_connections_count;
     std::function<void(int, long long)> remove_stored_socket_from_cache;
+
+    std::atomic_bool is_closed;
 
     void read_request_length_async();
     void read_request_body_async(int req_body_size);

@@ -1,11 +1,11 @@
-#!/usr/bin/env perl
+﻿#!/usr/bin/env perl
 use strict;
 use warnings;
 use IO::Socket::INET;
 
-my $ip = $ARGV[0] or die "Usage: send_tcp_request.pl <ip> <port> <request> [timeout]\n";
-my $port = $ARGV[1] or die "Usage: send_tcp_request.pl <ip> <port> <request> [timeout]\n";
-my $request = $ARGV[2] or die "Usage: send_tcp_request.pl <ip> <port> <request> [timeout]\n";
+my $ip = $ARGV[0] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> [timeout]\n";
+my $port = $ARGV[1] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> [timeout]\n";
+my $encoded = $ARGV[2] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> [timeout]\n";
 my $timeout = $ARGV[3] // 5;
 
 my $sock = IO::Socket::INET->new(
@@ -16,6 +16,33 @@ my $sock = IO::Socket::INET->new(
 ) or die "Cannot connect to cluster node: $!\n";
 
 $sock->autoflush(1);
+
+# ── parse encoded request string ──────────────────────────────────────
+# format: "\i<val>|\i<val>|\s<val>|..."
+# \i = convert value to 4 byte big-endian int
+# \s = keep value as raw string bytes
+
+my $request = '';
+
+my @fields = split(/\|/, $encoded);
+# split on | separator — produces list of fields
+# example: ("\i45", "\i1", "\i4", "\i8", "\shello_world", ...)
+
+foreach my $field (@fields) {
+    # extract type prefix (first 2 chars) and value (rest)
+    my $type  = substr($field, 0, 2); # first 2 chars: \i or \s
+    my $value = substr($field, 2); # everything after first 2 chars
+
+    if ($type eq '\\i') {
+        # convert to 4 byte big-endian integer
+        $request .= pack("V", int($value));
+    } elsif ($type eq '\\s') {
+        # keep as raw string bytes
+        $request .= $value;
+    } else {
+        die "ERROR: unknown type prefix '$type' in field '$field'\n";
+    }
+}
 
 $sock->send($request);
 
@@ -36,7 +63,7 @@ if (length($header) != 4)
     die "Received invalid response header format.";
 }
 
-$response_bytes = unpack('N', $header);
+$response_bytes = unpack('V', $header);
 
 my $response = '';
 my $body_bytes = $sock->recv($response, $response_bytes);

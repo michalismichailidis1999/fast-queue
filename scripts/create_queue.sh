@@ -1,13 +1,5 @@
 #!/bin/bash
 
-response=$(perl ./common/send_tcp_request.pl "127.0.0.1" 29877 "hello world")
-status=$?
+source ./create_queue/index.sh
 
-if [ $status -ne 0 ]; then
-    echo "Create queue request failed"
-    exit 1
-fi
-
-echo "Got: $response"
-
-# ./create_queue.sh
+# ./create_queue.sh --config-path D:/MessageBrokerHelperFiles/dummy.conf --queue test --partitions 1 --replication-factor 1

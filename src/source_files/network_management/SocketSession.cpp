@@ -9,6 +9,7 @@ SocketSession::SocketSession(Logger* logger, bool internal_communication, int ma
     this->reduce_external_connections_count = nullptr;
     this->remove_stored_socket_from_cache = nullptr;
     this->core_id = -1;
+    this->is_closed.store(false);
 }
 
 SocketSession::~SocketSession() {
@@ -133,9 +134,20 @@ bool SocketSession::write(std::shared_ptr<char> buf, int buf_size) {
 }
 
 void SocketSession::close() {
-    if (!this->socket.is_open()) return;
+    bool expected = false;
 
-    this->socket.close();
+    if (!this->is_closed.compare_exchange_strong(expected, true))
+        return;
+
+    if (this->socket.is_open()) {
+        boost::system::error_code ec;
+
+        this->socket.shutdown(
+            boost::asio::ip::tcp::socket::shutdown_both, ec
+        );
+
+        this->socket.close(ec);
+    }
 
     if (this->reduce_external_connections_count)
         this->reduce_external_connections_count();

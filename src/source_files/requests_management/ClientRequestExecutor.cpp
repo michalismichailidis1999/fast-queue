@@ -69,6 +69,8 @@ void ClientRequestExecutor::handle_create_queue_request(SocketSession* socket_se
 
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
+	// TODO: Add queue name validation check here
+
 	std::shared_ptr<QueueMetadata> queue_metadata = std::shared_ptr<QueueMetadata>(
 		new QueueMetadata(queue_name, request->partitions, request->replication_factor, (CleanupPolicyType)request->cleanup_policy)
 	);

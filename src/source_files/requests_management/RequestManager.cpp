@@ -41,7 +41,20 @@ bool RequestManager::is_invalid_external_request(RequestType req_type) {
 }
 
 bool RequestManager::is_invalid_internal_request(RequestType req_type) {
-	return !this->is_invalid_external_request(req_type);
+	bool is_invalid_internal = !this->is_invalid_external_request(req_type);
+
+	if (is_invalid_internal)
+		is_invalid_internal = !this->is_external_that_is_allowed_from_internal_network(req_type);
+
+	return is_invalid_internal;
+}
+
+bool RequestManager::is_external_that_is_allowed_from_internal_network(RequestType req_type) {
+	switch (req_type) {
+	case RequestType::CREATE_QUEUE: return true;
+	default:
+		return false;
+	}
 }
 
 void RequestManager::execute_request(SocketSession* socket_session, char* recvbuf, int req_buf_size) {
