@@ -47,7 +47,7 @@ private:
 	std::shared_ptr<boost::asio::io_context> get_io_context_by_core_id(bool internal_communication, int core_id);
 
 	void store_new_socket(std::shared_ptr<SocketSession> socket);
-	void remove_stored_socket(int fd, long long creation_time);
+	bool remove_stored_socket(int fd, long long creation_time);
 public:
 	SocketListenerHandler(ConnectionsManager* cm, SocketHandler* socket_handler, RequestManager* rm, Logger* logger, Settings* settings, Util* util, std::atomic_bool* should_terminate, int total_cores);
 

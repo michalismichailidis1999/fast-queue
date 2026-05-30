@@ -17,7 +17,7 @@ CLEANUP_POLICY_REQ_VALUE=18
 total_request_bytes=$(( 36 + $QUEUE_NAME_SIZE ))
 request="\\i${total_request_bytes}|\\i${REQUEST_TYPE}|\\i${QUEUE_NAME_REQ_VALUE}|\\i${QUEUE_NAME_SIZE}|\\s${QUEUE}|\\i${PARTITIONS_REQ_VALUE}|\\i${PARTITIONS}|\\i${REPLICATION_FACTOR_REQ_VALUE}|\\i${REPLICATION_FACTOR}|\\i${CLEANUP_POLICY_REQ_VALUE}|\\i${COMPACT_SEGMENTS}"
 
-response=$(perl ./common/send_tcp_request.pl "127.0.0.1" 29877 $request)
+response=$(perl ./common/send_tcp_request.pl "127.0.0.1" 29877 $request "./create_queue/response_handler.pl")
 status=$?
 
 if [ $status -ne 0 ]; then

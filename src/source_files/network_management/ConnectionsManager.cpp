@@ -438,9 +438,9 @@ void ConnectionsManager::close_connection_pool(ConnectionPool* pool) {
 	}
 }
 
-void ConnectionsManager::initialize_connection_heartbeat(SocketSession* socket_session) {
+void ConnectionsManager::initialize_connection_heartbeat(std::shared_ptr<SocketSession> socket_session) {
 	std::lock_guard<std::mutex> lock(this->heartbeats_mut);
-	this->connections_heartbeats[socket_session->fd] = std::tuple<bool, std::chrono::milliseconds, SocketSession*>(false, this->util->get_current_time_milli(), socket_session);
+	this->connections_heartbeats[socket_session->fd] = std::tuple<bool, std::chrono::milliseconds, std::shared_ptr<SocketSession>>(false, this->util->get_current_time_milli(), socket_session);
 }
 
 void ConnectionsManager::remove_socket_connection_heartbeat(int socket_fd) {
@@ -463,7 +463,7 @@ void ConnectionsManager::update_socket_heartbeat(int socket_fd) {
 
 	if (std::get<0>(this->connections_heartbeats[socket_fd])) return;
 
-	this->connections_heartbeats[socket_fd] = std::tuple<bool, std::chrono::milliseconds, SocketSession*>(
+	this->connections_heartbeats[socket_fd] = std::tuple<bool, std::chrono::milliseconds, std::shared_ptr<SocketSession>>(
 		false, 
 		this->util->get_current_time_milli(),
 		std::get<2>(this->connections_heartbeats[socket_fd])
@@ -483,7 +483,7 @@ void ConnectionsManager::check_connections_heartbeats() {
 			for (auto iter : this->connections_heartbeats)
 				if (!std::get<0>(iter.second) && this->util->has_timeframe_expired(std::get<1>(iter.second), this->settings->get_idle_connection_timeout_ms()))
 				{
-					this->close_socket_connection(std::get<2>(iter.second));
+					this->close_socket_connection(std::get<2>(iter.second).get());
 					expired.emplace_back(iter.first);
 				}
 

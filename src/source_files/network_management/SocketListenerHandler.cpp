@@ -6,6 +6,7 @@ SocketListenerHandler::SocketListenerHandler(ConnectionsManager* cm, SocketHandl
 	this->rm = rm;
     this->logger = logger;
 	this->settings = settings;
+    this->util = util;
 
     this->total_connections = 0;
     this->should_terminate = should_terminate;
@@ -25,7 +26,8 @@ SocketListenerHandler::SocketListenerHandler(ConnectionsManager* cm, SocketHandl
     this->ignore_connections_count = []() {};
 
     this->remove_stored_socket_from_cache = [this](int fd, long long creation_time) {
-        this->remove_stored_socket(fd, creation_time);
+        if (this->remove_stored_socket(fd, creation_time))
+            this->cm->remove_socket_connection_heartbeat(fd);
     };
 }
 
@@ -113,7 +115,7 @@ void SocketListenerHandler::handle_new_connected_socket(tcp::socket socket, bool
     if (!internal_communication)
         this->total_connections++;
 
-    this->cm->initialize_connection_heartbeat(new_socket.get());
+    this->cm->initialize_connection_heartbeat(new_socket);
 }
 
 void SocketListenerHandler::check_for_stop_request(boost::asio::executor_work_guard<boost::asio::io_context::executor_type>* work_guard, boost::asio::steady_timer* check_timer) {
@@ -157,9 +159,10 @@ void SocketListenerHandler::store_new_socket(std::shared_ptr<SocketSession> sock
     this->open_sockets[socket->fd] = socket;
 }
 
-void SocketListenerHandler::remove_stored_socket(int fd, long long creation_time) {
+bool SocketListenerHandler::remove_stored_socket(int fd, long long creation_time) {
     std::lock_guard<std::mutex> lock(this->open_sockets_mut);
-    if (this->open_sockets.find(fd) == this->open_sockets.end()) return;
-    if (this->open_sockets[fd].get()->creation_time != creation_time) return;
+    if (this->open_sockets.find(fd) == this->open_sockets.end()) return false;
+    if (this->open_sockets[fd].get()->creation_time != creation_time) return false;
     this->open_sockets.erase(fd);
+    return true;
 }

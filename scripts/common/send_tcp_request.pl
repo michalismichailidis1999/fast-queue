@@ -3,10 +3,11 @@ use strict;
 use warnings;
 use IO::Socket::INET;
 
-my $ip = $ARGV[0] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> [timeout]\n";
-my $port = $ARGV[1] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> [timeout]\n";
-my $encoded = $ARGV[2] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> [timeout]\n";
-my $timeout = $ARGV[3] // 5;
+my $ip = $ARGV[0] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [timeout]\n";
+my $port = $ARGV[1] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [timeout]\n";
+my $encoded = $ARGV[2] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [timeout]\n";
+my $response_handler = $ARGV[3] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [timeout]\n";
+my $timeout = $ARGV[4] // 5;
 
 my $sock = IO::Socket::INET->new(
     PeerAddr => $ip,
@@ -65,8 +66,8 @@ if (length($header) != 4)
 
 $response_bytes = unpack('V', $header);
 
-my $response = '';
-my $body_bytes = $sock->recv($response, $response_bytes);
+our $response = '';
+our $body_bytes = $sock->recv($response, $response_bytes);
 
 $sock->close();
 
@@ -80,5 +81,14 @@ if (length($response) != $response_bytes)
     die "Received invalid response body format.";
 }
 
-print $response;
+my $result = do $response_handler;
+
+if ($@) {
+    die "ERROR: response handler failed: $@\n";
+}
+if (!defined $result) {
+    die "ERROR: response handler returned undef: $!\n";
+}
+
+print "OK";
 exit 0;

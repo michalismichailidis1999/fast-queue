@@ -26,7 +26,7 @@ private:
 	std::map<int, std::shared_ptr<ConnectionPool>> controller_node_connections;
 	std::map<int, std::shared_ptr<ConnectionPool>> data_node_connections;
 
-	std::map<int, std::tuple<bool, std::chrono::milliseconds, SocketSession*>> connections_heartbeats;
+	std::map<int, std::tuple<bool, std::chrono::milliseconds, std::shared_ptr<SocketSession>>> connections_heartbeats;
 	std::mutex heartbeats_mut;
 
 	SocketHandler* socket_handler;
@@ -78,7 +78,7 @@ public:
 	bool add_connection_to_pool(ConnectionPool* pool);
 	void close_connection_pool(ConnectionPool* pool);
 
-	void initialize_connection_heartbeat(SocketSession* socket_session);
+	void initialize_connection_heartbeat(std::shared_ptr<SocketSession> socket_session);
 	bool socket_expired(int socket_fd);
 	void remove_socket_connection_heartbeat(int socket_fd);
 
