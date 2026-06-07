@@ -52,6 +52,7 @@ bool RequestManager::is_invalid_internal_request(RequestType req_type) {
 bool RequestManager::is_external_that_is_allowed_from_internal_network(RequestType req_type) {
 	switch (req_type) {
 	case RequestType::CREATE_QUEUE: return true;
+	case RequestType::GET_CONTROLLER_LEADER_ID: return true;
 	default:
 		return false;
 	}

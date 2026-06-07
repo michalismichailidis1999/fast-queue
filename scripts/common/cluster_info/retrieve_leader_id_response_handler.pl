@@ -11,37 +11,29 @@ my $err_code_handling_res = do $error_code_handler;
 if ($@) {
     die $@;
 }
-if (!defined $err_code_handling_res) {
+elsif (!defined $err_code_handling_res) {
     die "ERROR: error code handler returned undef: $!\n";
 }
 
 $offset += 4;
 
 my $res_val_key = '';
-my $ok = '';
-my $created = '';
+my $leader_id = '';
 
 while ($offset < $response_bytes) {
     $res_val_key = unpack('V', substr($response, $offset, 4));
     $offset += 4;
 
-    if ($res_val_key == 1) {
-        $ok = unpack('C', substr($response, $offset, 1));
-        $offset += 1;
-    } elsif ($res_val_key == 9) {
-        $created = unpack('C', substr($response, $offset, 1));
-        $offset += 1;
+    if ($res_val_key == 2) {
+        $leader_id = unpack('V', substr($response, $offset, 4));
+        $offset += 4;
     } else {
         die "Received incorrect response value key $res_val_key";
     }
 }
 
-if ($ok == 0) {
-    die "Queue failed to be created";
+if ($leader_id <= 0) {
+    die "No leader elected yet";
 }
 
-if ($created == 0) {
-    2;
-} else {
-    1;
-}
+$leader_id;

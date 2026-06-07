@@ -1,11 +1,8 @@
 #!/usr/bin/env perl
 
 if ($error_code == 0) {
-	print "OK";
-	exit 0;
-}
-
-if ($error_code == 1) {
+	1;
+} elsif ($error_code == 1) {
 	die "Internal Server Error (1)";
 } elsif ($error_code == 2) {
 	die "Incorrect Request Body (2)";

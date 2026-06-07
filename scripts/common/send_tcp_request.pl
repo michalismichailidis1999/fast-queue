@@ -3,11 +3,12 @@ use strict;
 use warnings;
 use IO::Socket::INET;
 
-my $ip = $ARGV[0] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [timeout]\n";
-my $port = $ARGV[1] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [timeout]\n";
-my $encoded = $ARGV[2] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [timeout]\n";
-my $response_handler = $ARGV[3] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [timeout]\n";
-my $timeout = $ARGV[4] // 5;
+my $ip = $ARGV[0] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [ingore_response] [timeout]\n";
+my $port = $ARGV[1] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [ingore_response] [timeout]\n";
+my $encoded = $ARGV[2] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [ingore_response] [timeout]\n";
+my $response_handler = $ARGV[3] or die "Usage: send_tcp_request.pl <ip> <port> <encoded> <response_handler> [ingore_response] [timeout]\n";
+my $ignore_response = $ARGV[4] // 0;
+my $timeout = $ARGV[5] // 5;
 
 my $sock = IO::Socket::INET->new(
     PeerAddr => $ip,
@@ -47,7 +48,7 @@ foreach my $field (@fields) {
 
 $sock->send($request);
 
-my $response_bytes = 0;
+our $response_bytes = 0;
 my $header = '';
 
 my $header_bytes = $sock->recv($header, 4);
@@ -90,5 +91,8 @@ if (!defined $result) {
     die "ERROR: response handler returned undef: $!\n";
 }
 
-print "OK";
-exit 0;
+if ($ignore_response == 1) {
+    print "OK";
+} else {
+    print $result;
+}
