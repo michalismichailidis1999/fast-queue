@@ -9,7 +9,8 @@
       "toolchainFile": "C:/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe"
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
       },
       "condition": {
         "type": "equals",
@@ -40,7 +41,10 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "/usr/bin/gcc",
-        "CMAKE_CXX_COMPILER": "/usr/bin/g++"
+        "CMAKE_CXX_COMPILER": "/usr/bin/g++",
+        "CMAKE_PREFIX_PATH": "/usr;/usr/local",
+        "HWLOC_INCLUDE_DIR": "/usr/include",
+        "HWLOC_LIBRARY": "/usr/lib/x86_64-linux-gnu/libhwloc.so"
       },
       "architecture": {
         "value": "x64",
@@ -52,13 +56,7 @@
           "intelliSenseMode": "linux-gcc-x64",
           "additionalCompilerArgs": [ "-std=c++17" ],
           "intelliSensePath": "/usr/bin/g++",
-          "includeSearchPath": [
-            "${sourceDir}/**",
-            "/usr/include",
-            "/usr/include/boost",
-            "/usr/include/x86_64-linux-gnu",
-            "/usr/local/include"
-          ]
+          "compileCommandsFile": "${sourceDir}/out/build/${presetName}/compile_commands.json"
         }
       },
       "environment": {

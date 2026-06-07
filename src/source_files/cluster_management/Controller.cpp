@@ -409,8 +409,7 @@ std::shared_ptr<AppendEntriesResponse> Controller::handle_leader_append_entries(
 
 				if (std::get<4>(messages_res) != 1) {
 					this->logger->log_error("Something went wrong while trying to fix log offset to match the leader");
-					std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-					exit(EXIT_FAILURE);
+					throw std::runtime_error("Something went wrong while trying to fix log offset to match the leader");
 				}
 
 				char* message_offset = std::get<0>(messages_res).get() + std::get<2>(messages_res);
@@ -1137,7 +1136,7 @@ void Controller::execute_command(void* command_metadata) {
 	if (command.get_command_type() == CommandType::REGISTER_DATA_NODE) {
 		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 		std::lock_guard<std::shared_mutex> followers_lock(this->follower_indexes_mut);
-		std::lock_guard ignore_lock(this->ingore_registration_lock);
+		std::lock_guard<std::mutex> ignore_lock(this->ingore_registration_lock);
 
 		RegisterDataNodeCommand* command_info = (RegisterDataNodeCommand*)command.get_command_info();
 
@@ -1156,7 +1155,7 @@ void Controller::execute_command(void* command_metadata) {
 	else if (command.get_command_type() == CommandType::UNREGISTER_DATA_NODE) {
 		std::lock_guard<std::mutex> lock(this->heartbeats_mut);
 		std::lock_guard<std::shared_mutex> followers_lock(this->follower_indexes_mut);
-		std::lock_guard ignore_lock(this->ingore_registration_lock);
+		std::lock_guard<std::mutex> ignore_lock(this->ingore_registration_lock);
 
 		UnregisterDataNodeCommand* command_info = (UnregisterDataNodeCommand*)command.get_command_info();
 

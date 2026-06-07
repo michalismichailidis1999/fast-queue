@@ -11,6 +11,9 @@ endif()
 
 project ("FastQueue")
 
+message(STATUS "CMake prefix path: ${CMAKE_PREFIX_PATH}")
+message(STATUS "System: ${CMAKE_SYSTEM_NAME}")
+
 set(SOURCE_DIR "./src/source_files")
 set(HEADER_DIR "./src/header_files")
 
@@ -77,21 +80,67 @@ if(WIN32)
         endif()
     endif()
 else()
-    find_path(HWLOC_INCLUDE_DIR NAMES hwloc.h)
-    find_library(HWLOC_LIBRARY NAMES hwloc)
-    if(HWLOC_INCLUDE_DIR AND HWLOC_LIBRARY)
-        if(NOT TARGET hwloc::hwloc)
-            add_library(hwloc::hwloc UNKNOWN IMPORTED)
-            set_target_properties(hwloc::hwloc PROPERTIES
-                INTERFACE_INCLUDE_DIRECTORIES "${HWLOC_INCLUDE_DIR}"
-                IMPORTED_LOCATION "${HWLOC_LIBRARY}"
+    # Try pkg-config first (most reliable on Linux)
+    message(STATUS "=== HWLOC DETECTION START ===")
+
+    # Try pkg-config first (most reliable on Linux)
+    find_package(PkgConfig QUIET)
+    message(STATUS "PkgConfig found: ${PKGCONFIG_FOUND}")
+
+    if(PKGCONFIG_FOUND)
+        pkg_check_modules(HWLOC QUIET hwloc)
+        message(STATUS "HWLOC via pkg-config found: ${HWLOC_FOUND}")
+        message(STATUS "HWLOC libs: ${HWLOC_LINK_LIBRARIES}")
+        message(STATUS "HWLOC includes: ${HWLOC_INCLUDE_DIRS}")
+    endif()
+
+    if(HWLOC_FOUND)
+        message(STATUS "hwloc found via pkg-config: ${HWLOC_LINK_LIBRARIES}")
+
+        # pkg-config omits /usr/include as it's a default system path
+        if(NOT HWLOC_INCLUDE_DIRS)
+            message(STATUS "HWLOC_INCLUDE_DIRS empty, falling back to /usr/include")
+            set(HWLOC_INCLUDE_DIRS "/usr/include")
+        endif()
+
+        target_include_directories(FastQueue PRIVATE ${HWLOC_INCLUDE_DIRS})
+        target_link_libraries(FastQueue PRIVATE ${HWLOC_LINK_LIBRARIES})
+        target_compile_options(FastQueue PRIVATE "-I/usr/include")
+    else()
+        # Fallback: manual search with explicit hints
+        message(STATUS "pkg-config failed, trying manual search...")
+        
+        find_path(HWLOC_INCLUDE_DIR
+            NAMES hwloc.h
+            HINTS /usr/include /usr/local/include
+        )
+        find_library(HWLOC_LIBRARY
+            NAMES hwloc
+            HINTS /usr/lib /usr/local/lib
+                  /usr/lib/x86_64-linux-gnu
+                  /usr/lib/aarch64-linux-gnu
+        )
+        if(HWLOC_INCLUDE_DIR AND HWLOC_LIBRARY)
+            message(STATUS "hwloc found manually: ${HWLOC_LIBRARY}")
+            if(NOT TARGET hwloc::hwloc)
+                add_library(hwloc::hwloc UNKNOWN IMPORTED)
+                set_target_properties(hwloc::hwloc PROPERTIES
+                    INTERFACE_INCLUDE_DIRECTORIES "${HWLOC_INCLUDE_DIR}"
+                    IMPORTED_LOCATION "${HWLOC_LIBRARY}"
+                )
+            endif()
+            target_include_directories(FastQueue PRIVATE ${HWLOC_INCLUDE_DIR})
+            target_link_libraries(FastQueue PRIVATE hwloc::hwloc)
+        else()
+            message(FATAL_ERROR
+                "hwloc not found.\n"
+                "  Install with: sudo apt install libhwloc-dev\n"
+                "  Then verify:  pkg-config --libs hwloc"
             )
         endif()
-        target_include_directories(FastQueue PRIVATE ${HWLOC_INCLUDE_DIR})
-        target_link_libraries(FastQueue PRIVATE hwloc::hwloc)
-    else()
-        message(FATAL_ERROR "hwloc not found — sudo apt install libhwloc-dev")
     endif()
+
+    message(STATUS "=== HWLOC DETECTION END ===")
 endif()
 
 # ── Platform specific libraries ────────────────────────────────────────

@@ -1,6 +1,7 @@
 #pragma once
 #include <zlib.h>
 #include <string>
+#include <stdexcept>
 #include "../Constants.h"
 #include "../Enums.h"
 #if defined(_WIN32) || defined(_WIN64)
