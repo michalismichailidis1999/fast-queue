@@ -21,7 +21,7 @@ file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cpp")
 file(GLOB_RECURSE HEADERS "${HEADER_DIR}/*.h")
 
 # Add source to this project's executable.
-add_executable (FastQueue "FastQueue.cpp" "FastQueue.h" ${SOURCES})
+add_executable (FastQueue "FastQueue.cpp" "FastQueue.h" ${SOURCES} "src/header_files/cluster_management/QueuePartitionsInfo.h")
 
 include_directories(${HEADER_DIR})
 

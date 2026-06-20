@@ -54,6 +54,10 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(UnregisterTransactionGroupResponse* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(TransactionStatusUpdateResponse* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(RetrieveQueuePartitionsInfoResponse* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(RetrievePartitionOffsetInfoResponse* obj);
     // --
 
     // -- External

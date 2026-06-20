@@ -90,6 +90,17 @@ struct TransactionStatusUpdateRequest {
 	int status;
 };
 
+struct RetrieveQueuePartitionsInfoRequest {
+	int queue_name_length;
+	char* queue_name;
+};
+
+struct RetrievePartitionOffsetInfoRequest {
+	int queue_name_length;
+	char* queue_name;
+	int partition;
+};
+
 // ======================================================================
 
 // External Requests

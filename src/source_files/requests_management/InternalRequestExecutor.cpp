@@ -372,3 +372,82 @@ void InternalRequestExecutor::handle_transaction_status_update_request(SocketSes
 
 	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
+
+void InternalRequestExecutor::handle_retrieve_queue_partitions_info_request(SocketSession* socket_session, RetrieveQueuePartitionsInfoRequest* request) {
+	if (request->queue_name_length == 0) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
+	if (!this->settings->get_is_controller_node()) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Node is not controller node");
+		return;
+	}
+
+	if (this->controller->get_leader_id() != this->settings->get_node_id()) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_LEADER, "Node is not cluster leader");
+		return;
+	}
+
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	if (Helper::is_internal_queue(queue_name)) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Queue " + queue_name + " is internal. You cannot retrieve information about it");
+		return;
+	}
+
+	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
+
+	if (queue == nullptr) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue " + queue_name + " not found");
+		return;
+	}
+
+	std::unique_ptr<RetrieveQueuePartitionsInfoResponse> res = std::make_unique<RetrieveQueuePartitionsInfoResponse>();
+	res.get()->partitions = queue.get()->get_metadata()->get_partitions();
+	res.get()->replication_factor = queue.get()->get_metadata()->get_replication_factor();
+
+	std::vector<std::shared_ptr<QueuePartitionInfo>> partitions_info = this->controller->get_cluster_metadata()->get_queue_partitions_assigned_nodes_into(queue_name, res.get()->partitions);
+
+	// TODO: Complete this part
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
+}
+
+void InternalRequestExecutor::handle_retrieve_partition_offset_info_request(SocketSession* socket_session, RetrievePartitionOffsetInfoRequest* request) {
+	if (request->queue_name_length == 0) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
+		return;
+	}
+
+	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
+
+	if (Helper::is_internal_queue(queue_name)) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Queue " + queue_name + " is internal. You cannot retrieve information about it");
+		return;
+	}
+
+	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
+
+	if (queue == nullptr) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue " + queue_name + " not found");
+		return;
+	}
+
+	std::shared_ptr<Partition> partition = queue.get()->get_partition(request->partition);
+
+	if (partition == nullptr) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Partition " + std::to_string(request->partition) + " is not assigned to node " + std::to_string(this->settings->get_node_id()));
+		return;
+	}
+
+	std::unique_ptr<RetrievePartitionOffsetInfoResponse> res = std::make_unique<RetrievePartitionOffsetInfoResponse>();
+	res.get()->last_offset = partition->get_message_offset();
+	res.get()->commited_offset = partition->get_last_replicated_offset();
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
+}

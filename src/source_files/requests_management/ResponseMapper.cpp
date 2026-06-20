@@ -276,3 +276,28 @@ std::unique_ptr<UnregisterTransactionGroupResponse> ResponseMapper::to_unregiste
 
 	return res;
 }
+
+std::unique_ptr<RetrievePartitionOffsetInfoResponse> ResponseMapper::to_retrieve_partition_offset_info_response(char* res_buf, long res_buf_len) {
+	long offset = sizeof(ErrorCode); // skip error code
+
+	std::unique_ptr<RetrievePartitionOffsetInfoResponse> res = std::make_unique<RetrievePartitionOffsetInfoResponse>();
+
+	while (offset < res_buf_len) {
+		ResponseValueKey* key = (ResponseValueKey*)(res_buf + offset);
+
+		if (*key == ResponseValueKey::PARTITION_LAST_OFFSET) {
+			res.get()->last_offset = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else if (*key == ResponseValueKey::PARTITION_LAST_COMMITED_OFFSET) {
+			res.get()->commited_offset = *(unsigned long long*)(res_buf + offset + sizeof(ResponseValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(unsigned long long);
+		}
+		else {
+			this->logger->log_error("Invalid response value " + std::to_string((int)(*key)) + " on response type RetrievePartitionOffsetInfoResponse");
+			return nullptr;
+		}
+	}
+
+	return res;
+}

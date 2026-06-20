@@ -784,3 +784,9 @@ bool ClusterMetadata::queue_is_assigned_to_transaction_group(const std::string& 
 
 	return false;
 }
+
+std::vector<std::shared_ptr<QueuePartitionInfo>> ClusterMetadata::get_queue_partitions_assigned_nodes_into(const std::string& queue, int partitions) {
+	std::vector<std::shared_ptr<QueuePartitionInfo>> infos;
+
+	return infos;
+}

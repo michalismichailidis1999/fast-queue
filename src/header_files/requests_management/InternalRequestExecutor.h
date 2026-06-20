@@ -51,4 +51,8 @@ public:
 	void handle_unregister_transaction_group_request(SocketSession* socket_session, UnregisterTransactionGroupRequest* request);
 
 	void handle_transaction_status_update_request(SocketSession* socket_session, TransactionStatusUpdateRequest* request);
+
+	void handle_retrieve_queue_partitions_info_request(SocketSession* socket_session, RetrieveQueuePartitionsInfoRequest* request);
+
+	void handle_retrieve_partition_offset_info_request(SocketSession* socket_session, RetrievePartitionOffsetInfoRequest* request);
 };

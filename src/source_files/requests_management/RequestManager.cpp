@@ -35,6 +35,8 @@ bool RequestManager::is_invalid_external_request(RequestType req_type) {
 	case RequestType::REMOVE_LAGGING_FOLLOWER: return true;
 	case RequestType::UNREGISTER_TRANSACTION_GROUP: return true;
 	case RequestType::TRANSACTION_STATUS_UPDATE: return true;
+	case RequestType::RETRIEVE_QUEUE_PARTITIONS_INFO: return true;
+	case RequestType::RETRIEVE_PARTITION_OFFSET_INFO: return true;
 	default:
 		return false;
 	}
@@ -432,6 +434,30 @@ void RequestManager::execute_request(SocketSession* socket_session, char* recvbu
 			this->internal_request_executor->handle_transaction_status_update_request(socket_session, request.get());
 
 			request_type_str = "TRANSACTION_STATUS_UPDATE";
+
+			break;
+		}
+		case RequestType::RETRIEVE_QUEUE_PARTITIONS_INFO:
+		{
+			this->logger->log_info("Received and executing request type of RETRIEVE_QUEUE_PARTITIONS_INFO");
+
+			std::unique_ptr<RetrieveQueuePartitionsInfoRequest> request = this->mapper->to_retrieve_queue_partitions_info_request(recvbuf, req_buf_size);
+
+			this->internal_request_executor->handle_retrieve_queue_partitions_info_request(socket_session, request.get());
+
+			request_type_str = "RETRIEVE_QUEUE_PARTITIONS_INFO";
+
+			break;
+		}
+		case RequestType::RETRIEVE_PARTITION_OFFSET_INFO:
+		{
+			this->logger->log_info("Received and executing request type of RETRIEVE_PARTITION_OFFSET_INFO");
+
+			std::unique_ptr<RetrievePartitionOffsetInfoRequest> request = this->mapper->to_retrieve_partition_offset_info_request(recvbuf, req_buf_size);
+
+			this->internal_request_executor->handle_retrieve_partition_offset_info_request(socket_session, request.get());
+
+			request_type_str = "RETRIEVE_PARTITION_OFFSET_INFO";
 
 			break;
 		}

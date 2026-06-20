@@ -1197,6 +1197,103 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
 }
 
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(RetrieveQueuePartitionsInfoResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(int) + 3 * sizeof(ResponseValueKey);
+
+	for (auto& info : obj->partitions_info) {
+		buf_size += sizeof(int) + 2 * sizeof(unsigned long long);
+
+		buf_size += sizeof(int); // for followers count
+		// every follower is constructed by its assigned node id and its partition offset
+		buf_size += (sizeof(int) + sizeof(unsigned long long)) * info->follower_ids.size();
+	}
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
+
+	ResponseValueKey partitions_type = ResponseValueKey::TOTAL_PARTITIONS;
+	ResponseValueKey replication_factor_type = ResponseValueKey::REPLICATION_FACTOR;
+	ResponseValueKey queue_partition_info_type = ResponseValueKey::QUEUE_PARTITION_INFO;
+
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
+	offset += sizeof(ErrorCode);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &partitions_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->partitions, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &replication_factor_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(int), &obj->replication_factor, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &queue_partition_info_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	for (auto& info : obj->partitions_info) {
+		memcpy_s(buf.get() + offset, sizeof(int), &info->leader_id, sizeof(int));
+		offset += sizeof(int);
+
+		memcpy_s(buf.get() + offset, sizeof(unsigned long long), &info->leader_offset, sizeof(unsigned long long));
+		offset += sizeof(unsigned long long);
+
+		memcpy_s(buf.get() + offset, sizeof(unsigned long long), &info->leader_commited_offset, sizeof(unsigned long long));
+		offset += sizeof(unsigned long long);
+
+		for (int i = 0; i < info->follower_ids.size(); i++) {
+			memcpy_s(buf.get() + offset, sizeof(int), &(info->follower_ids[i]), sizeof(int));
+			offset += sizeof(int);
+
+			memcpy_s(buf.get() + offset, sizeof(unsigned long long), &(info->follower_offsets[i]), sizeof(unsigned long long));
+			offset += sizeof(unsigned long long);
+		}
+	}
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
+std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(RetrievePartitionOffsetInfoResponse* obj) {
+	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + 2 * sizeof(unsigned long long) + 2 * sizeof(ResponseValueKey);
+
+	std::shared_ptr<char> buf = std::shared_ptr<char>(new char[buf_size]);
+
+	ErrorCode err_code = ErrorCode::NONE;
+	int offset = 0;
+	unsigned int req_buf_size = buf_size - sizeof(unsigned int);
+
+	ResponseValueKey last_offset_type = ResponseValueKey::PARTITION_LAST_OFFSET;
+	ResponseValueKey last_commited_offset_type = ResponseValueKey::PARTITION_LAST_COMMITED_OFFSET;
+
+	memcpy_s(buf.get(), sizeof(unsigned int), &req_buf_size, sizeof(unsigned int));
+	offset += sizeof(unsigned int);
+
+	memcpy_s(buf.get() + offset, sizeof(ErrorCode), &err_code, sizeof(ErrorCode));
+	offset += sizeof(ErrorCode);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &last_offset_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->last_offset, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	memcpy_s(buf.get() + offset, sizeof(ResponseValueKey), &last_commited_offset_type, sizeof(ResponseValueKey));
+	offset += sizeof(ResponseValueKey);
+
+	memcpy_s(buf.get() + offset, sizeof(unsigned long long), &obj->commited_offset, sizeof(unsigned long long));
+	offset += sizeof(unsigned long long);
+
+	return std::tuple<unsigned int, std::shared_ptr<char>>(buf_size, buf);
+}
+
 std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transform(RegisterTransactionGroupResponse* obj) {
 	unsigned int buf_size = sizeof(unsigned int) + sizeof(ErrorCode) + sizeof(int) + sizeof(unsigned long long) + 2 * sizeof(ResponseValueKey);
 

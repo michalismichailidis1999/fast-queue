@@ -10,6 +10,7 @@
 #include "./Commands.h"
 #include "../queue_management/QueueMetadata.h"
 #include "../exceptions/CurruptionException.h"
+#include "./QueuePartitionInfo.h"
 
 #include "../__linux/memcpy_s.h"
 
@@ -124,6 +125,8 @@ public:
 	unsigned long long get_last_transaction_group_id();
 
 	bool queue_is_assigned_to_transaction_group(const std::string& queue);
+
+	std::vector<std::shared_ptr<QueuePartitionInfo>> get_queue_partitions_assigned_nodes_into(const std::string& queue, int partitions);
 
 	friend class Controller;
 	friend class DataNode;

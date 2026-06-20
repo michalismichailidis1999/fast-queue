@@ -2,6 +2,7 @@
 #include <vector>
 #include <tuple>
 #include "../network_management/Connection.h"
+#include "../cluster_management/QueuePartitionInfo.h"
 
 #include "../__linux/memcpy_s.h"
 
@@ -62,6 +63,17 @@ struct UnregisterTransactionGroupResponse {
 
 struct TransactionStatusUpdateResponse {
 	bool ok;
+};
+
+struct RetrieveQueuePartitionsInfoResponse {
+	int partitions;
+	int replication_factor;
+	std::vector<QueuePartitionInfo*> partitions_info;
+};
+
+struct RetrievePartitionOffsetInfoResponse {
+	unsigned long long last_offset;
+	unsigned long long commited_offset;
 };
 
 // =======================================================

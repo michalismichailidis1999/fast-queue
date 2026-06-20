@@ -777,6 +777,59 @@ std::unique_ptr<TransactionStatusUpdateRequest> RequestMapper::to_transaction_st
 	return req;
 }
 
+std::unique_ptr<RetrieveQueuePartitionsInfoRequest> RequestMapper::to_retrieve_queue_partitions_info_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<RetrieveQueuePartitionsInfoRequest> req = std::make_unique<RetrieveQueuePartitionsInfoRequest>();
+
+	req.get()->queue_name_length = 0;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::QUEUE_NAME) {
+			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type RetrieveQueuePartitionsInfoRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}
+
+std::unique_ptr<RetrievePartitionOffsetInfoRequest> RequestMapper::to_retrieve_partition_offset_info_request(char* recvbuf, int recvbuflen) {
+	int offset = sizeof(RequestType); // skip request type 
+
+	std::unique_ptr<RetrievePartitionOffsetInfoRequest> req = std::make_unique<RetrievePartitionOffsetInfoRequest>();
+
+	req.get()->queue_name_length = 0;
+	req.get()->partition = 0;
+
+	while (offset < recvbuflen) {
+		RequestValueKey* key = (RequestValueKey*)(recvbuf + offset);
+
+		if (*key == RequestValueKey::QUEUE_NAME) {
+			req.get()->queue_name_length = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			req.get()->queue_name = recvbuf + offset + sizeof(RequestValueKey) + sizeof(int);
+			offset += sizeof(RequestValueKey) + sizeof(int) + req.get()->queue_name_length;
+		}
+		else if (*key == RequestValueKey::PARTITION) {
+			req.get()->partition = *(int*)(recvbuf + offset + sizeof(RequestValueKey));
+			offset += sizeof(RequestValueKey) + sizeof(int);
+		}
+		else {
+			this->logger->log_error("Invalid request value " + std::to_string((int)(*key)) + " on request type RetrieveQueuePartitionsInfoRequest");
+			throw std::runtime_error("Invalid request value");
+		}
+	}
+
+	return req;
+}
+
 std::unique_ptr<BeginTransactionRequest> RequestMapper::to_begin_transaction_request(char* recvbuf, int recvbuflen) {
 	int offset = sizeof(RequestType); // skip request type 
 

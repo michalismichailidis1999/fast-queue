@@ -34,6 +34,10 @@ public:
 
 	std::unique_ptr<TransactionStatusUpdateRequest> to_transaction_status_update_request(char* recvbuf, int recvbuflen);
 
+	std::unique_ptr<RetrieveQueuePartitionsInfoRequest> to_retrieve_queue_partitions_info_request(char* recvbuf, int recvbuflen);
+
+	std::unique_ptr<RetrievePartitionOffsetInfoRequest> to_retrieve_partition_offset_info_request(char* recvbuf, int recvbuflen);
+
 	// =======================================================
 
 	// External Requests
