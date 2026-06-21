@@ -12,25 +12,25 @@ private:
 public:
 	ResponseMapper(Logger* logger);
 
-	std::unique_ptr<ErrorResponse> to_error_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<ErrorResponse> to_error_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<AppendEntriesResponse> to_append_entries_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<AppendEntriesResponse> to_append_entries_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<RequestVoteResponse> to_request_vote_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<RequestVoteResponse> to_request_vote_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<DataNodeHeartbeatResponse> to_data_node_heartbeat_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<DataNodeHeartbeatResponse> to_data_node_heartbeat_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<ExpireConsumersResponse> to_expire_consumers_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<ExpireConsumersResponse> to_expire_consumers_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<AddLaggingFollowerResponse> to_add_lagging_follower_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<AddLaggingFollowerResponse> to_add_lagging_follower_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<RemoveLaggingFollowerResponse> to_remove_lagging_follower_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<RemoveLaggingFollowerResponse> to_remove_lagging_follower_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<FetchMessagesResponse> to_fetch_messages_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<FetchMessagesResponse> to_fetch_messages_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<TransactionStatusUpdateResponse> to_transaction_status_update_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<TransactionStatusUpdateResponse> to_transaction_status_update_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<UnregisterTransactionGroupResponse> to_unregister_transaction_group_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<UnregisterTransactionGroupResponse> to_unregister_transaction_group_response(char* res_buf, int res_buf_len);
 
-	std::unique_ptr<RetrievePartitionOffsetInfoResponse> to_retrieve_partition_offset_info_response(char* res_buf, long res_buf_len);
+	std::unique_ptr<RetrievePartitionOffsetInfoResponse> to_retrieve_partition_offset_info_response(char* res_buf, int res_buf_len);
 };

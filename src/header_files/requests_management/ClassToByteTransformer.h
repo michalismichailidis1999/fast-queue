@@ -32,6 +32,8 @@ public:
     std::tuple<unsigned int, std::shared_ptr<char>> transform(TransactionStatusUpdateRequest* obj);
 
     std::tuple<unsigned int, std::shared_ptr<char>> transform(UnregisterTransactionGroupRequest* obj);
+
+    std::tuple<unsigned int, std::shared_ptr<char>> transform(RetrievePartitionOffsetInfoRequest* obj);
     // ------------------
 
     // Responses

@@ -4,7 +4,7 @@ ResponseMapper::ResponseMapper(Logger* logger) {
 	this->logger = logger;
 }
 
-std::unique_ptr<ErrorResponse> ResponseMapper::to_error_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<ErrorResponse> ResponseMapper::to_error_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<ErrorResponse> res = std::make_unique<ErrorResponse>();
@@ -26,7 +26,7 @@ std::unique_ptr<ErrorResponse> ResponseMapper::to_error_response(char* res_buf, 
 	return res;
 }
 
-std::unique_ptr<AppendEntriesResponse> ResponseMapper::to_append_entries_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<AppendEntriesResponse> ResponseMapper::to_append_entries_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<AppendEntriesResponse> res = std::make_unique<AppendEntriesResponse>();
@@ -54,7 +54,7 @@ std::unique_ptr<AppendEntriesResponse> ResponseMapper::to_append_entries_respons
 	return res;
 }
 
-std::unique_ptr<RequestVoteResponse> ResponseMapper::to_request_vote_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<RequestVoteResponse> ResponseMapper::to_request_vote_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<RequestVoteResponse> res = std::make_unique<RequestVoteResponse>();
@@ -79,7 +79,7 @@ std::unique_ptr<RequestVoteResponse> ResponseMapper::to_request_vote_response(ch
 	return res;
 }
 
-std::unique_ptr<DataNodeHeartbeatResponse> ResponseMapper::to_data_node_heartbeat_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<DataNodeHeartbeatResponse> ResponseMapper::to_data_node_heartbeat_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<DataNodeHeartbeatResponse> res = std::make_unique<DataNodeHeartbeatResponse>();
@@ -103,7 +103,7 @@ std::unique_ptr<DataNodeHeartbeatResponse> ResponseMapper::to_data_node_heartbea
 	return res;
 }
 
-std::unique_ptr<ExpireConsumersResponse> ResponseMapper::to_expire_consumers_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<ExpireConsumersResponse> ResponseMapper::to_expire_consumers_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<ExpireConsumersResponse> res = std::make_unique<ExpireConsumersResponse>();
@@ -128,7 +128,7 @@ std::unique_ptr<ExpireConsumersResponse> ResponseMapper::to_expire_consumers_res
 	return res;
 }
 
-std::unique_ptr<AddLaggingFollowerResponse> ResponseMapper::to_add_lagging_follower_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<AddLaggingFollowerResponse> ResponseMapper::to_add_lagging_follower_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<AddLaggingFollowerResponse> res = std::make_unique<AddLaggingFollowerResponse>();
@@ -153,7 +153,7 @@ std::unique_ptr<AddLaggingFollowerResponse> ResponseMapper::to_add_lagging_follo
 	return res;
 }
 
-std::unique_ptr<RemoveLaggingFollowerResponse> ResponseMapper::to_remove_lagging_follower_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<RemoveLaggingFollowerResponse> ResponseMapper::to_remove_lagging_follower_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<RemoveLaggingFollowerResponse> res = std::make_unique<RemoveLaggingFollowerResponse>();
@@ -178,7 +178,7 @@ std::unique_ptr<RemoveLaggingFollowerResponse> ResponseMapper::to_remove_lagging
 	return res;
 }
 
-std::unique_ptr<FetchMessagesResponse> ResponseMapper::to_fetch_messages_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<FetchMessagesResponse> ResponseMapper::to_fetch_messages_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<FetchMessagesResponse> res = std::make_unique<FetchMessagesResponse>();
@@ -231,7 +231,7 @@ std::unique_ptr<FetchMessagesResponse> ResponseMapper::to_fetch_messages_respons
 	return res;
 }
 
-std::unique_ptr<TransactionStatusUpdateResponse> ResponseMapper::to_transaction_status_update_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<TransactionStatusUpdateResponse> ResponseMapper::to_transaction_status_update_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<TransactionStatusUpdateResponse> res = std::make_unique<TransactionStatusUpdateResponse>();
@@ -252,7 +252,7 @@ std::unique_ptr<TransactionStatusUpdateResponse> ResponseMapper::to_transaction_
 	return res;
 }
 
-std::unique_ptr<UnregisterTransactionGroupResponse> ResponseMapper::to_unregister_transaction_group_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<UnregisterTransactionGroupResponse> ResponseMapper::to_unregister_transaction_group_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<UnregisterTransactionGroupResponse> res = std::make_unique<UnregisterTransactionGroupResponse>();
@@ -277,7 +277,7 @@ std::unique_ptr<UnregisterTransactionGroupResponse> ResponseMapper::to_unregiste
 	return res;
 }
 
-std::unique_ptr<RetrievePartitionOffsetInfoResponse> ResponseMapper::to_retrieve_partition_offset_info_response(char* res_buf, long res_buf_len) {
+std::unique_ptr<RetrievePartitionOffsetInfoResponse> ResponseMapper::to_retrieve_partition_offset_info_response(char* res_buf, int res_buf_len) {
 	long offset = sizeof(ErrorCode); // skip error code
 
 	std::unique_ptr<RetrievePartitionOffsetInfoResponse> res = std::make_unique<RetrievePartitionOffsetInfoResponse>();

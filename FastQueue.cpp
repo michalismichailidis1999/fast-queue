@@ -7,11 +7,15 @@ Logger* _logger;
 void terminationSignalHandler(int signum) {
     switch (signum) {
     case SIGSEGV:
-        _logger->log_error("Segmentation error occured. Shutting down immediatelly...");
+        if (_logger != NULL)
+            _logger->log_error("Segmentation error occured. Shutting down immediatelly...");
+
         exit(1);
     case SIGINT:
     case SIGTERM:
-        _logger->log_info("Termination signal received. Initiating graceful shutdown...");
+        if (_logger != NULL)
+            _logger->log_info("Termination signal received. Initiating graceful shutdown...");
+
         break;
     default:
         return;
@@ -149,7 +153,7 @@ int main(int argc, char* argv[])
     controller.get()->update_quorum_communication_values();
 
     std::unique_ptr<ClientRequestExecutor> client_request_executor = std::unique_ptr<ClientRequestExecutor>(new ClientRequestExecutor(mh.get(), oah.get(), th.get(), cm.get(), qm.get(), controller.get(), data_node.get(), transformer.get(), settings.get(), server_logger.get()));
-    std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), data_node.get(), qm.get(), mh.get(), transformer.get(), th.get()));
+    std::unique_ptr<InternalRequestExecutor> internal_request_executor = std::unique_ptr<InternalRequestExecutor>(new InternalRequestExecutor(settings.get(), server_logger.get(), cm.get(), fh.get(), controller.get(), data_node.get(), qm.get(), mh.get(), transformer.get(), th.get(), response_mapper.get()));
     std::unique_ptr<RequestManager> rm = std::unique_ptr<RequestManager>(new RequestManager(cm.get(), settings.get(), client_request_executor.get(), internal_request_executor.get(), request_mapper.get(), server_logger.get()));
 
     std::unique_ptr<SocketListenerHandler> slh = std::unique_ptr<SocketListenerHandler>(

@@ -13,6 +13,7 @@
 #include "../queue_management/messages_management/MessagesHandler.h"
 #include "./ClassToByteTransformer.h"
 #include "./Requests.h"
+#include "./ResponseMapper.h"
 
 #include "../__linux/memcpy_s.h"
 
@@ -28,9 +29,14 @@ private:
 	MessagesHandler* mh;
 	ClassToByteTransformer* transformer;
 	TransactionHandler* th;
+	ResponseMapper* response_mapper;
+
+	std::shared_ptr<RetrievePartitionOffsetInfoResponse> get_partition_offset_info_response(SocketSession* socket_session, RetrievePartitionOffsetInfoRequest* request);
+
+	bool retrieve_partition_info_response_from_node(SocketSession* socket_session, int node_id, RetrievePartitionOffsetInfoRequest* info_request, QueuePartitionInfo* info, bool for_leader = true);
 
 public:
-	InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer, TransactionHandler* th);
+	InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer, TransactionHandler* th, ResponseMapper* response_mapper);
 
 	void handle_append_entries_request(SocketSession* socket_session, AppendEntriesRequest* request);
 

@@ -1,7 +1,7 @@
 #include "../../header_files/requests_management/InternalRequestExecutor.h"
 
 
-InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer, TransactionHandler* th) {
+InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* logger, ConnectionsManager* cm, FileHandler* fh, Controller* controller, DataNode* data_node, QueueManager* qm, MessagesHandler* mh, ClassToByteTransformer* transformer, TransactionHandler* th, ResponseMapper* response_mapper) {
 	this->settings = settings;
 	this->logger = logger;
 	this->cm = cm;
@@ -12,6 +12,7 @@ InternalRequestExecutor::InternalRequestExecutor(Settings* settings, Logger* log
 	this->mh = mh;
 	this->transformer = transformer;
 	this->th = th;
+	this->response_mapper = response_mapper;
 }
 
 void InternalRequestExecutor::handle_append_entries_request(SocketSession* socket_session, AppendEntriesRequest* request) {
@@ -409,45 +410,124 @@ void InternalRequestExecutor::handle_retrieve_queue_partitions_info_request(Sock
 
 	std::vector<std::shared_ptr<QueuePartitionInfo>> partitions_info = this->controller->get_cluster_metadata()->get_queue_partitions_assigned_nodes_into(queue_name, res.get()->partitions);
 
-	// TODO: Complete this part
+	if (partitions_info.size() != queue.get()->get_metadata()->get_partitions()) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_PARTITION_NUMBER, "Couldn't retrieve all queue partitions info");
+		return;
+	}
+
+	std::unique_ptr<RetrievePartitionOffsetInfoRequest> info_request = std::make_unique<RetrievePartitionOffsetInfoRequest>();
+	info_request.get()->queue_name = request->queue_name;
+	info_request.get()->queue_name_length = request->queue_name_length;
+
+	for (int partition = 0; partition < partitions_info.size(); partition++) {
+		std::shared_ptr<QueuePartitionInfo> info = partitions_info[partition];
+		res.get()->partitions_info.emplace_back(info.get());
+
+		info_request.get()->partition = partition;
+
+		if (!this->retrieve_partition_info_response_from_node(socket_session, info->leader_id, info_request.get(), info.get(), true))
+			return;
+
+		for (int follower_id : info.get()->follower_ids)
+			if (!this->retrieve_partition_info_response_from_node(socket_session, follower_id, info_request.get(), info.get(), false))
+				return;
+	}
 
 	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
 
 	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
 }
 
+bool InternalRequestExecutor::retrieve_partition_info_response_from_node(SocketSession* socket_session, int node_id, RetrievePartitionOffsetInfoRequest* info_request, QueuePartitionInfo* info, bool for_leader) {
+	if (node_id == this->settings->get_node_id()) {
+		auto partition_info_res = this->get_partition_offset_info_response(socket_session, info_request);
+
+		if (partition_info_res == nullptr) return false;
+
+		if (for_leader) {
+			info->leader_offset = partition_info_res.get()->last_offset;
+			info->leader_commited_offset = partition_info_res.get()->commited_offset;
+		}
+		else
+			info->follower_offsets.emplace_back(partition_info_res.get()->last_offset);
+
+		return true;
+	}
+	
+	auto pool = this->cm->get_node_connection_pool(node_id);
+
+	if (pool == nullptr) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INTERNAL_SERVER_ERROR, "Failed to retrieve connection pool for node " + std::to_string(node_id));
+		return false;
+	}
+
+	auto leader_req_tup = this->transformer->transform(info_request);
+
+	auto res = this->cm->send_request_to_socket(
+		pool.get(),
+		3,
+		std::get<1>(leader_req_tup),
+		std::get<0>(leader_req_tup),
+		"RetrievePartitionOffsetInfo"
+	);
+
+	if (std::get<1>(res) == -1) {
+		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INTERNAL_SERVER_ERROR, "Failed to retrieve partition's " + std::to_string(info_request->partition) + " offset info from node " + std::to_string(node_id));
+		return false;
+	}
+
+	auto res_parsed = response_mapper->to_retrieve_partition_offset_info_response(std::get<0>(res).get(), std::get<1>(res));
+
+	if (for_leader) {
+		info->leader_offset = res_parsed.get()->last_offset;
+		info->leader_commited_offset = res_parsed.get()->commited_offset;
+	}
+	else 
+		info->follower_offsets.emplace_back(res_parsed.get()->last_offset);
+
+	return true;
+}
+
 void InternalRequestExecutor::handle_retrieve_partition_offset_info_request(SocketSession* socket_session, RetrievePartitionOffsetInfoRequest* request) {
+	std::shared_ptr<RetrievePartitionOffsetInfoResponse> res = this->get_partition_offset_info_response(socket_session, request);
+
+	if (res == nullptr) return;
+
+	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
+
+	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
+}
+
+std::shared_ptr<RetrievePartitionOffsetInfoResponse> InternalRequestExecutor::get_partition_offset_info_response(SocketSession* socket_session, RetrievePartitionOffsetInfoRequest* request) {
 	if (request->queue_name_length == 0) {
 		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_REQUEST_BODY, "Queue name is required");
-		return;
+		return nullptr;
 	}
 
 	std::string queue_name = std::string(request->queue_name, request->queue_name_length);
 
 	if (Helper::is_internal_queue(queue_name)) {
 		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::INCORRECT_ACTION, "Queue " + queue_name + " is internal. You cannot retrieve information about it");
-		return;
+		return nullptr;
 	}
 
 	std::shared_ptr<Queue> queue = this->qm->get_queue(queue_name);
 
 	if (queue == nullptr) {
 		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Queue " + queue_name + " not found");
-		return;
+		return nullptr;
 	}
 
 	std::shared_ptr<Partition> partition = queue.get()->get_partition(request->partition);
 
 	if (partition == nullptr) {
 		this->cm->respond_to_socket_with_error(socket_session, ErrorCode::QUEUE_DOES_NOT_EXIST, "Partition " + std::to_string(request->partition) + " is not assigned to node " + std::to_string(this->settings->get_node_id()));
-		return;
+		return nullptr;
 	}
 
-	std::unique_ptr<RetrievePartitionOffsetInfoResponse> res = std::make_unique<RetrievePartitionOffsetInfoResponse>();
+	std::shared_ptr<RetrievePartitionOffsetInfoResponse> res = std::make_shared<RetrievePartitionOffsetInfoResponse>();
 	res.get()->last_offset = partition->get_message_offset();
 	res.get()->commited_offset = partition->get_last_replicated_offset();
 
-	std::tuple<long, std::shared_ptr<char>> buf_tup = this->transformer->transform(res.get());
-
-	this->cm->respond_to_socket(socket_session, std::get<1>(buf_tup), std::get<0>(buf_tup));
+	return res;
 }
