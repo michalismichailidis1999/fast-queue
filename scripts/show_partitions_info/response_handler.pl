@@ -122,7 +122,7 @@ for my $i (0..$partitions-1) {
 
     if ($replication_factor > 0) {
         for my $j (0..$replication_factor-1) {
-            $follower_info = $info->followers[$j];
+            $follower_info = $info->{followers}[$j];
 
             $follower_id = $follower_info->{follower_id};
             $follower_offset = $follower_info->{follower_offset};

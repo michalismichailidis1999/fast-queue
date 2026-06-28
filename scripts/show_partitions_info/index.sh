@@ -6,7 +6,7 @@ source ./show_partitions_info/parse_config.sh
 source ./common/cluster_info/retrieve_leader_info.sh
 
 # Retrieve Queue Partitions Info Request Schema
-REQUEST_TYPE=25
+REQUEST_TYPE=24
 
 QUEUE_NAME_REQ_VALUE=4
 # ===========================
