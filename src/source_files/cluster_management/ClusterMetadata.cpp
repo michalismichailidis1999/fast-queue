@@ -786,7 +786,38 @@ bool ClusterMetadata::queue_is_assigned_to_transaction_group(const std::string& 
 }
 
 std::vector<std::shared_ptr<QueuePartitionInfo>> ClusterMetadata::get_queue_partitions_assigned_nodes_into(const std::string& queue, int partitions) {
+	std::lock_guard<std::shared_mutex> lock(this->nodes_partitions_mut);
+
 	std::vector<std::shared_ptr<QueuePartitionInfo>> infos;
+
+	if (this->partition_leader_nodes.find(queue) == this->partition_leader_nodes.end()
+		|| this->owned_partitions.find(queue) == this->owned_partitions.end()) return infos;
+
+	auto partitions_leaders = this->partition_leader_nodes[queue];
+
+	auto partitions_owners = this->owned_partitions[queue];
+
+	if (partitions_leaders == nullptr || partitions_owners == nullptr)
+		return infos;
+
+	for (auto& iter : *(partitions_leaders.get())) {
+		auto info = std::make_shared<QueuePartitionInfo>();
+
+		info.get()->leader_id = iter.second;
+
+		auto partition_owners = (*(partitions_owners.get()))[iter.first];
+
+		if (partition_owners == nullptr) {
+			infos.clear();
+			return infos;
+		}
+
+		for (int owner_id : *(partition_owners.get()))
+			if (owner_id != iter.second)
+				info.get()->follower_ids.emplace_back(owner_id);
+
+		infos.emplace_back(info);
+	}
 
 	return infos;
 }

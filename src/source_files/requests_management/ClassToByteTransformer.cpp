@@ -1240,7 +1240,6 @@ std::tuple<unsigned int, std::shared_ptr<char>> ClassToByteTransformer::transfor
 	for (auto& info : obj->partitions_info) {
 		buf_size += sizeof(int) + 2 * sizeof(unsigned long long);
 
-		buf_size += sizeof(int); // for followers count
 		// every follower is constructed by its assigned node id and its partition offset
 		buf_size += (sizeof(int) + sizeof(unsigned long long)) * info->follower_ids.size();
 	}

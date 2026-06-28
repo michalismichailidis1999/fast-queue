@@ -79,7 +79,7 @@ while ($offset < $response_bytes) {
                 followers => []
             };
 
-            if ($replication_factor > 0) {
+            if ($replication_factor > 1) {
                 $follower_id = unpack('V', substr($response, $offset, 4));
                 $offset += 4;
 
@@ -103,8 +103,8 @@ while ($offset < $response_bytes) {
     }
 }
 
-print STDERR "Partitions: $partitions";
-print STDERR "Replication Factor: $replication_factor";
+print STDERR "Partitions: $partitions\n";
+print STDERR "Replication Factor: $replication_factor\n\n";
 
 for my $i (0..$partitions-1) {
     $info = $partitions_info[$i];
@@ -113,23 +113,23 @@ for my $i (0..$partitions-1) {
     $leader_offset = $info->{leader_offset};
     $leader_commited_offset = $info->{leader_commited_offset};
 
-    print STDERR "Partition: $i";
+    print STDERR "Partition: $i\n";
     print STDERR "=========================\n";
 
-    print STDERR "Leader id: $leader_id";
-    print STDERR "Leader offset: $leader_offset";
-    print STDERR "Leader commited offset: $leader_commited_offset";
+    print STDERR "Leader id: $leader_id\n";
+    print STDERR "Leader offset: $leader_offset\n";
+    print STDERR "Leader commited offset: $leader_commited_offset\n";
 
-    if ($replication_factor > 0) {
+    if ($replication_factor > 1) {
         for my $j (0..$replication_factor-1) {
             $follower_info = $info->{followers}[$j];
 
             $follower_id = $follower_info->{follower_id};
             $follower_offset = $follower_info->{follower_offset};
 
-            print STDERR "\nReplica: $j\n";
-            print STDERR "Follower id: $follower_id";
-            print STDERR "Follower offset: $follower_offset";
+            print STDERR "\nReplica: $j\n\n";
+            print STDERR "Follower id: $follower_id\n";
+            print STDERR "Follower offset: $follower_offset\n";
             print STDERR "\n";
         }
     }
